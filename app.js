@@ -274,12 +274,6 @@
     });
   }
 
-  function pointsForm(club) {
-    return '<div class="form-strip">' + (club.form || []).slice(-5).map(function (result) {
-      return '<span class="form-result ' + result + '">' + result + '</span>';
-    }).join("") + (club.form || []).length < 1 ? '<span class="small-note">لا توجد مباريات</span>' : '' + '</div>';
-  }
-
   function formStrip(club) {
     const forms = (club.form || []).slice(-5);
     if (!forms.length) return '<span class="small-note">—</span>';
@@ -326,7 +320,7 @@
     const club = userClub();
     const pos = leaguePosition();
     const fixture = nextUserFixture();
-    const nextMatch = fixture ? ((fixture.homeId === club.id) ? clubById(fixture.awayId) : club) : null;
+    const nextMatch = fixture ? clubById(fixture.homeId === club.id ? fixture.awayId : fixture.homeId) : null;
     const home = fixture && fixture.homeId === club.id;
     const xi = bestXI();
     const played = club.played;
@@ -479,7 +473,7 @@
   function teamPower(clubId, isHome) {
     const club = clubById(clubId);
     if (!club) return 50;
-    if (clubId !== state.userClubId) return club.strength + (isHome ? 2 : 0);
+    if (clubId !== state.userClubId) return club.strength + (isHome ? 2.8 : 0);
     const xi = bestXI();
     const avg = xi.filter(Boolean).reduce(function (s, p) { return s + p.overall; }, 0) / Math.max(1, xi.filter(Boolean).length);
     const fitness = xi.filter(Boolean).reduce(function (s, p) { return s + p.fitness; }, 0) / Math.max(1, xi.filter(Boolean).length);
@@ -488,14 +482,10 @@
 
   function simMatch(fixture) {
     const home = clubById(fixture.homeId), away = clubById(fixture.awayId);
-    const homePower = teamPower(home.id, home.id === state.userClubId);
-    const awayPower = teamPower(away.id, away.id === state.userClubId);
-    const homeTactical = home.id === state.userClubId ? tacticalAttack() : 0;
-    const awayTactical = away.id === state.userClubId ? tacticalAttack() : 0;
-    const homeDef = home.id === state.userClubId ? tacticalDefense() : 0;
-    const awayDef = away.id === state.userClubId ? tacticalDefense() : 0;
-    const lambdaHome = clamp(1.25 + (homePower - awayPower) / 18 + homeTactical * .11 - awayDef * .10 + .15, .25, 3.7);
-    const lambdaAway = clamp(1.05 + (awayPower - homePower) / 18 + awayTactical * .11 - homeDef * .10, .2, 3.5);
+    const homePower = teamPower(home.id, true);
+    const awayPower = teamPower(away.id, false);
+    const lambdaHome = clamp(1.25 + (homePower - awayPower) / 18 + .15, .25, 3.7);
+    const lambdaAway = clamp(1.05 + (awayPower - homePower) / 18, .2, 3.5);
     const gh = poisson(lambdaHome), ga = poisson(lambdaAway);
     fixture.played = true;
     fixture.homeGoals = gh;
