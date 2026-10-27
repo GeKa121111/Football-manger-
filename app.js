@@ -306,7 +306,49 @@
     return '<div class="fixture-row">' +
       '<div class="fixture-date">' + dateLabel(matchDate).replace(/،.*$/, "") + '<br><span class="small-note">الجولة ' + number(fixture.round) + '</span></div>' +
       '<div class="fixture-teams"><strong>' + safeName(home.name) + '</strong><span class="vs">×</span><strong>' + safeName(away.name) + '</strong></div>' +
-      '<div class="fixture-score ' + (fixture.played ? '' : 'pending') + '">' + playedScore + '</div></div>';
+      '<div class="fixture-score ' + (fixture.played ? '' : 'pending') + '">' + playedScore + (fixture.played ? '<button class="panel-action report-link" data-action="show-match-report" data-fixture-id="' + safeName(fixture.id) + '">تقرير المباراة</button>' : '') + '</div></div>';
+  }
+
+  function reportStat(label, homeValue, awayValue, total) {
+    const sum = total || (Number(homeValue) + Number(awayValue)) || 1;
+    const homeWidth = clamp(Number(homeValue) / sum * 100, 0, 100);
+    const awayWidth = 100 - homeWidth;
+    return '<div class="report-stat"><div class="report-stat-values"><strong>' + safeName(homeValue) + '</strong><span>' + safeName(label) + '</span><strong>' + safeName(awayValue) + '</strong></div><div class="report-stat-bars"><span style="width:' + homeWidth + '%"></span><i style="width:' + awayWidth + '%"></i></div></div>';
+  }
+
+  function showMatchReport(fixtureId) {
+    const fixture = state.fixtures.find(function (f) { return f.id === fixtureId; });
+    if (!fixture || !fixture.played || !fixture.report) {
+      toast("تقرير المباراة متاح بعد محاكاة الجولة.", "warning");
+      return;
+    }
+    const home = clubById(fixture.homeId), away = clubById(fixture.awayId);
+    const report = fixture.report;
+    const userHome = home.id === state.userClubId;
+    const userGoals = userHome ? fixture.homeGoals : fixture.awayGoals;
+    const opponentGoals = userHome ? fixture.awayGoals : fixture.homeGoals;
+    const outcome = userGoals > opponentGoals ? "فوز" : userGoals === opponentGoals ? "تعادل" : "خسارة";
+    const eventItems = report.events.length ? report.events.map(function (event) {
+      const eventClub = clubById(event.teamId);
+      const icon = event.kind === "goal" ? "⚽" : event.kind === "card" ? "🟨" : "✚";
+      const kind = event.kind === "goal" ? "goal" : event.kind === "card" ? "card" : "injury";
+      return '<div class="match-event ' + kind + '"><span class="event-minute">' + number(event.minute) + '′</span><span class="event-icon">' + icon + '</span><span class="event-text">' + safeName(event.text) + '</span><span class="event-team">' + safeName(eventClub ? eventClub.short : "") + '</span></div>';
+    }).join("") : '<div class="empty-state">مباراة هادئة من غير أهداف أو أحداث مسجلة.</div>';
+    const title = safeName(home.name) + " " + number(fixture.homeGoals) + " - " + number(fixture.awayGoals) + " " + safeName(away.name);
+    const body = '<div class="report-scoreboard">' +
+      '<div class="report-team"><span class="club-crest">' + safeName(home.short) + '</span><strong>' + safeName(home.name) + '</strong><small>' + (userHome ? "فريقك" : "صاحب الأرض") + '</small></div>' +
+      '<div class="report-final-score"><strong>' + number(fixture.homeGoals) + '</strong><span>FULL TIME</span><strong>' + number(fixture.awayGoals) + '</strong></div>' +
+      '<div class="report-team"><span class="club-crest">' + safeName(away.short) + '</span><strong>' + safeName(away.name) + '</strong><small>' + (!userHome ? "فريقك" : "الضيف") + '</small></div></div>' +
+      (home.id === state.userClubId || away.id === state.userClubId ? '<div class="status-tag report-outcome">' + outcome + ' لفريقك</div>' : '') +
+      '<div class="report-stats">' +
+      reportStat("الاستحواذ ٪", report.home.possession, report.away.possession, 100) +
+      reportStat("التسديدات", report.home.shots, report.away.shots) +
+      reportStat("على المرمى", report.home.onTarget, report.away.onTarget) +
+      reportStat("الركنيات", report.home.corners, report.away.corners) +
+      reportStat("دقة التمرير ٪", report.home.passAccuracy, report.away.passAccuracy, 100) +
+      reportStat("الإنذارات", report.home.yellowCards, report.away.yellowCards) +
+      '</div><div class="report-events"><div class="panel-header"><h3 class="panel-title">أحداث المباراة</h3><span class="small-note">' + number(report.events.length) + ' أحداث</span></div>' + eventItems + '</div>';
+    startModal("تقرير المباراة", '<div class="small-note" style="margin-bottom:10px">' + title + ' · الجولة ' + number(fixture.round) + '</div>' + body, '<button class="button button-primary" data-action="dismiss-modal">إغلاق التقرير</button>');
   }
 
   function recentFixtures(count) {
@@ -747,6 +789,7 @@
     else if (action === "search-market") { const el = document.getElementById("market-search"); marketSearch = el ? el.value.trim() : ""; render(); }
     else if (action === "buy-player") buyPlayer(button.dataset.playerId);
     else if (action === "confirm-buy") confirmBuy(button.dataset.playerId);
+    else if (action === "show-match-report") showMatchReport(button.dataset.fixtureId);
     else if (action === "run-training") runTraining();
     else if (action === "confirm-reset") {
       state = makeInitialState(); playerSearch = ""; marketSearch = ""; modalRoot.innerHTML = "";
