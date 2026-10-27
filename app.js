@@ -511,7 +511,7 @@
         p.fitness = clamp(p.fitness - (TACTICAL_STYLES[state.tactics.style].fitness < -1 ? randomInt(9, 15) : randomInt(5, 11)), 35, 100);
         p.sharpness = clamp(p.sharpness + randomInt(1, 4), 0, 100);
         if (p.position === "ST" || p.position === "LW" || p.position === "RW" || p.position === "AM") {
-          if (Math.random() < gh / Math.max(1, squad.filter(function (x) { return ["ST", "LW", "RW", "AM"].indexOf(x.position) >= 0; }).length * .22) p.goals += 1;
+          if (Math.random() < (gh / Math.max(1, squad.filter(function (x) { return ["ST", "LW", "RW", "AM"].indexOf(x.position) >= 0; }).length) * .22) p.goals += 1;
           if (Math.random() < .12) p.assists += 1;
         } else if (["CM", "DM", "LB", "RB"].indexOf(p.position) >= 0 && Math.random() < .08) p.assists += 1;
         if (Math.random() < .018) p.injuredWeeks = randomInt(1, 3);
