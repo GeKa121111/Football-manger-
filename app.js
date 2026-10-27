@@ -369,10 +369,16 @@
   function tacticsView() {
     const xi = bestXI();
     const slots = FORMATIONS[state.tactics.formation] || POSITION_ORDER;
-    const available = xi.slice();
+    const layoutByFormation = {
+      "4-3-3": [[3,5],[1,4],[2,4],[4,4],[5,4],[2,3],[3,3],[4,3],[2,2],[3,2],[4,2]],
+      "4-2-3-1": [[3,5],[1,4],[2,4],[4,4],[5,4],[2,3],[4,3],[1,2],[3,2],[5,2],[3,1]],
+      "4-4-2": [[3,5],[1,4],[2,4],[4,4],[5,4],[1,3],[2,3],[4,3],[5,3],[2,2],[4,2]]
+    };
+    const layout = layoutByFormation[state.tactics.formation] || layoutByFormation["4-3-3"];
     const pitchPlayers = slots.map(function (pos, i) {
-      let player = available[i] || null;
-      return '<div class="pitch-slot"><div class="pitch-player" title="' + (player ? safeName(player.name) : "مركز فارغ") + '">' + (player ? safeName(player.position) : "--") + '</div><div class="pitch-name">' + (player ? safeName(player.name) : "لاعب غير متاح") + '</div></div>';
+      const player = xi[i] || null;
+      const coords = layout[i] || [3, 3];
+      return '<div class="pitch-slot" style="grid-column:' + coords[0] + ';grid-row:' + coords[1] + '"><div class="pitch-player" title="' + (player ? safeName(player.name) : "مركز فارغ") + '">' + (player ? safeName(player.position) : "--") + '</div><div class="pitch-name">' + (player ? safeName(player.name) : "لاعب غير متاح") + '</div></div>';
     }).join("");
     return '<div class="page-heading"><div><div class="eyebrow">TACTICAL BOARD</div><h1>التكتيك والخطة</h1><p>اختار طريقة اللعب والعقلية؛ تأثيرها يدخل مباشرة في حسابات محاكاة المباريات.</p></div><span class="status-tag">تشكيلة ' + number(xi.filter(Boolean).length) + '/11</span></div>' +
       '<section class="grid grid-2"><div class="panel"><div class="panel-header"><div><h3 class="panel-title">لوحة التكتيك</h3><div class="panel-subtitle">تشكيلتك المتوقعة للمباراة القادمة</div></div></div><div class="panel-body"><div class="pitch">' + pitchPlayers + '</div><div class="small-note" style="margin-top:10px">التشكيلة تلقائية حسب التقييم والمركز واللياقة. التغييرات هنا تحفظ فورًا.</div></div></div>' +
@@ -505,24 +511,27 @@
       state.career.matchesManaged += 1;
       if (home.id === state.userClubId) state.balance += 420000 + gh * 65000;
       else state.balance += 120000;
-      const squad = userPlayers();
-      squad.forEach(function (p) {
+      const userGoals = home.id === state.userClubId ? gh : ga;
+      const startingXI = bestXI().filter(Boolean);
+      startingXI.forEach(function (p) {
         p.appearances += 1;
         p.fitness = clamp(p.fitness - (TACTICAL_STYLES[state.tactics.style].fitness < -1 ? randomInt(9, 15) : randomInt(5, 11)), 35, 100);
         p.sharpness = clamp(p.sharpness + randomInt(1, 4), 0, 100);
-        if (p.position === "ST" || p.position === "LW" || p.position === "RW" || p.position === "AM") {
-          if (Math.random() < (gh / Math.max(1, squad.filter(function (x) { return ["ST", "LW", "RW", "AM"].indexOf(x.position) >= 0; }).length)) * .22) p.goals += 1;
-          if (Math.random() < .12) p.assists += 1;
-        } else if (["CM", "DM", "LB", "RB"].indexOf(p.position) >= 0 && Math.random() < .08) p.assists += 1;
+        if (["ST", "LW", "RW", "AM"].indexOf(p.position) >= 0) {
+          if (Math.random() < Math.min(.65, userGoals * .15)) p.goals += 1;
+          if (userGoals > 0 && Math.random() < Math.min(.3, userGoals * .12)) p.assists += 1;
+        } else if (userGoals > 0 && ["CM", "DM", "LB", "RB"].indexOf(p.position) >= 0 && Math.random() < .1) p.assists += 1;
         if (Math.random() < .018) p.injuredWeeks = randomInt(1, 3);
       });
     }
     return fixture;
   }
 
-  function ageAndRecover() {
+  function ageAndRecover(injuriesAtRoundStart) {
+    const injuryMap = new Map((injuriesAtRoundStart || []).map(function (entry) { return [entry.id, entry.injuredWeeks]; }));
     state.players.forEach(function (p) {
-      if (p.injuredWeeks > 0) p.injuredWeeks -= 1;
+      const previousWeeks = injuryMap.get(p.id) || 0;
+      if (previousWeeks > 0) p.injuredWeeks = Math.max(0, previousWeeks - 1);
       p.fitness = clamp(p.fitness + randomInt(3, 8), 35, 100);
       p.morale = clamp(p.morale + randomInt(-2, 2), 35, 100);
     });
@@ -539,8 +548,9 @@
       toast("الجولة دي مكتملة بالفعل.", "warning");
       return;
     }
+    const injuriesAtRoundStart = state.players.map(function (p) { return { id: p.id, injuredWeeks: p.injuredWeeks }; });
     fixtures.forEach(simMatch);
-    ageAndRecover();
+    ageAndRecover(injuriesAtRoundStart);
     state.balance += state.sponsorWeekly + state.mediaWeekly - totalWages();
     state.currentRound = roundNumber;
     const own = fixtures.find(function (f) { return f.homeId === state.userClubId || f.awayId === state.userClubId; });
