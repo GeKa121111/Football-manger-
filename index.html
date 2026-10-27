@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101b19">
   <meta name="description" content="Touchline Manager — محاكي إدارة نادي كرة قدم">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
   <title>Touchline Manager</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -34,13 +36,12 @@
         <div class="version-label">BUILD 0.1.0 · LOCAL SAVE</div>
       </div>
     </aside>
-
     <main class="main-area">
       <header class="topbar">
         <div class="mobile-brand"><span class="brand-mark small">TM</span><strong>TOUCHLINE</strong></div>
         <div class="breadcrumb"><span>إدارة النادي</span><span class="crumb-sep">/</span><strong id="page-title">مركز الإدارة</strong></div>
         <div class="topbar-right">
-          <div class="date-pill"><span class="date-dot"></span><span id="current-date">الأحد، 1 يوليو 2026</span></div>
+          <div class="date-pill"><span class="date-dot"></span><span id="current-date">الأربعاء، 1 يوليو 2026</span></div>
           <button class="icon-button" id="save-now" aria-label="حفظ الآن" title="حفظ الآن">▣</button>
           <div class="manager-avatar">م</div>
         </div>
@@ -54,5 +55,14 @@
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <div id="modal-root"></div>
   <script src="app.js" defer></script>
+  <script>
+    if ("serviceWorker" in navigator && location.protocol === "https:") {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("service-worker.js").catch(function (error) {
+          console.warn("Offline support could not be enabled.", error);
+        });
+      });
+    }
+  </script>
 </body>
 </html>
