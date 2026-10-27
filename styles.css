@@ -154,6 +154,8 @@ td.numeric, th.numeric { text-align: center; font-variant-numeric: tabular-nums;
 .player-name { font-size: 11px; font-weight: 800; }
 .player-meta { color: var(--muted); font-size: 10px; margin-top: 2px; }
 .position-badge { display: inline-grid; place-items: center; min-width: 31px; padding: 3px 5px; border: 1px solid #3d5b48; border-radius: 6px; color: #bfe8b3; background: rgba(164,243,109,.06); font-size: 9px; font-weight: 800; }
+.row-actions { display: flex; align-items: center; gap: 5px; min-width: 112px; }
+.row-actions .button { white-space: nowrap; }
 .rating { color: var(--green); font-weight: 900; direction: ltr; }
 .rating.low { color: var(--amber); }
 .rating.high { color: var(--green); }
