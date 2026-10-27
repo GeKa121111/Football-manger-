@@ -497,6 +497,65 @@
     return userPlayers().reduce(function (sum, p) { return sum + p.wage; }, 0);
   }
 
+  function contractDemand(player) {
+    const ageAdjustment = player.age < 23 ? .13 : player.age > 31 ? -.07 : 0;
+    const potentialAdjustment = clamp(player.potential - player.overall, 0, 20) * .009;
+    const moraleAdjustment = (player.morale - 65) / 450;
+    const urgencyAdjustment = player.contractYears <= 1 ? .05 : 0;
+    return Math.max(5000, Math.round(player.wage * (1.08 + ageAdjustment + potentialAdjustment + moraleAdjustment + urgencyAdjustment) / 1000) * 1000);
+  }
+
+  function openRenewal(playerId) {
+    const player = playerById(playerId);
+    if (!player || player.clubId !== state.userClubId) {
+      toast("اللاعب مش ضمن فريقك حاليًا.", "error");
+      return;
+    }
+    const demand = contractDemand(player);
+    const years = Math.max(2, Math.min(4, player.contractYears || 2));
+    const body = '<p>التفاوض مع <strong>' + safeName(player.name) + '</strong>. الطلب بيتأثر بالعمر والإمكانات والمعنويات والمدة المتبقية.</p>' +
+      '<div class="inline-stat"><span>الراتب الحالي</span><strong>' + money(player.wage) + ' / أسبوع</strong></div>' +
+      '<div class="inline-stat"><span>الراتب المتوقع</span><strong class="rating">' + money(demand) + ' / أسبوع</strong></div>' +
+      '<div class="form-grid" style="margin-top:14px"><div class="field-group"><label class="field-label" for="renewal-years">مدة العقد</label><select id="renewal-years">' + [1,2,3,4,5].map(function (n) { return '<option value="' + n + '"' + (n === years ? ' selected' : '') + '>' + number(n) + (n === 1 ? ' سنة' : ' سنوات') + '</option>'; }).join("") + '</select></div>' +
+      '<div class="field-group"><label class="field-label" for="renewal-wage">العرض الأسبوعي (ج.م)</label><input id="renewal-wage" type="number" min="1000" step="1000" value="' + demand + '"></div></div>' +
+      '<div class="notice" style="margin-top:14px">العرض الأقل بكثير من طلب اللاعب ممكن يُرفض، والعرض العادل يزيد فرصة التجديد. العقد الجديد يحل محل المدة الحالية.</div>';
+    startModal("تجديد عقد اللاعب", body, '<button class="button button-secondary" data-action="dismiss-modal">إلغاء</button><button class="button button-primary" data-action="confirm-renew" data-player-id="' + safeName(player.id) + '">تقديم العرض</button>');
+  }
+
+  function confirmRenew(playerId) {
+    const player = playerById(playerId);
+    const yearsField = document.getElementById("renewal-years");
+    const wageField = document.getElementById("renewal-wage");
+    const years = Number(yearsField && yearsField.value);
+    const offeredWage = Math.floor(Number(wageField && wageField.value));
+    if (!player || player.clubId !== state.userClubId) {
+      modalRoot.innerHTML = "";
+      toast("لا يمكن تجديد عقد اللاعب ده حاليًا.", "error");
+      return;
+    }
+    if (!Number.isInteger(years) || years < 1 || years > 5 || !Number.isFinite(offeredWage) || offeredWage < 1000) {
+      toast("اكتب راتبًا صحيحًا وحدد مدة من سنة إلى خمس سنوات.", "error");
+      return;
+    }
+    const demand = contractDemand(player);
+    const ratio = offeredWage / demand;
+    const chance = ratio >= 1.25 ? 1 : ratio < .85 ? .08 : clamp(.72 + (ratio - 1) * 1.5 + (player.morale - 65) / 140 + (player.contractYears <= 1 ? .06 : 0), .12, .96);
+    modalRoot.innerHTML = "";
+    if (Math.random() < chance) {
+      player.wage = Math.round(offeredWage / 100) * 100;
+      player.contractYears = years;
+      player.morale = clamp(player.morale + 5, 0, 100);
+      state.inbox.unshift({ id: "renew-" + player.id + "-" + state.seasonYear, title: "تجديد عقد ناجح", text: "وافق " + player.name + " على عقد جديد لمدة " + number(years) + " سنوات وبراتب أسبوعي " + money(player.wage) + ".", kind: "success", read: false });
+      toast("اللاعب وافق على تجديد عقده.");
+    } else {
+      player.morale = clamp(player.morale - 5, 0, 100);
+      state.inbox.unshift({ id: "renew-reject-" + player.id + "-" + state.seasonYear, title: "رفض عرض التجديد", text: "رفض " + player.name + " العرض الحالي. راجع الراتب أو حاول مرة أخرى لاحقًا.", kind: "warning", read: false });
+      toast("اللاعب رفض العرض. معنوياته انخفضت قليلًا.", "warning");
+    }
+    saveGame(false);
+    render();
+  }
+
   function financesView() {
     const annualWage = totalWages() * 52;
     const estimatedSeasonIncome = (state.sponsorWeekly + state.mediaWeekly) * 11 + 4500000;
@@ -685,6 +744,17 @@
     ageAndRecover(injuriesAtRoundStart);
     state.balance += state.sponsorWeekly + state.mediaWeekly - totalWages();
     state.currentRound = roundNumber;
+    if (roundNumber === state.clubs.length - 1) {
+      const expiringPlayers = userPlayers().filter(function (p) { return p.contractYears <= 1; });
+      if (expiringPlayers.length) {
+        state.inbox.unshift({
+          id: "contracts-expiring-" + state.seasonYear,
+          title: "عقود تحتاج قرارًا قبل نهاية الموسم",
+          text: expiringPlayers.map(function (p) { return p.name; }).join("، ") + ". افتح صفحة الفريق وجدّد العقود المهمة قبل بدء الموسم الجديد.",
+          kind: "warning", read: false
+        });
+      }
+    }
     const own = fixtures.find(function (f) { return f.homeId === state.userClubId || f.awayId === state.userClubId; });
     if (own) {
       const gf = own.homeId === state.userClubId ? own.homeGoals : own.awayGoals;
@@ -712,14 +782,31 @@
       club.played = 0; club.wins = 0; club.draws = 0; club.losses = 0;
       club.goalsFor = 0; club.goalsAgainst = 0; club.points = 0; club.form = [];
     });
+    const contractDepartures = [];
     state.players.forEach(function (p) {
       p.age += 1;
       p.fitness = clamp(p.fitness + 12, 60, 100);
       p.morale = clamp(p.morale + randomInt(-4, 6), 35, 100);
+      p.contractYears = Math.max(0, (Number(p.contractYears) || 0) - 1);
+      if (p.contractYears <= 0 && p.clubId && p.clubId !== state.userClubId) {
+        p.contractYears = randomInt(2, 4);
+        p.wage = Math.round(p.wage * (p.morale >= 70 ? 1.05 : 1.02) / 100) * 100;
+      } else if (p.contractYears <= 0 && p.clubId === state.userClubId) {
+        p.clubId = null;
+        contractDepartures.push(p.name);
+      }
       if (p.age >= 34) p.overall = clamp(p.overall - 1, 35, 95);
       else if (p.age < 24 && p.overall < p.potential && Math.random() < .65) p.overall += 1;
       p.value = Math.max(200000, Math.round(p.value * (p.age >= 30 ? .88 : p.age < 23 ? 1.12 : 1.03)));
     });
+    if (contractDepartures.length) {
+      state.inbox.unshift({
+        id: "contract-expired-" + state.seasonYear,
+        title: "لاعبون غادروا بانتهاء العقود",
+        text: contractDepartures.join("، ") + ". تقدر تبحث عن بدائل أو لاعبين أحرار في سوق الانتقالات.",
+        kind: "warning", read: false
+      });
+    }
     state.tactics.trainingFocus = "balanced";
     state.lastTrainingRound = -1;
     state.inbox.unshift({ id: "season-" + state.seasonYear, title: "انطلاق موسم جديد", text: "بدأ موسم " + seasonLabel() + ". انتهيت الموسم الماضي في المركز " + number(position) + ". فترة الانتقالات مفتوحة.", kind: "info", read: false });
@@ -737,7 +824,7 @@
     if (state.balance < fee) { toast("ميزانية النادي لا تكفي الصفقة.", "error"); return; }
     const fromClub = clubById(player.clubId);
     const newWage = player.wage;
-    startModal("تأكيد التعاقد", '<p>هل تريد التعاقد مع <strong>' + safeName(player.name) + '</strong> من ' + safeName(fromClub ? fromClub.name : "ناديه") + '؟</p><div class="inline-stat"><span>قيمة الصفقة</span><strong>' + money(fee) + '</strong></div><div class="inline-stat"><span>راتب أسبوعي إضافي</span><strong>' + money(newWage) + '</strong></div><div class="inline-stat"><span>الرصيد بعد الصفقة</span><strong>' + money(state.balance - fee) + '</strong></div>', '<button class="button button-secondary" data-action="dismiss-modal">إلغاء</button><button class="button button-primary" data-action="confirm-buy" data-player-id="' + safeName(player.id) + '">تأكيد التعاقد</button>');
+    startModal("تأكيد التعاقد", '<p>هل تريد التعاقد مع <strong>' + safeName(player.name) + '</strong> من ' + safeName(fromClub ? fromClub.name : "لاعب حر") + '؟</p><div class="inline-stat"><span>قيمة الصفقة</span><strong>' + money(fee) + '</strong></div><div class="inline-stat"><span>راتب أسبوعي إضافي</span><strong>' + money(newWage) + '</strong></div><div class="inline-stat"><span>الرصيد بعد الصفقة</span><strong>' + money(state.balance - fee) + '</strong></div>', '<button class="button button-secondary" data-action="dismiss-modal">إلغاء</button><button class="button button-primary" data-action="confirm-buy" data-player-id="' + safeName(player.id) + '">تأكيد التعاقد</button>');
   }
 
   function confirmBuy(id) {
@@ -751,6 +838,7 @@
     if (from) from.budget = (from.budget || 0) + fee;
     state.balance -= fee;
     player.clubId = state.userClubId;
+    player.contractYears = randomInt(2, 4);
     player.value = Math.round(player.value * 1.05);
     player.morale = clamp(player.morale + 8, 0, 100);
     state.career.transfersIn += 1;
@@ -802,6 +890,8 @@
     else if (action === "search-market") { const el = document.getElementById("market-search"); marketSearch = el ? el.value.trim() : ""; render(); }
     else if (action === "buy-player") buyPlayer(button.dataset.playerId);
     else if (action === "confirm-buy") confirmBuy(button.dataset.playerId);
+    else if (action === "renew-contract") openRenewal(button.dataset.playerId);
+    else if (action === "confirm-renew") confirmRenew(button.dataset.playerId);
     else if (action === "show-match-report") showMatchReport(button.dataset.fixtureId);
     else if (action === "run-training") runTraining();
     else if (action === "confirm-reset") {
