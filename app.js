@@ -171,7 +171,7 @@
       lastTrainingRound: -1, history: [], inbox: [
         { id: "welcome", title: "أهلًا بك في Touchline Manager", text: "مجلس الإدارة يتوقع المنافسة على المراكز الأربعة الأولى هذا الموسم. ابنِ فريقك، وراقب الميزانية، وطوّر اللاعبين.", kind: "info", read: false }
       ],
-      career: { seasonsPlayed: 0, transfersIn: 0, matchesManaged: 0, bestFinish: null }
+      career: { seasonsPlayed: 0, transfersIn: 0, transfersOut: 0, matchesManaged: 0, bestFinish: null }
     };
   }
 
@@ -179,7 +179,8 @@
     if (!saved || saved.version !== CURRENT_VERSION || !Array.isArray(saved.clubs) || !Array.isArray(saved.players) || !Array.isArray(saved.fixtures)) return null;
     if (!saved.clubs.some(function (c) { return c.id === saved.userClubId; })) return null;
     saved.tactics = saved.tactics || { formation: "4-3-3", style: "balanced", mentality: "balanced", trainingFocus: "balanced", captainId: null };
-    saved.career = saved.career || { seasonsPlayed: 0, transfersIn: 0, matchesManaged: 0, bestFinish: null };
+    saved.career = saved.career || { seasonsPlayed: 0, transfersIn: 0, transfersOut: 0, matchesManaged: 0, bestFinish: null };
+    if (!Number.isFinite(saved.career.transfersOut)) saved.career.transfersOut = 0;
     saved.history = saved.history || [];
     saved.inbox = saved.inbox || [];
     saved.lastTrainingRound = Number.isInteger(saved.lastTrainingRound) ? saved.lastTrainingRound : -1;
@@ -420,7 +421,7 @@
       '</section><div class="panel"><div class="panel-header"><div><h3 class="panel-title">قائمة اللاعبين</h3><div class="panel-subtitle">الأعلى تقييمًا يظهر أولًا</div></div><span class="status-tag">' + number(players.length) + ' لاعب</span></div><div class="filter-bar" style="padding:0 19px 14px"><input id="squad-search" type="text" value="' + safeName(playerSearch) + '" placeholder="ابحث بالاسم أو المركز..." aria-label="بحث في الفريق"><button class="button button-secondary button-small" data-action="search-squad">بحث</button></div><div class="table-wrap"><table class="squad-table"><thead><tr><th>اللاعب</th><th>المركز</th><th class="numeric">العمر</th><th class="numeric">OVR</th><th class="numeric">POT</th><th>الجاهزية</th><th class="numeric">الأجور/أسبوع</th><th>العقد</th><th>إجراء</th><th class="numeric">القيمة السوقية</th></tr></thead><tbody>' + players.map(function (p) {
         const condition = p.injuredWeeks > 0 ? '<span class="status-tag injured">مصاب ' + number(p.injuredWeeks) + ' ج</span>' : p.fitness < 60 ? '<span class="status-tag suspended">إرهاق</span>' : '<span class="status-tag">جاهز ' + pct(p.fitness) + '</span>';
         const contractTag = p.contractYears <= 1 ? '<span class="status-tag suspended">ينتهي قريبًا</span>' : '<span class="status-tag">' + number(p.contractYears) + ' سنوات</span>';
-        return '<tr data-player="' + safeName(p.id) + '"><td><div class="player-name">' + safeName(p.name) + '</div><div class="player-meta">مشاركات ' + number(p.appearances) + ' · أهداف ' + number(p.goals) + ' · صناعة ' + number(p.assists) + '</div></td><td><span class="position-badge">' + safeName(p.position) + '</span><div class="player-meta">' + safeName(POSITION_LABELS[p.position]) + '</div></td><td class="numeric">' + number(p.age) + '</td><td class="numeric"><span class="rating ' + (p.overall >= 75 ? 'high' : p.overall < 60 ? 'low' : '') + '">' + number(p.overall) + '</span></td><td class="numeric">' + number(p.potential) + '</td><td>' + condition + '</td><td class="numeric">' + money(p.wage) + '</td><td>' + contractTag + '</td><td><button class="button button-secondary button-small" data-action="renew-contract" data-player-id="' + safeName(p.id) + '">تجديد</button></td><td class="numeric">' + money(p.value) + '</td></tr>';
+        return '<tr data-player="' + safeName(p.id) + '"><td><div class="player-name">' + safeName(p.name) + '</div><div class="player-meta">مشاركات ' + number(p.appearances) + ' · أهداف ' + number(p.goals) + ' · صناعة ' + number(p.assists) + '</div></td><td><span class="position-badge">' + safeName(p.position) + '</span><div class="player-meta">' + safeName(POSITION_LABELS[p.position]) + '</div></td><td class="numeric">' + number(p.age) + '</td><td class="numeric"><span class="rating ' + (p.overall >= 75 ? 'high' : p.overall < 60 ? 'low' : '') + '">' + number(p.overall) + '</span></td><td class="numeric">' + number(p.potential) + '</td><td>' + condition + '</td><td class="numeric">' + money(p.wage) + '</td><td>' + contractTag + '</td><td><div class="row-actions"><button class="button button-secondary button-small" data-action="renew-contract" data-player-id="' + safeName(p.id) + '">تجديد</button><button class="button button-danger button-small" data-action="sell-player" data-player-id="' + safeName(p.id) + '">بيع</button></div></td><td class="numeric">' + money(p.value) + '</td></tr>';
       }).join("") + '</tbody></table></div></div>';
   }
 
@@ -559,6 +560,47 @@
     }
     saveGame(false);
     render();
+  }
+
+  function saleValue(player) {
+    const multiplier = player.age < 23 ? .98 : player.age >= 30 ? .72 : .88;
+    return Math.max(200000, Math.round(player.value * multiplier / 100000) * 100000);
+  }
+
+  function openPlayerSale(playerId) {
+    const player = playerById(playerId);
+    if (!player || player.clubId !== state.userClubId) { toast("اللاعب مش ضمن فريقك.", "error"); return; }
+    if (userPlayers().length <= 15) { toast("مينفعش تبيع اللاعب ده؛ لازم تحتفظ بـ15 لاعب على الأقل.", "warning"); return; }
+    const fee = saleValue(player);
+    const buyers = state.clubs.filter(function (club) { return club.id !== state.userClubId && (club.budget || 0) >= fee; })
+      .sort(function (a, b) { return Math.abs(b.strength - player.overall) - Math.abs(a.strength - player.overall); });
+    if (!buyers.length) { toast("مفيش نادٍ عنده ميزانية كفاية للعرض ده.", "warning"); return; }
+    const buyer = buyers[0];
+    startModal("عرض لبيع اللاعب", '<p>وصل عرض من <strong>' + safeName(buyer.name) + '</strong> للتعاقد مع <strong>' + safeName(player.name) + '</strong>.</p><div class="inline-stat"><span>مركز اللاعب وتقييمه</span><strong>' + safeName(player.position) + ' · ' + number(player.overall) + '</strong></div><div class="inline-stat"><span>العقد المتبقي</span><strong>' + number(player.contractYears) + ' سنوات</strong></div><div class="inline-stat"><span>قيمة العرض</span><strong class="rating">' + money(fee) + '</strong></div><div class="inline-stat"><span>رصيد النادي بعد البيع</span><strong>' + money(state.balance + fee) + '</strong></div><div class="notice" style="margin-top:13px">قبول العرض ينقل اللاعب للنادي الآخر ويضيف قيمة الصفقة إلى ميزانيتك.</div>', '<button class="button button-secondary" data-action="dismiss-modal">رفض العرض</button><button class="button button-primary" data-action="confirm-sale" data-player-id="' + safeName(player.id) + '" data-buyer-id="' + safeName(buyer.id) + '" data-sale-fee="' + fee + '">قبول العرض</button>');
+  }
+
+  function confirmPlayerSale(playerId, buyerId, rawFee) {
+    const player = playerById(playerId);
+    const buyer = clubById(buyerId);
+    const fee = Math.floor(Number(rawFee));
+    if (!player || player.clubId !== state.userClubId || !buyer || buyer.id === state.userClubId || !Number.isFinite(fee)) {
+      modalRoot.innerHTML = "";
+      toast("تعذر إتمام البيع؛ تفاصيل العرض غير صحيحة.", "error");
+      return;
+    }
+    if (userPlayers().length <= 15) { modalRoot.innerHTML = ""; toast("لازم تحتفظ بـ15 لاعب على الأقل.", "error"); return; }
+    if ((buyer.budget || 0) < fee || fee < 1) { modalRoot.innerHTML = ""; toast("النادي المشتري لم يعد قادرًا على دفع العرض.", "error"); return; }
+    const sellerName = player.name;
+    player.clubId = buyer.id;
+    player.morale = clamp(player.morale + 3, 0, 100);
+    buyer.budget -= fee;
+    state.balance += fee;
+    state.career.transfersOut += 1;
+    state.inbox.unshift({ id: "sale-" + player.id + "-" + state.seasonYear, title: "اكتملت صفقة بيع", text: "انتقل " + sellerName + " إلى " + buyer.name + " مقابل " + money(fee) + ". تمت إضافة المبلغ إلى ميزانية النادي.", kind: "success", read: false });
+    modalRoot.innerHTML = "";
+    saveGame(false);
+    render();
+    toast("تم بيع اللاعب بنجاح وإضافة قيمة الصفقة للميزانية.");
   }
 
   function financesView() {
@@ -921,6 +963,8 @@
     else if (action === "confirm-buy") confirmBuy(button.dataset.playerId);
     else if (action === "renew-contract") openRenewal(button.dataset.playerId);
     else if (action === "confirm-renew") confirmRenew(button.dataset.playerId);
+    else if (action === "sell-player") openPlayerSale(button.dataset.playerId);
+    else if (action === "confirm-sale") confirmPlayerSale(button.dataset.playerId, button.dataset.buyerId, button.dataset.saleFee);
     else if (action === "show-match-report") showMatchReport(button.dataset.fixtureId);
     else if (action === "run-training") runTraining();
     else if (action === "confirm-reset") {
