@@ -79,6 +79,10 @@ function boot(storage) {
       });
       documentListeners.click({ target: targetAction, preventDefault() {} });
     },
+    clickView(view) {
+      const targetView = { dataset: { view }, closest(selector) { return selector === "[data-view]" ? this : null; } };
+      documentListeners.click({ target: targetView, preventDefault() {} });
+    },
     change(setting, value) {
       documentListeners.change({ target: { dataset: { setting }, value } });
     },
@@ -97,6 +101,31 @@ assert.equal(state.players.length, 240, "initial world should contain 20 players
 assert.equal(new Set(state.players.map((player) => player.id)).size, 240, "player IDs should be unique");
 assert.equal(state.fixtures.length, 66, "single round-robin schedule should contain 66 fixtures");
 assert.equal(state.currentRound, 0, "new career should begin before round one");
+
+const expectedViews = [
+  ["overview", "جدول الدوري"],
+  ["squad", "الفريق الأول"],
+  ["tactics", "التكتيك والخطة"],
+  ["fixtures", "المباريات والدوري"],
+  ["transfers", "سوق الانتقالات"],
+  ["training", "التدريب والتطوير"],
+  ["finances", "مالية النادي"]
+];
+for (const [view, expectedText] of expectedViews) {
+  game.clickView(view);
+  assert.ok(game.elements.get("view-root").innerHTML.includes(expectedText), "view should render: " + view);
+}
+
+game = boot(storage);
+state = game.savedState();
+const targetPlayer = state.players.find((player) => player.clubId !== state.userClubId && player.injuredWeeks === 0);
+const originalBalance = state.balance;
+game.click("buy-player", { playerId: targetPlayer.id });
+game.click("confirm-buy", { playerId: targetPlayer.id });
+state = game.savedState();
+assert.equal(state.players.find((player) => player.id === targetPlayer.id).clubId, state.userClubId, "confirmed transfer should move the player to the user's club");
+assert.equal(state.career.transfersIn, 1, "confirmed transfer should update career history");
+assert.ok(state.balance < originalBalance, "confirmed transfer should deduct the fee");
 
 game.click("play-next-round");
 state = game.savedState();
