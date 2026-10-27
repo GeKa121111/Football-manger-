@@ -116,6 +116,7 @@
         position: pos, age: age, overall: overall, potential: potential,
         fitness: randomInt(80, 100), morale: randomInt(60, 90), sharpness: randomInt(55, 90),
         wage: Math.round((overall * 620 + randomInt(4000, 19000)) / 100) * 100,
+        contractYears: randomInt(1, 4),
         value: Math.round((Math.max(1, overall - 42) * (age < 23 ? 330000 : 245000) * (potential > overall + 8 ? 1.4 : 1)) / 100000) * 100000,
         goals: 0, assists: 0, appearances: 0, yellowCards: 0, injuredWeeks: 0, trainingXp: 0,
         finishing: clamp(skillBase + (pos === "ST" ? 7 : pos.indexOf("W") >= 0 ? 3 : -2), 35, 95),
@@ -182,6 +183,14 @@
     saved.history = saved.history || [];
     saved.inbox = saved.inbox || [];
     saved.lastTrainingRound = Number.isInteger(saved.lastTrainingRound) ? saved.lastTrainingRound : -1;
+    saved.players.forEach(function (p) {
+      if (!Number.isFinite(p.contractYears)) p.contractYears = randomInt(1, 3);
+      if (!Number.isFinite(p.yellowCards)) p.yellowCards = 0;
+      if (!Number.isFinite(p.appearances)) p.appearances = 0;
+      if (!Number.isFinite(p.goals)) p.goals = 0;
+      if (!Number.isFinite(p.assists)) p.assists = 0;
+      if (!Number.isFinite(p.wage)) p.wage = Math.round((p.overall * 620 + 10000) / 100) * 100;
+    });
     return saved;
   }
 
@@ -403,9 +412,10 @@
       statCard("متوسط التقييم", number(avgs), "من 100", "var(--blue)") +
       statCard("الجاهزية البدنية", pct(userPlayers().reduce(function (sum, p) { return sum + p.fitness; }, 0) / Math.max(1, userPlayers().length)), "متوسط الفريق", "var(--amber)") +
       statCard("إجمالي الأجور", money(totalWages()), "أسبوعيًا", "#b2a0ff") +
-      '</section><div class="panel"><div class="panel-header"><div><h3 class="panel-title">قائمة اللاعبين</h3><div class="panel-subtitle">الأعلى تقييمًا يظهر أولًا</div></div><span class="status-tag">' + number(players.length) + ' لاعب</span></div><div class="filter-bar" style="padding:0 19px 14px"><input id="squad-search" type="text" value="' + safeName(playerSearch) + '" placeholder="ابحث بالاسم أو المركز..." aria-label="بحث في الفريق"><button class="button button-secondary button-small" data-action="search-squad">بحث</button></div><div class="table-wrap"><table class="squad-table"><thead><tr><th>اللاعب</th><th>المركز</th><th class="numeric">العمر</th><th class="numeric">OVR</th><th class="numeric">POT</th><th>الجاهزية</th><th class="numeric">الأجور/أسبوع</th><th class="numeric">القيمة السوقية</th></tr></thead><tbody>' + players.map(function (p) {
+      '</section><div class="panel"><div class="panel-header"><div><h3 class="panel-title">قائمة اللاعبين</h3><div class="panel-subtitle">الأعلى تقييمًا يظهر أولًا</div></div><span class="status-tag">' + number(players.length) + ' لاعب</span></div><div class="filter-bar" style="padding:0 19px 14px"><input id="squad-search" type="text" value="' + safeName(playerSearch) + '" placeholder="ابحث بالاسم أو المركز..." aria-label="بحث في الفريق"><button class="button button-secondary button-small" data-action="search-squad">بحث</button></div><div class="table-wrap"><table class="squad-table"><thead><tr><th>اللاعب</th><th>المركز</th><th class="numeric">العمر</th><th class="numeric">OVR</th><th class="numeric">POT</th><th>الجاهزية</th><th class="numeric">الأجور/أسبوع</th><th>العقد</th><th>إجراء</th><th class="numeric">القيمة السوقية</th></tr></thead><tbody>' + players.map(function (p) {
         const condition = p.injuredWeeks > 0 ? '<span class="status-tag injured">مصاب ' + number(p.injuredWeeks) + ' ج</span>' : p.fitness < 60 ? '<span class="status-tag suspended">إرهاق</span>' : '<span class="status-tag">جاهز ' + pct(p.fitness) + '</span>';
-        return '<tr data-player="' + safeName(p.id) + '"><td><div class="player-name">' + safeName(p.name) + '</div><div class="player-meta">تسجيل ' + number(p.appearances) + ' مشاركة · أهداف ' + number(p.goals) + '</div></td><td><span class="position-badge">' + safeName(p.position) + '</span><div class="player-meta">' + safeName(POSITION_LABELS[p.position]) + '</div></td><td class="numeric">' + number(p.age) + '</td><td class="numeric"><span class="rating ' + (p.overall >= 75 ? 'high' : p.overall < 60 ? 'low' : '') + '">' + number(p.overall) + '</span></td><td class="numeric">' + number(p.potential) + '</td><td>' + condition + '</td><td class="numeric">' + money(p.wage) + '</td><td class="numeric">' + money(p.value) + '</td></tr>';
+        const contractTag = p.contractYears <= 1 ? '<span class="status-tag suspended">ينتهي قريبًا</span>' : '<span class="status-tag">' + number(p.contractYears) + ' سنوات</span>';
+        return '<tr data-player="' + safeName(p.id) + '"><td><div class="player-name">' + safeName(p.name) + '</div><div class="player-meta">مشاركات ' + number(p.appearances) + ' · أهداف ' + number(p.goals) + ' · صناعة ' + number(p.assists) + '</div></td><td><span class="position-badge">' + safeName(p.position) + '</span><div class="player-meta">' + safeName(POSITION_LABELS[p.position]) + '</div></td><td class="numeric">' + number(p.age) + '</td><td class="numeric"><span class="rating ' + (p.overall >= 75 ? 'high' : p.overall < 60 ? 'low' : '') + '">' + number(p.overall) + '</span></td><td class="numeric">' + number(p.potential) + '</td><td>' + condition + '</td><td class="numeric">' + money(p.wage) + '</td><td>' + contractTag + '</td><td><button class="button button-secondary button-small" data-action="renew-contract" data-player-id="' + safeName(p.id) + '">تجديد</button></td><td class="numeric">' + money(p.value) + '</td></tr>';
       }).join("") + '</tbody></table></div></div>';
   }
 
@@ -464,11 +474,14 @@
         const club = clubById(p.clubId);
         const fee = transferFee(p);
         const canBuy = windowOpen && userPlayers().length < 25 && availableBudget >= fee;
-        return '<article class="transfer-card"><div class="transfer-card-top"><div class="player-number">' + safeName(p.position) + '</div><div class="transfer-card-info"><strong>' + safeName(p.name) + '</strong><small>' + safeName(club ? club.name : "نادي") + ' · ' + safeName(POSITION_LABELS[p.position]) + ' · ' + number(p.age) + ' سنة</small><div class="small-note" style="margin-top:5px">التقييم <strong class="rating">' + number(p.overall) + '</strong> · الإمكانات ' + number(p.potential) + ' · لياقة ' + pct(p.fitness) + '</div></div><div class="transfer-price">' + shortMoney(fee) + '</div></div><div class="progress-bar"><span style="width:' + p.overall + '%"></span></div><div class="transfer-card-bottom"><span class="small-note">راتب أسبوعي: ' + money(p.wage) + '</span><button class="button ' + (canBuy ? 'button-primary' : 'button-secondary') + ' button-small" data-action="buy-player" data-player-id="' + safeName(p.id) + '"' + (canBuy ? '' : ' disabled') + '>التعاقد</button></div></article>';
+        return '<article class="transfer-card"><div class="transfer-card-top"><div class="player-number">' + safeName(p.position) + '</div><div class="transfer-card-info"><strong>' + safeName(p.name) + '</strong><small>' + safeName(club ? club.name : "لاعب حر") + ' · ' + safeName(POSITION_LABELS[p.position]) + ' · ' + number(p.age) + ' سنة</small><div class="small-note" style="margin-top:5px">التقييم <strong class="rating">' + number(p.overall) + '</strong> · الإمكانات ' + number(p.potential) + ' · لياقة ' + pct(p.fitness) + '</div><div class="player-meta">العقد المتبقي: ' + (p.clubId ? number(p.contractYears) + ' سنوات' : 'بدون نادٍ') + '</div></div><div class="transfer-price">' + shortMoney(fee) + '</div></div><div class="progress-bar"><span style="width:' + p.overall + '%"></span></div><div class="transfer-card-bottom"><span class="small-note">راتب أسبوعي: ' + money(p.wage) + '</span><button class="button ' + (canBuy ? 'button-primary' : 'button-secondary') + ' button-small" data-action="buy-player" data-player-id="' + safeName(p.id) + '"' + (canBuy ? '' : ' disabled') + '>التعاقد</button></div></article>';
       }).join("") || '<div class="empty-state"><strong>مفيش لاعبين مطابقين</strong>جرّب بحثًا آخر أو ارجع للسوق في فترة الانتقالات.</div>') + '</div></div></div>';
   }
 
-  function transferFee(player) { return Math.round(Math.max(player.value * 1.12, player.value + 900000) / 100000) * 100000; }
+  function transferFee(player) {
+    if (!player.clubId || !clubById(player.clubId)) return Math.round(Math.max(200000, player.wage * 3) / 10000) * 10000;
+    return Math.round(Math.max(player.value * 1.12, player.value + 900000) / 100000) * 100000;
+  }
 
   function trainingView() {
     const players = userPlayers().slice().sort(function (a, b) { return a.fitness - b.fitness; });
