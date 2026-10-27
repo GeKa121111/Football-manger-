@@ -379,6 +379,8 @@
     const form = club.form.slice(-5).join(" · ") || "لم تبدأ المنافسات";
     const squad = userPlayers();
     const avgAge = squad.length ? (squad.reduce(function (sum, p) { return sum + p.age; }, 0) / squad.length).toFixed(1) : "—";
+    const recentMessages = state.inbox.slice(0, 3);
+    const unreadMessages = state.inbox.filter(function (message) { return !message.read; }).length;
     const nextButton = state.currentRound >= state.clubs.length - 1 ? "بدء الموسم التالي" : "محاكاة الجولة التالية";
     const nextDesc = state.currentRound >= state.clubs.length - 1 ? "الموسم انتهى — جهّز الفريق للموسم الجديد" : "محاكاة نتائج الجولة وتحديث الدوري والمالية";
     return '<div class="page-heading"><div><div class="eyebrow">CLUB CONTROL CENTER</div><h1>صباح الخير، مدير النادي</h1><p>كل تفاصيل ناديك في مكان واحد. القرارات اللي بتاخدها هنا بتأثر على الموسم كله.</p></div><button class="button button-primary" data-action="play-next-round">' + nextButton + ' <span aria-hidden="true">←</span></button></div>' +
@@ -389,7 +391,10 @@
       statCard("النقاط", number(club.points), played + " مباراة · " + form, "var(--amber)") +
       statCard("قوام الفريق", number(squad.length) + " لاعب", "متوسط العمر " + avgAge + " سنة", "#b2a0ff") +
       '</section><section class="grid grid-2" style="margin-bottom:17px"><div class="panel"><div class="panel-header"><div><h3 class="panel-title">جدول الدوري</h3><div class="panel-subtitle">ترتيب الموسم الحالي</div></div><button class="panel-action" data-view="fixtures">عرض كامل ←</button></div>' + leagueTable(false) + '</div><div class="panel"><div class="panel-header"><div><h3 class="panel-title">مباريات الفريق</h3><div class="panel-subtitle">آخر النتائج والمواجهة القادمة</div></div><button class="panel-action" data-view="fixtures">كل المباريات ←</button></div><div class="fixture-list">' + (recentFixtures(3).map(fixtureRow).join("") || '<div class="empty-state"><strong>لسه ما لعبناش</strong>ابدأ الموسم بمحاكاة الجولة الأولى.</div>') + (fixture ? fixtureRow(fixture) : '') + '</div></div></section>' +
-      '<section class="grid grid-2"><div class="panel"><div class="panel-header"><div><h3 class="panel-title">تشكيلة متوقعة</h3><div class="panel-subtitle">' + safeName(state.tactics.formation) + ' · ' + safeName(TACTICAL_STYLES[state.tactics.style].label) + '</div></div><button class="panel-action" data-view="tactics">تعديل ←</button></div><div class="panel-body"><div class="grid grid-2">' + xi.slice(0, 6).map(playerCard).join("") + '</div></div></div><div class="panel"><div class="panel-header"><div><h3 class="panel-title">رسائل مجلس الإدارة</h3><div class="panel-subtitle">آخر المستجدات داخل النادي</div></div><span class="status-tag">' + (pos <= 4 ? "على المسار الصحيح" : "مطلوب تحسين النتائج") + '</span></div><div class="panel-body"><div class="notice">هدف الموسم: إنهاء الدوري ضمن أول أربعة مراكز، مع الحفاظ على الاستقرار المالي وتطوير اللاعبين الشباب.</div><div class="inline-stat"><span>نتائج آخر المباريات</span><strong>' + safeName(form) + '</strong></div><div class="inline-stat"><span>الإنفاق الأسبوعي على الأجور</span><strong>' + money(totalWages()) + '</strong></div><div class="inline-stat"><span>عدد الصفقات هذا الموسم</span><strong>' + number(state.career.transfersIn) + '</strong></div></div></div></section>';
+      '<section class="grid grid-2"><div class="panel"><div class="panel-header"><div><h3 class="panel-title">تشكيلة متوقعة</h3><div class="panel-subtitle">' + safeName(state.tactics.formation) + ' · ' + safeName(TACTICAL_STYLES[state.tactics.style].label) + '</div></div><button class="panel-action" data-view="tactics">تعديل ←</button></div><div class="panel-body"><div class="grid grid-2">' + xi.slice(0, 6).map(playerCard).join("") + '</div></div></div><div class="panel"><div class="panel-header"><div><h3 class="panel-title">رسائل مجلس الإدارة</h3><div class="panel-subtitle">آخر المستجدات داخل النادي</div></div><button class="panel-action" data-action="open-inbox">فتح الرسائل (' + number(unreadMessages) + ') ←</button></div><div class="panel-body"><div class="inbox-preview">' + (recentMessages.map(function (message) {
+        const icon = message.kind === "success" ? "✓" : message.kind === "warning" ? "!" : "i";
+        return '<article class="inbox-item ' + (message.read ? '' : 'unread') + '"><span class="inbox-mark ' + safeName(message.kind || 'info') + '">' + icon + '</span><div class="inbox-message"><strong>' + safeName(message.title) + '</strong><p>' + safeName(message.text) + '</p></div>' + (message.read ? '' : '<button class="panel-action inbox-read-button" data-action="mark-inbox-read" data-message-id="' + safeName(message.id) + '">مقروء</button>') + '</article>';
+      }).join("") || '<div class="empty-state"><strong>مفيش رسائل جديدة</strong>هتظهر هنا قرارات المجلس وتحديثات الفريق.</div>') + '</div><div class="notice" style="margin-top:13px">هدف الموسم: إنهاء الدوري ضمن أول أربعة مراكز، مع الحفاظ على الاستقرار المالي وتطوير اللاعبين الشباب.</div><div class="inline-stat"><span>نتائج آخر المباريات</span><strong>' + safeName(form) + '</strong></div><div class="inline-stat"><span>الإنفاق الأسبوعي على الأجور</span><strong>' + money(totalWages()) + '</strong></div><div class="inline-stat"><span>عدد الصفقات هذا الموسم</span><strong>' + number(state.career.transfersIn) + '</strong></div></div></div></section>';
   }
 
   function statCard(label, value, foot, accent) {
@@ -879,11 +884,35 @@
     startModal("بدء مسيرة جديدة", '<p>هيتم استبدال الحفظ الحالي بمسيرة جديدة، وده هيمسح نتائجك وصفقاتك وتقدمك الحالي من هذا المتصفح.</p><div class="notice">لو عايز تحتفظ بمسيرتك، اختار إلغاء وكمّل اللعب.</div>', '<button class="button button-secondary" data-action="dismiss-modal">إلغاء</button><button class="button button-danger" data-action="confirm-reset">بدء من جديد</button>');
   }
 
+  function openInbox() {
+    const messages = state.inbox.slice(0, 30);
+    const messageMarkup = messages.map(function (message) {
+      const icon = message.kind === "success" ? "✓" : message.kind === "warning" ? "!" : "i";
+      return '<article class="inbox-item ' + (message.read ? '' : 'unread') + '"><span class="inbox-mark ' + safeName(message.kind || 'info') + '">' + icon + '</span><div class="inbox-message"><strong>' + safeName(message.title) + '</strong><p>' + safeName(message.text) + '</p><small>' + safeName(message.kind === "warning" ? "تنبيه" : message.kind === "success" ? "نجاح" : "إدارة النادي") + '</small></div>' + (message.read ? '<span class="small-note">مقروءة</span>' : '<button class="button button-secondary button-small" data-action="mark-inbox-read" data-message-id="' + safeName(message.id) + '">تعليم كمقروء</button>') + '</article>';
+    }).join("");
+    const body = messages.length ? '<div class="inbox-modal-list">' + messageMarkup + '</div>' : '<div class="empty-state"><strong>صندوق الوارد فارغ</strong>كل الأخبار والتحديثات ستظهر هنا خلال الموسم.</div>';
+    const actions = '<button class="button button-secondary" data-action="mark-inbox-read" data-message-id="all">تعليم الكل كمقروء</button><button class="button button-primary" data-action="dismiss-modal">إغلاق</button>';
+    startModal("صندوق الوارد", body, actions);
+  }
+
+  function markInboxRead(messageId) {
+    if (messageId === "all") state.inbox.forEach(function (message) { message.read = true; });
+    else {
+      const message = state.inbox.find(function (item) { return item.id === messageId; });
+      if (message) message.read = true;
+    }
+    saveGame(false);
+    if (modalRoot.innerHTML) openInbox();
+    else render();
+  }
+
   function handleAction(button) {
     const action = button.dataset.action;
     if (!action) return;
     if (action === "play-next-round") playNextRound();
     else if (action === "save-now") saveGame(true);
+    else if (action === "open-inbox") openInbox();
+    else if (action === "mark-inbox-read") markInboxRead(button.dataset.messageId);
     else if (action === "reset-game") resetGame();
     else if (action === "dismiss-modal") modalRoot.innerHTML = "";
     else if (action === "search-squad") { const el = document.getElementById("squad-search"); playerSearch = el ? el.value.trim() : ""; render(); }
