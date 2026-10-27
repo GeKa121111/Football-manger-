@@ -102,6 +102,7 @@ assert.equal(state.players.length, 240, "initial world should contain 20 players
 assert.equal(new Set(state.players.map((player) => player.id)).size, 240, "player IDs should be unique");
 assert.equal(state.fixtures.length, 66, "single round-robin schedule should contain 66 fixtures");
 assert.equal(state.currentRound, 0, "new career should begin before round one");
+assert.ok(state.players.every((player) => Number.isInteger(player.contractYears) && player.contractYears >= 1 && player.contractYears <= 4), "generated players should have valid contract terms");
 
 const expectedViews = [
   ["overview", "جدول الدوري"],
@@ -119,6 +120,18 @@ for (const [view, expectedText] of expectedViews) {
 
 game = boot(storage);
 state = game.savedState();
+const renewalCandidate = state.players.find((player) => player.clubId === state.userClubId);
+const originalContract = renewalCandidate.contractYears;
+game.click("renew-contract", { playerId: renewalCandidate.id });
+game.elements.get("renewal-years").value = "3";
+game.elements.get("renewal-wage").value = String(renewalCandidate.wage * 10);
+game.click("confirm-renew", { playerId: renewalCandidate.id });
+state = game.savedState();
+const renewedPlayer = state.players.find((player) => player.id === renewalCandidate.id);
+assert.equal(renewedPlayer.contractYears, 3, "an accepted renewal should update the contract term");
+assert.equal(renewedPlayer.wage, Math.round((renewalCandidate.wage * 10) / 100) * 100, "an accepted renewal should update the agreed wage");
+assert.equal(state.inbox[0].title, "تجديد عقد ناجح", "contract renewal should create an inbox record");
+
 const targetPlayer = state.players.find((player) => player.clubId !== state.userClubId && player.injuredWeeks === 0);
 const originalBalance = state.balance;
 game.click("buy-player", { playerId: targetPlayer.id });
@@ -127,6 +140,18 @@ state = game.savedState();
 assert.equal(state.players.find((player) => player.id === targetPlayer.id).clubId, state.userClubId, "confirmed transfer should move the player to the user's club");
 assert.equal(state.career.transfersIn, 1, "confirmed transfer should update career history");
 assert.ok(state.balance < originalBalance, "confirmed transfer should deduct the fee");
+const freeAgent = state.players.find((player) => player.clubId !== state.userClubId && player.injuredWeeks === 0);
+freeAgent.clubId = null;
+freeAgent.contractYears = 0;
+storage["touchline-manager-save-v1"] = JSON.stringify(state);
+game = boot(storage);
+const freeAgentId = freeAgent.id;
+game.click("buy-player", { playerId: freeAgentId });
+game.click("confirm-buy", { playerId: freeAgentId });
+state = game.savedState();
+const signedFreeAgent = state.players.find((player) => player.id === freeAgentId);
+assert.equal(signedFreeAgent.clubId, state.userClubId, "free agent should join the club when signed");
+assert.ok(signedFreeAgent.contractYears >= 2, "free-agent signing should include a new contract");
 
 game.click("play-next-round");
 state = game.savedState();
