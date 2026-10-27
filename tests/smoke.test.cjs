@@ -153,6 +153,25 @@ const signedFreeAgent = state.players.find((player) => player.id === freeAgentId
 assert.equal(signedFreeAgent.clubId, state.userClubId, "free agent should join the club when signed");
 assert.ok(signedFreeAgent.contractYears >= 2, "free-agent signing should include a new contract");
 
+game = boot(storage);
+const clubBalanceBeforeSale = game.savedState().balance;
+const squadCountBeforeSale = game.savedState().players.filter((player) => player.clubId === game.savedState().userClubId).length;
+game.click("sell-player", { playerId: renewalCandidate.id });
+const saleMarkup = game.elements.get("modal-root").innerHTML;
+const saleOffer = saleMarkup.match(/data-buyer-id="([^"]+)" data-sale-fee="(\\d+)"/);
+assert.ok(saleOffer, "sale dialog should create a buyer offer");
+game.click("confirm-sale", { playerId: renewalCandidate.id, buyerId: saleOffer[1], saleFee: saleOffer[2] });
+state = game.savedState();
+assert.equal(state.players.find((player) => player.id === renewalCandidate.id).clubId, saleOffer[1], "selling a player should move him to the buyer club");
+assert.equal(state.career.transfersOut, 1, "accepted sale should be recorded in the career");
+assert.ok(state.balance > clubBalanceBeforeSale, "accepted sale should add money to club balance");
+assert.equal(state.players.filter((player) => player.clubId === state.userClubId).length, squadCountBeforeSale - 1, "sale should reduce the first-team roster");
+
+game.click("open-inbox");
+game.click("mark-inbox-read", { messageId: "all" });
+state = game.savedState();
+assert.ok(state.inbox.every((message) => message.read), "mark all as read should update inbox messages");
+
 game.click("play-next-round");
 state = game.savedState();
 assert.equal(state.currentRound, 1, "round simulation should advance the calendar");
