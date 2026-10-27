@@ -570,10 +570,11 @@
   function openPlayerSale(playerId) {
     const player = playerById(playerId);
     if (!player || player.clubId !== state.userClubId) { toast("اللاعب مش ضمن فريقك.", "error"); return; }
+    if (state.currentRound > 8) { toast("فترة الانتقالات مغلقة الآن، ومش هتقدر تبيع اللاعب قبل فتحها تاني.", "warning"); return; }
     if (userPlayers().length <= 15) { toast("مينفعش تبيع اللاعب ده؛ لازم تحتفظ بـ15 لاعب على الأقل.", "warning"); return; }
     const fee = saleValue(player);
     const buyers = state.clubs.filter(function (club) { return club.id !== state.userClubId && (club.budget || 0) >= fee; })
-      .sort(function (a, b) { return Math.abs(b.strength - player.overall) - Math.abs(a.strength - player.overall); });
+      .sort(function (a, b) { return Math.abs(a.strength - player.overall) - Math.abs(b.strength - player.overall); });
     if (!buyers.length) { toast("مفيش نادٍ عنده ميزانية كفاية للعرض ده.", "warning"); return; }
     const buyer = buyers[0];
     startModal("عرض لبيع اللاعب", '<p>وصل عرض من <strong>' + safeName(buyer.name) + '</strong> للتعاقد مع <strong>' + safeName(player.name) + '</strong>.</p><div class="inline-stat"><span>مركز اللاعب وتقييمه</span><strong>' + safeName(player.position) + ' · ' + number(player.overall) + '</strong></div><div class="inline-stat"><span>العقد المتبقي</span><strong>' + number(player.contractYears) + ' سنوات</strong></div><div class="inline-stat"><span>قيمة العرض</span><strong class="rating">' + money(fee) + '</strong></div><div class="inline-stat"><span>رصيد النادي بعد البيع</span><strong>' + money(state.balance + fee) + '</strong></div><div class="notice" style="margin-top:13px">قبول العرض ينقل اللاعب للنادي الآخر ويضيف قيمة الصفقة إلى ميزانيتك.</div>', '<button class="button button-secondary" data-action="dismiss-modal">رفض العرض</button><button class="button button-primary" data-action="confirm-sale" data-player-id="' + safeName(player.id) + '" data-buyer-id="' + safeName(buyer.id) + '" data-sale-fee="' + fee + '">قبول العرض</button>');
@@ -588,6 +589,7 @@
       toast("تعذر إتمام البيع؛ تفاصيل العرض غير صحيحة.", "error");
       return;
     }
+    if (state.currentRound > 8) { modalRoot.innerHTML = ""; toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
     if (userPlayers().length <= 15) { modalRoot.innerHTML = ""; toast("لازم تحتفظ بـ15 لاعب على الأقل.", "error"); return; }
     if ((buyer.budget || 0) < fee || fee < 1) { modalRoot.innerHTML = ""; toast("النادي المشتري لم يعد قادرًا على دفع العرض.", "error"); return; }
     const sellerName = player.name;
