@@ -40,3 +40,16 @@ node tests/smoke.test.cjs
 ## خارطة الطريق
 
 راجع [مصفوفة الميزات](docs/feature-matrix.md) لتفاصيل ما تم بناؤه وما يحتاج إلى تطوير تالٍ. الأولوية القادمة هي جعل المحاكاة أكثر عمقًا وربط جودة التعاقدات والتدريب بالملاءمة التكتيكية، ثم تطوير نظام الأخبار والكؤوس والتفاوض والعقود والاستكشاف.
+
+## النشر على GitHub Pages
+
+ملف النشر التلقائي موجود في المسار .github/workflows/deploy.yml، لكن لازم تفعّل مصدر النشر من إعدادات المستودع أول مرة:
+
+1. افتح [Settings → Pages](https://github.com/GeKa121111/Football-manger-/settings/pages).
+2. في **Build and deployment** غيّر **Source** إلى **GitHub Actions**.
+3. افتح تبويب **Actions**، ثم شغّل **Deploy Touchline Manager** أو أعد تشغيل آخر محاولة فاشلة.
+
+بعد نجاح الـ workflow، رابط الموقع المتوقع هو:
+[https://geka121111.github.io/Football-manger-/](https://geka121111.github.io/Football-manger-/)
+
+قبل تفعيل مصدر GitHub Actions، فشل خطوة النشر طبيعي لأن إعداد Pages غير موجود؛ اختبارات اللعبة نفسها منفصلة وتعمل بنجاح.
