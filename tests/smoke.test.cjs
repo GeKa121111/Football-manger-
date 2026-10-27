@@ -23,6 +23,7 @@ function createElement() {
     addEventListener(type, callback) {
       this.listeners[type] = callback;
     },
+    querySelector() { return null; },
     focus() {},
     removeChild(child) {
       this.children = this.children.filter((item) => item !== child);
