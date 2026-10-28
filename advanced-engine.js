@@ -68,7 +68,9 @@
       role:p.role || null, status:p.status || "Available", dob:p.dateOfBirth || p.dob || null,
       dateOfBirth:p.dateOfBirth||p.dob||null,nationalTeam:p.nationalTeam||null,
       sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
-      worldCupSnapshot:!!p.worldCupSnapshot
+      worldCupSnapshot:!!p.worldCupSnapshot,
+      fantasyPrice:p.fantasyPrice==null?null:Number(p.fantasyPrice),fantasyPriceCurrency:p.fantasyPriceCurrency||null,
+      fplStatus:p.fplStatus||null,minutes:Number(p.minutes||0)
     };
     player.attributes = Object.assign(baseAttributes(player), player.attributes || {});
     player.overall = playerOverall(player);
