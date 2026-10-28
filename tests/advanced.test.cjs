@@ -73,6 +73,26 @@ const zeroVitalsPlayer = engine.normalizePlayer({
 });
 assert.equal(zeroVitalsPlayer.fitness, 0, "normalizing a saved player must not restore fitness when it is genuinely zero");
 assert.equal(zeroVitalsPlayer.morale, 0, "normalizing a saved player must not restore morale when it is genuinely zero");
+const malformedNumericPlayer = engine.normalizePlayer({
+  id:"malformed-numeric-regression",name:"Malformed Numeric Test",position:"ST",
+  age:"not-a-number",overall:"broken",potential:"broken",value:"broken",wage:"broken",
+  shirt:"broken",contractYears:"broken",fitness:"broken",morale:"broken",injuredWeeks:-3,
+  goals:"broken",assists:"broken",appearances:"broken",yellowCards:"broken",redCards:"broken",
+  averageRating:"broken",lastMatchRating:"broken",cleanSheets:"broken",minutes:"broken",
+  suspendedMatches:"broken",
+  attributes:Object.fromEntries(engine.ATTRS.map(key=>[key,"broken"]))
+});
+for (const field of ["age","overall","potential","value","wage","shirt","contractYears","fitness","morale",
+  "goals","assists","appearances","yellowCards","redCards","averageRating","lastMatchRating","cleanSheets","minutes","suspendedMatches"]) {
+  assert.ok(Number.isFinite(malformedNumericPlayer[field]), "normalized player " + field + " must always be finite");
+}
+assert.ok(engine.ATTRS.every(key=>Number.isFinite(malformedNumericPlayer.attributes[key])&&malformedNumericPlayer.attributes[key]>=1&&malformedNumericPlayer.attributes[key]<=20),
+  "malformed imported attributes must be normalized into the supported 1–20 range");
+assert.equal(malformedNumericPlayer.injuredWeeks,0,"negative injury duration from imported saves must be clamped to zero");
+assert.equal(malformedNumericPlayer.age,19,"invalid age should fall back to a safe default");
+assert.equal(malformedNumericPlayer.overall,55,"invalid overall should fall back to a safe default");
+assert.ok(malformedNumericPlayer.potential>=malformedNumericPlayer.overall,"potential must never be below the normalized overall");
+
 assert.equal(new Set(global.FM_WORLD_DATA.clubs.map(c => c.id)).size, global.FM_WORLD_DATA.clubs.length, "club ids should be unique");
 assert.equal(new Set(global.FM_WORLD_DATA.nations).size, 27, "playable nation list should have 27 entries");
 
