@@ -134,7 +134,7 @@
     });
     clubs.forEach(c=>{
       const real=players.filter(p=>p.clubId===c.id);
-      c.strength=clubStrength(real.length?real:players);
+      c.strength=real.length?clubStrength(real):c.strength;
       const roster=generateRoster(c,players,options&&options.databaseSize);
       roster.forEach(p=>{ if(!players.some(x=>x.id===p.id)) players.push(p); });
     });
@@ -142,7 +142,7 @@
     const calendar={};
     leagues.forEach(l=>{
       const members=clubs.filter(c=>c.league===l);
-      calendar[l]=setFixtureDates(circleSchedule(members.map(c=>c.id)).map(f=>Object.assign(f,{competition:l})), "2026-07-01");
+      calendar[l]=setFixtureDates(circleSchedule(members.map(c=>c.id)).map(f=>Object.assign(f,{competition:l})), "2026-07-08");
     });
     return {clubs:clubs,players:players,leagues:leagues,calendar:calendar,fixtures:[],createdAt:new Date().toISOString(),sourceSeason:source.dataSeason,notes:source.databaseNotes.slice()};
   }
@@ -294,8 +294,8 @@
     const hshots=clamp(hsot+poisson(3+hxg*1.5),hsot,30),ashots=clamp(asot+poisson(3+axg*1.5),asot,29);
     const events=[], scorer=(xi)=>xi.slice().sort((a,b)=>(b.attributes?.shooting||10)*.7+(b.attributes?.movement||10)*.3-((a.attributes?.shooting||10)*.7+(a.attributes?.movement||10)*.3));
     const hscorers=scorer(hxi),ascorers=scorer(axi);
-    for(let i=0;i<hg;i++){const p=pick(hscorers.length?hscorers:hp);if(p){p.goals=(p.goals||0)+1;events.push({minute:rand(3,90),type:"goal",clubId:homeClub.id,playerId:p.id,text:p.name+" scores for "+homeClub.name+"!"});}}
-    for(let i=0;i<ag;i++){const p=pick(ascorers.length?ascorers:ap);if(p){p.goals=(p.goals||0)+1;events.push({minute:rand(3,90),type:"goal",clubId:awayClub.id,playerId:p.id,text:p.name+" scores for "+awayClub.name+"!"});}}
+    for(let i=0;i<hg;i++){const p=pick(hscorers.length?hscorers:hp);if(p){events.push({minute:rand(3,90),type:"goal",clubId:homeClub.id,playerId:p.id,text:p.name+" scores for "+homeClub.name+"!"});}}
+    for(let i=0;i<ag;i++){const p=pick(ascorers.length?ascorers:ap);if(p){events.push({minute:rand(3,90),type:"goal",clubId:awayClub.id,playerId:p.id,text:p.name+" scores for "+awayClub.name+"!"});}}
     const foulCount=rand(8,29), yellowHome=rand(0,3),yellowAway=rand(0,3);
     if(Math.random()<.12)events.push({minute:rand(10,88),type:"injury",clubId:Math.random()<.5?homeClub.id:awayClub.id,text:"Player injury reported"});
     events.sort((a,b)=>a.minute-b.minute);
@@ -346,7 +346,7 @@
     fixture.played=true;fixture.homeGoals=result.homeGoals;fixture.awayGoals=result.awayGoals;fixture.stats=result.stats;fixture.events=result.events;fixture.manOfTheMatch=result.manOfTheMatch;
     const home=state.clubs.find(c=>c.id===fixture.homeId),away=state.clubs.find(c=>c.id===fixture.awayId);
     (state.players.filter(p=>p.clubId===fixture.homeId||p.clubId===fixture.awayId)).forEach(p=>{p.fitness=clamp(p.fitness-rand(5,14),20,100);p.form=(p.form||[]).concat([result.stats.ratings[p.id]||6.6]).slice(-5);});
-    result.events.filter(e=>e.type==="goal").forEach(e=>{const p=state.players.find(p=>p.id===e.playerId);if(p)p.goals=(p.goals||0)+0;});
+    result.events.filter(e=>e.type==="goal").forEach(e=>{const p=state.players.find(p=>p.id===e.playerId);if(p)p.goals=(p.goals||0)+1;});
     if(fixture.homeId===state.userClubId||fixture.awayId===state.userClubId){
       const userGoals=fixture.homeId===state.userClubId?result.homeGoals:result.awayGoals, oppGoals=fixture.homeId===state.userClubId?result.awayGoals:result.homeGoals;
       state.careerHistory.unshift({day:state.day,home:home.name,away:away.name,score:result.homeGoals+"–"+result.awayGoals,goalsFor:userGoals,goalsAgainst:oppGoals});
