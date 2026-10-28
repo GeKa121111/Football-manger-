@@ -31,12 +31,13 @@ jobs:
           node --check advanced-data.js
           node --check advanced-engine.js
           node --check advanced-ui.js
+          node --check simulation-worker.js
           node tests/smoke.test.cjs
           node tests/advanced.test.cjs
       - name: Prepare static site
         run: |
           mkdir -p dist
-          cp index.html app.js styles.css advanced.css advanced-data.js advanced-player-data.js advanced-engine.js advanced-ui.js manifest.webmanifest icon.svg service-worker.js dist/
+          cp index.html app.js styles.css advanced.css advanced-data.js advanced-player-data.js advanced-engine.js advanced-ui.js simulation-worker.js manifest.webmanifest icon.svg service-worker.js dist/
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
