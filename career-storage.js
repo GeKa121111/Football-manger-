@@ -289,13 +289,19 @@
     }
 
     async function pruneSnapshots(db, careerId) {
-      const tx = db.transaction(["snapshots"], "readwrite");
-      const store = tx.objectStore("snapshots");
-      const request = store.index("careerId").getAll(careerId);
+      const readTx = db.transaction(["snapshots"], "readonly");
+      const readDone = transactionDone(readTx);
+      const request = readTx.objectStore("snapshots").index("careerId").getAll(careerId);
       const entries = await requestResult(request);
+      await readDone;
       entries.sort(function (a, b) { return String(b.savedAt).localeCompare(String(a.savedAt)); });
-      entries.slice(MAX_SNAPSHOTS).forEach(function (entry) { store.delete(entry.id); });
-      await transactionDone(tx);
+      const expired = entries.slice(MAX_SNAPSHOTS);
+      if (!expired.length) return;
+      const writeTx = db.transaction(["snapshots"], "readwrite");
+      const writeDone = transactionDone(writeTx);
+      const store = writeTx.objectStore("snapshots");
+      expired.forEach(function (entry) { store.delete(entry.id); });
+      await writeDone;
     }
 
     async function listSnapshots(careerId) {
