@@ -510,6 +510,25 @@
   function defaultTactics() {
     return {formation:"4-2-3-1",mentality:"Balanced",width:"Balanced",tempo:"Normal",passing:"Mixed",finalThird:"Work Ball Into Box",line:"Balanced",pressing:"Balanced",pressIntensity:11,tackling:"Normal",offsideTrap:false,style:"Possession",roles:{},positions:{},startingXI:[],captainId:null,viceCaptainId:null,penaltyId:null,freeKickId:null,cornerId:null};
   }
+  function ensureTacticalPhases(tactics) {
+    const target=tactics&&typeof tactics==="object"&&!Array.isArray(tactics)?tactics:defaultTactics();
+    const objectValue=value=>value&&typeof value==="object"&&!Array.isArray(value)?value:{};
+    target.roles=objectValue(target.roles);target.positions=objectValue(target.positions);
+    const legacyRoles=Object.assign({},target.roles);
+    const defaults={
+      inPossession:{formation:String(target.formation||"4-3-3"),mentality:String(target.mentality||"Balanced"),width:String(target.width||"Balanced"),tempo:String(target.tempo||"Normal"),passing:String(target.passing||"Mixed"),style:String(target.style||"Possession"),finalThird:String(target.finalThird||"Work Ball Into Box"),buildUp:"Balanced",roles:Object.assign({},legacyRoles)},
+      outOfPossession:{formation:"4-4-2",line:String(target.line||"Balanced"),pressing:String(target.pressing||"Balanced"),pressIntensity:clamp(finiteNumber(target.pressIntensity,11),1,20),tackling:String(target.tackling||"Normal"),offsideTrap:!!target.offsideTrap,pressTrigger:"On poor touch",transition:"Counter-press",roles:Object.assign({},legacyRoles)}
+    };
+    target.phases=objectValue(target.phases);
+    ["inPossession","outOfPossession"].forEach(name=>{
+      const current=objectValue(target.phases[name]);
+      const merged=Object.assign({},defaults[name],current);
+      merged.roles=Object.assign({},defaults[name].roles,objectValue(current.roles));
+      if(!Object.prototype.hasOwnProperty.call(current,"pressIntensity")&&name==="outOfPossession")merged.pressIntensity=clamp(finiteNumber(target.pressIntensity,11),1,20);
+      target.phases[name]=merged;
+    });
+    return target.phases;
+  }
   function aiTactics(club,season) {
     const strength=Number(club?.strength)||60,seed=Math.abs(stableHash(String(club?.id||club?.name||"opponent")+"|"+String(season||2026)));
     const formations=Object.keys(FORMATIONS),styles=["Possession","Counter-Attack","Gegenpress","Wing Play","Route One"];
@@ -528,6 +547,7 @@
     t.pressIntensity=clamp(Math.round(6+strength/8+(seed%5)-2),4,19);
     t.tackling=seed%7===0?"Committed":seed%5===0?"Cautious":"Normal";
     t.offsideTrap=t.line==="High Line"&&seed%3===0;
+    ensureTacticalPhases(t);
     return t;
   }
   function createDomesticCup(nation, clubs, season) {
@@ -607,6 +627,7 @@
       transfers:[],sponsorships:[],trainingLog:[],challenge:options.mode==="challenge"?(options.challenge||"Relegation survival"):null,achievements:[],settings:{currency:"GBP",wageDisplay:"weekly",language:"en",speed:1,highlightMode:"key",databaseSource:world.sourceSeason},generatedCount:world.players.filter(p=>p.generated).length,
       youthIntake:{version:1,previews:{},announcedYears:[],history:[]}
     };
+    ensureTacticalPhases(state.tactics);
     clubPlayers.slice().sort((a,b)=>b.overall-a.overall).forEach((p,i)=>{p.registered=i<25;});
     const startingXI=clubPlayers.slice().sort((a,b)=>b.overall-a.overall).slice(0,11);
     if(startingXI[0]) state.tactics.captainId=startingXI[0].id;
@@ -616,6 +637,7 @@
   function currentClub(state) { return state.clubs.find(c=>c.id===state.userClubId); }
   function squad(state,clubId) { return state.players.filter(p=>p.clubId===clubId&&!p.retired); }
   function selectedXI(state,clubId) {
+    ensureTacticalPhases(state.tactics);
     const list=squad(state,clubId).filter(p=>Number(p.injuredWeeks||0)<=0&&Number(p.suspendedMatches||0)<=0).slice();
     const plan=FORMATIONS[state.tactics.formation]||FORMATIONS["4-2-3-1"],out=[],used=new Set();
     const isManaged=clubId===state.userClubId,manual=isManaged&&Array.isArray(state.tactics.startingXI)?state.tactics.startingXI:[];
@@ -1382,7 +1404,7 @@
     if(p.includes("offence")||p.includes("forward")||p.includes("attacker"))return "ST";
     return "CM";
   }
-  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,aiTactics,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,transferWindowStatus,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,mergeBundledRealPlayers,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
+  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,aiTactics,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,transferWindowStatus,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,mergeBundledRealPlayers,baseAttributes,defaultTactics,ensureTacticalPhases,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
   root.FM_ENGINE=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);

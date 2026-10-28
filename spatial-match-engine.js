@@ -50,6 +50,32 @@
     }
     return fallback;
   }
+  function getTacticalPhases(tactics) {
+    const base=tactics&&typeof tactics==="object"?tactics:{};
+    let phases=base.phases&&typeof base.phases==="object"?base.phases:null;
+    const engine=root.FM_ENGINE;
+    if(engine&&typeof engine.ensureTacticalPhases==="function")phases=engine.ensureTacticalPhases(base);
+    if(!phases){const roles=base.roles&&typeof base.roles==="object"?base.roles:{};phases={
+      inPossession:Object.assign({},base,{formation:base.formation||"4-3-3",roles:Object.assign({},roles)}),
+      outOfPossession:Object.assign({},base,{formation:"4-4-2",roles:Object.assign({},roles)})
+    };}
+    return {
+      inPossession:Object.assign({},base,phases.inPossession||{},{roles:Object.assign({},base.roles||{},(phases.inPossession&&phases.inPossession.roles)||{})}),
+      outOfPossession:Object.assign({},base,phases.outOfPossession||{},{roles:Object.assign({},base.roles||{},(phases.outOfPossession&&phases.outOfPossession.roles)||{})})
+    };
+  }
+  function phaseSlotMap(lineup,formation,team){
+    const slots=FORMATIONS[String(formation||"")]||FORMATIONS["4-2-3-1"],unused=lineup.slice(),result=new Map();
+    slots.forEach((slot,index)=>{
+      const eligible=unused.filter(p=>((String(p.sourcePosition||p.position||"").toUpperCase()==="GK")===(slot==="GK")))
+        .sort((a,b)=>(fit(b.sourcePosition||b.position,slot)-fit(a.sourcePosition||a.position,slot))*100
+          +(number(b.overall,50)-number(a.overall,50))||String(a.id).localeCompare(String(b.id)));
+      const chosen=eligible[0];if(!chosen)return;unused.splice(unused.indexOf(chosen),1);
+      const pos=bounded({x:slot==="GK"?(team===0?1:COLS-2):team===0?(DEFENSIVE.has(slot)?3:ATTACKING.has(slot)?9:6):(DEFENSIVE.has(slot)?COLS-4:ATTACKING.has(slot)?4:7),y:initialLane(slot,index)});
+      result.set(String(chosen.id),{slot:slot,index:index,x:pos.x,y:pos.y});
+    });
+    return result;
+  }
   function tacticAttack(tactics) {
     const mentality = getTacticalValue(tactics, ["mentality"], "Balanced");
     const style = getTacticalValue(tactics, ["style"], "Possession");
@@ -155,9 +181,23 @@
     const teams = [homeXI, awayXI];
     const clubs = [homeClub, awayClub];
     const tactics = [ht, at];
+    const phaseSettings = tactics.map(getTacticalPhases);
     const directions = [1,-1];
-    const attackBonus = [tacticAttack(ht), tacticAttack(at)];
-    const press = [pressLevel(ht), pressLevel(at)];
+    const phaseMaps=teams.map((line,team)=>{
+      const inPossession=phaseSlotMap(line,phaseSettings[team].inPossession.formation,team);
+      const outOfPossession=phaseSlotMap(line,phaseSettings[team].outOfPossession.formation,team);
+      line.forEach(p=>{p.phaseSlots={inPossession:inPossession.get(p.id)||null,outOfPossession:outOfPossession.get(p.id)||null};
+        const initial=p.phaseSlots.outOfPossession;if(initial){p.position=initial.slot;p.x=initial.x;p.y=initial.y;p.startX=initial.x;p.startY=initial.y;}else{p.startX=p.x;p.startY=p.y;}});
+      return {inPossession:inPossession,outOfPossession:outOfPossession};
+    });
+    const attackBonus=[tacticAttack(phaseSettings[0].inPossession),tacticAttack(phaseSettings[1].inPossession)];
+    const press=[pressLevel(phaseSettings[0].outOfPossession),pressLevel(phaseSettings[1].outOfPossession)];
+    function phaseForTeam(team){return ownerTeam===team?"inPossession":"outOfPossession";}
+    function roleFor(player,team,phase){const config=phaseSettings[team][phase];return String((config&&config.roles&&config.roles[player.id])||(tactics[team].roles&&tactics[team].roles[player.id])||"");}
+    function applyPhasePositions(){teams.forEach((line,team)=>{const phase=phaseForTeam(team),config=phaseSettings[team][phase];line.forEach(p=>{
+      const slot=phaseMaps[team][phase].get(p.id);if(slot)p.position=slot.slot;p.phase=phase;p.phaseRole=roleFor(p,team,phase);
+      p.regrouping=!!(config&&config.transition==="Regroup"&&phase==="outOfPossession");
+    });});}
     const counters = [
       {possession:0,shots:0,onTarget:0,xg:0,corners:0,fouls:0,yellow:0,red:0,passes:0,completed:0},
       {possession:0,shots:0,onTarget:0,xg:0,corners:0,fouls:0,yellow:0,red:0,passes:0,completed:0}
@@ -190,43 +230,78 @@
     function playerAt(id) {
       return teams.flat().find(p => p.id === String(id)) || null;
     }
-    function chooseReceiver(team, passer) {
-      const dir = directions[team];
-      const candidates = teams[team].filter(p => p.id !== passer.id);
-      candidates.sort((a,b) => {
-        const score = p => (p.x - passer.x) * dir * 2.0 - distance(p, passer) * 0.48
-          + (ATTACKING.has(p.position) ? 0.6 : 0) - Math.abs(p.y - passer.y) * 0.12;
-        return score(b) - score(a) || String(a.id).localeCompare(String(b.id));
+    function chooseReceiver(team,passer){
+      const dir=directions[team],phase=phaseSettings[team].inPossession;
+      const passStyle=getTacticalValue(phase,["passing"],"Mixed"),buildUp=getTacticalValue(phase,["buildUp"],"Balanced");
+      const candidates=teams[team].filter(p=>p.id!==passer.id);
+      candidates.sort((a,b)=>{
+        const score=p=>{const d=distance(p,passer),forward=(p.x-passer.x)*dir,role=roleFor(p,team,"inPossession");
+          let value=forward*2-d*0.48+(ATTACKING.has(p.position)?0.6:0)-Math.abs(p.y-passer.y)*0.12;
+          if(passStyle==="Short")value+=d<=3?0.55:-0.24;
+          if(passStyle==="Long Ball")value+=d>=4?0.72:-0.18;
+          if(passStyle==="Direct")value+=forward>0?0.35:-0.1;
+          if(buildUp==="Play Out Of Defence"&&["GK","CB","DM"].includes(passer.position)&&["CB","DM","CM"].includes(p.position))value+=0.45;
+          if(role==="Target Man"&&["Long Ball","Direct"].includes(passStyle))value+=0.9;
+          if(role==="Advanced Playmaker"||role==="Deep Lying Playmaker")value+=0.35;
+          if(role==="Winger"&&Math.abs(p.y-4)>=2)value+=0.25;
+          if(role==="Inside Forward")value+=Math.abs(p.y-4)<=2?0.25:-0.1;
+          return value;};
+        return score(b)-score(a)||String(a.id).localeCompare(String(b.id));
       });
-      return candidates[0] || null;
+      return candidates[0]||null;
     }
-    function movePlayers() {
-      teams.forEach((teamPlayers, team) => {
-        const dir = directions[team], opposing = teams[1-team];
-        teamPlayers.forEach((p,index) => {
-          const owns = !flight && owner && owner.id === p.id;
+    function movePlayers(){
+      teams.forEach((teamPlayers,team)=>{
+        const dir=directions[team],phase=phaseForTeam(team),phaseT=phaseSettings[team][phase],attackT=phaseSettings[team].inPossession;
+        const width=getTacticalValue(attackT,["width"],"Balanced"),line=getTacticalValue(phaseSettings[team].outOfPossession,["line"],"Balanced");
+        const trigger=getTacticalValue(phaseSettings[team].outOfPossession,["pressTrigger"],"On poor touch");
+        teamPlayers.forEach(p=>{
+          const owns=!flight&&owner&&owner.id===p.id,role=roleFor(p,team,phase);
           let target;
-          if (p.position === "GK") {
-            target = {x:team === 0 ? 1 : COLS-2,y:clamp(ball.y,2,6)};
-          } else if (owns) {
-            target = {x:clamp(p.x+dir,1,COLS-2),y:clamp(p.y+Math.sign(4-p.y),1,7)};
-          } else if (ownerTeam === team) {
-            const advance = ATTACKING.has(p.position) ? 2 : DEFENSIVE.has(p.position) ? -1 : 1;
-            target = {x:clamp(ball.x+dir*advance,1,COLS-2),y:clamp(Math.round(p.startY*0.55+ball.y*0.45),1,7)};
-          } else {
-            const carrier = owner || (flight && playerAt(flight.passerId));
-            target = {
-              x:clamp(ball.x-dir*(DEFENSIVE.has(p.position)?2:1),1,COLS-2),
-              y:clamp(ball.y+(p.startY-4)*0.35,1,7)
-            };
-            if (carrier && distance(p,carrier)>6) target.y=clamp(Math.round(target.y+(p.startY-4)*0.15),1,7);
+          if(p.position==="GK")target={x:team===0?1:COLS-2,y:clamp(ball.y,2,6)};
+          else if(owns){
+            target={x:clamp(p.x+dir,1,COLS-2),y:clamp(p.y+Math.sign(4-p.y),1,7)};
+            if(role==="Winger")target.y=clamp(p.startY<=4?1:7,1,7);
+            if(role==="Inside Forward"||role==="Inverted Wing Back")target.y=clamp(Math.round(p.y+(4-p.y)*0.55),1,7);
+          }else if(ownerTeam===team){
+            let advance=ATTACKING.has(p.position)?2:DEFENSIVE.has(p.position)?-1:1;
+            if(role==="Wing Back"||role==="Box-to-Box"||role==="Target Man")advance=2;
+            if(role==="Poacher"||role==="Shadow Striker")advance=3;
+            if(role==="Anchor Man")advance=-1;
+            if(role==="Inverted Wing Back")advance=1;
+            let targetY=clamp(Math.round(p.startY*0.55+ball.y*0.45),1,7);
+            if(width==="Wide"&&(ATTACKING.has(p.position)||role==="Wing Back"||role==="Winger"))targetY=clamp(p.startY<=4?Math.min(targetY,2):Math.max(targetY,6),1,7);
+            if(width==="Narrow")targetY=clamp(Math.round(targetY+(4-targetY)*0.5),1,7);
+            if(role==="Winger"||role==="Wing Back")targetY=clamp(p.startY<=4?1:7,1,7);
+            if(role==="Inside Forward"||role==="Shadow Striker")targetY=clamp(Math.round(targetY+(4-targetY)*0.7),1,7);
+            if(role==="Anchor Man"||role==="Deep Lying Playmaker")advance=Math.min(advance,0);
+            target={x:clamp(ball.x+dir*advance,1,COLS-2),y:targetY};
+          }else{
+            const carrier=owner||(flight&&playerAt(flight.passerId));
+            const triggerActive=trigger==="Always"
+              ||(trigger==="On poor touch"&&carrier&&(carrier.dribbling<10||carrier.fitness<55))
+              ||(trigger==="On back pass"&&carrier&&(carrier.position==="GK"||(flight&&flight.team===1-team)))
+              ||(trigger!=="Never"&&phaseT.transition==="Counter-press"&&flight&&flight.team===1-team);
+            if(triggerActive){
+              const retreat=line==="High Line"?1:line==="Low Block"?3:2;
+              target={x:clamp(ball.x-dir*(DEFENSIVE.has(p.position)?retreat:1),1,COLS-2),y:clamp(ball.y+(p.startY-4)*0.35,1,7)};
+              if(role==="Ball Winning Midfielder")target.x=clamp(ball.x-dir,1,COLS-2);
+              if(role==="Anchor Man"||role==="Central Defender")target.y=clamp(Math.round(p.startY*0.65+ball.y*0.35),1,7);
+            }else{
+              const defensiveSlot=phaseMaps[team].outOfPossession.get(p.id);
+              target={x:defensiveSlot?defensiveSlot.x:p.startX,y:defensiveSlot?defensiveSlot.y:p.startY};
+              if(line==="Low Block")target.x=clamp(target.x-dir,1,COLS-2);
+              if(line==="High Line")target.x=clamp(target.x+dir,1,COLS-2);
+            }
+            if(carrier&&distance(p,carrier)>6)target.y=clamp(Math.round(target.y+(p.startY-4)*0.15),1,7);
           }
-          const moveChance = clamp(0.68 + p.fitness/100*0.23 - (100-p.fitness)*0.002,0.38,0.9);
-          if (rng() < moveChance) moveOne(p,target);
-          p.fitness = clamp(p.fitness - (0.055 + press[team]*0.035 + (owns?0.05:0)),15,100);
+          const moveChance=clamp(0.68+p.fitness/100*0.23-(100-p.fitness)*0.002,0.38,0.9);
+          if(rng()<moveChance)moveOne(p,target);
+          const exertion=phase==="outOfPossession"?press[team]:pressLevel(phaseSettings[team].outOfPossession);
+          p.fitness=clamp(p.fitness-(0.055+exertion*0.035+(owns?0.05:0)),15,100);
         });
       });
-      if (!flight && owner) { ball.x=owner.x; ball.y=owner.y; }
+      if(!flight&&owner){ball.x=owner.x;ball.y=owner.y;}
     }
     function finishFlight(minute) {
       const activeFlight = flight;
@@ -256,15 +331,14 @@
       return {type:"loose-ball",team:looseWinner ? looseWinner.team : activeFlight.team,playerId:looseWinner ? looseWinner.id : null};
     }
     function tryShot(team, shooter, minute, pressureDistance) {
-      const dir = directions[team], goalX = team === 0 ? COLS-1 : 0;
-      const distanceToGoal = Math.abs(goalX - shooter.x);
-      const lanePenalty = Math.abs(shooter.y - 4) * 0.022;
-      const fatiguePenalty = (100-shooter.fitness) * 0.001;
-      const xg = clamp(0.025 + (5.4-distanceToGoal)*0.046 + shooter.shooting/20*0.15
-        + attackBonus[team]*0.18 - lanePenalty - Math.max(0,pressureDistance===Infinity?0:2-pressureDistance)*0.025
-        - fatiguePenalty,0.015,0.68);
-      const onTargetChance = clamp(0.20 + shooter.shooting*0.025 + attackBonus[team]*0.1
-        - distanceToGoal*0.025 - lanePenalty - (pressureDistance<=1?0.12:pressureDistance<=2?0.06:0),0.10,0.78);
+      const dir=directions[team],goalX=team===0?COLS-1:0,distanceToGoal=Math.abs(goalX-shooter.x);
+      const lanePenalty=Math.abs(shooter.y-4)*0.022,fatiguePenalty=(100-shooter.fitness)*0.001;
+      const attackT=phaseSettings[team].inPossession,finalThird=getTacticalValue(attackT,["finalThird"],"Work Ball Into Box"),shootingRole=roleFor(shooter,team,"inPossession");
+      const roleBonus=shootingRole==="Poacher"&&distanceToGoal<=3?0.075:shootingRole==="Shadow Striker"||shootingRole==="Inside Forward"?0.035:shootingRole==="Target Man"?0.015:0;
+      const xg=clamp(0.025+(5.4-distanceToGoal)*0.046+shooter.shooting/20*0.15+attackBonus[team]*0.18+roleBonus
+        -lanePenalty-Math.max(0,pressureDistance===Infinity?0:2-pressureDistance)*0.025-fatiguePenalty+(finalThird==="Shoot on Sight"?0.025:0),0.015,0.68);
+      const onTargetChance=clamp(0.20+shooter.shooting*0.025+attackBonus[team]*0.1+roleBonus-distanceToGoal*0.025
+        -lanePenalty-(pressureDistance<=1?0.12:pressureDistance<=2?0.06:0),0.10,0.78);
       counters[team].shots++;
       counters[team].xg += xg;
       playerWork.get(shooter.id).shots++;
@@ -303,6 +377,7 @@
     for (tick = 0; tick < TICKS; tick++) {
       const minute = (tick+1)*0.5;
       let interaction = null;
+      applyPhasePositions();
       movePlayers();
       if (flight) {
         const old = {x:flight.from.x,y:flight.from.y};
@@ -315,27 +390,27 @@
         const team = ownerTeam, opponent = teams[1-team], dir = directions[team];
         const nearestDefender = nearest(opponent, owner);
         const pressureDistance = nearestDefender.distance;
-        const goalDistance = Math.abs((team===0?COLS-1:0)-owner.x);
-        const inShotZone = goalDistance <= 5 && owner.x > 0 && owner.x < COLS-1;
-        const slot = owner.position;
-        const shootChance = inShotZone
-          ? clamp(0.06 + (5-goalDistance)*0.035 + attackBonus[team]*0.08
-            + (ATTACKING.has(slot)?0.025:0),0.04,0.24)
-          : 0;
+        const goalDistance=Math.abs((team===0?COLS-1:0)-owner.x),finalThird=getTacticalValue(phaseSettings[team].inPossession,["finalThird"],"Work Ball Into Box");
+        const inShotZone=goalDistance<=(finalThird==="Shoot on Sight"?7:5)&&owner.x>0&&owner.x<COLS-1,slot=owner.position;
+        const shootChance=inShotZone?clamp(0.06+(5-goalDistance)*0.035+attackBonus[team]*0.08+(ATTACKING.has(slot)?0.025:0)
+          +(finalThird==="Shoot on Sight"?0.10:finalThird==="Work Ball Into Box"?-0.025:0),0.025,0.34):0;
         const actionRoll = rng();
         if (inShotZone && actionRoll < shootChance) {
           interaction = tryShot(team,owner,minute,pressureDistance);
         } else if (actionRoll < shootChance + 0.49) {
           const receiver = chooseReceiver(team,owner);
           if (receiver) {
-            const passDistance = distance(owner,receiver);
-            const forwardGain = (receiver.x-owner.x)*dir;
-            const breaksLine = forwardGain >= 2 && ATTACKING.has(receiver.position) || forwardGain >= 3;
-            const risk = breaksLine ? 0.12 : 0.035;
-            const completeChance = clamp(0.79 + (owner.passing-10)*0.012 - passDistance*0.017
-              - Math.max(0,2.5-pressureDistance)*0.035 - risk + (100-owner.fitness)*-0.001,0.42,0.94);
-            const interceptChance = clamp(0.045 + press[1-team]*0.09 + passDistance*0.012
-              + risk*0.28 - (owner.decisions-10)*0.006,0.025,0.36);
+            const passDistance=distance(owner,receiver),forwardGain=(receiver.x-owner.x)*dir;
+            const breaksLine=(forwardGain>=2&&ATTACKING.has(receiver.position))||forwardGain>=3,risk=breaksLine?0.12:0.035;
+            const attackT=phaseSettings[team].inPossession,passingStyle=getTacticalValue(attackT,["passing"],"Mixed");
+            const tempo=getTacticalValue(attackT,["tempo"],"Normal"),buildUp=getTacticalValue(attackT,["buildUp"],"Balanced");
+            const styleModifier=passingStyle==="Short"?(passDistance<=3?0.07:-0.055):passingStyle==="Long Ball"?(passDistance>=4?0.055:-0.065):passingStyle==="Direct"?(forwardGain>0?0.035:-0.025):0;
+            const roleModifier=["Advanced Playmaker","Deep Lying Playmaker","Ball Playing Defender"].includes(roleFor(owner,team,"inPossession"))?0.035:0;
+            const tempoModifier=tempo==="Fast"?-0.025:tempo==="Slow"?0.025:0;
+            const buildModifier=buildUp==="Play Out Of Defence"&&["GK","CB","DM"].includes(owner.position)?0.035:buildUp==="Bypass Midfield"&&forwardGain>=3?-0.005:0;
+            const completeChance=clamp(0.79+(owner.passing-10)*0.012-passDistance*0.017-Math.max(0,2.5-pressureDistance)*0.035
+              -risk+(100-owner.fitness)*-0.001+styleModifier+roleModifier+tempoModifier+buildModifier,0.42,0.94);
+            const interceptChance=clamp(0.045+press[1-team]*0.09+passDistance*0.012+risk*0.28-(owner.decisions-10)*0.006,0.025,0.36);
             counters[team].passes++;
             playerWork.get(owner.id).actions++;
             flight = {
@@ -357,7 +432,7 @@
             playerWork.get(owner.id).actions++;
             interaction={type:"dribble",team:team,playerId:owner.id};
           } else if (challenge.player) {
-            const tacklingMode = String(tactics[1-team] && tactics[1-team].tackling || "Normal");
+            const tacklingMode = String(phaseSettings[1-team].outOfPossession.tackling || tactics[1-team].tackling || "Normal");
             const fouled = rng() < clamp(0.08 + (tacklingMode === "Committed" ? 0.05 : 0),0.03,0.2);
             counters[1-team].fouls += fouled?1:0;
             playerWork.get(challenge.player.id).tackles++;
@@ -385,7 +460,8 @@
         ownerTeam:ownerTeam,ownerId:owner?owner.id:null,
         interaction:interaction?Object.assign({},interaction):null,
         interactionCount:interaction?1:0,
-        players:teams.flat().map(p=>({id:p.id,clubId:p.clubId,team:p.team,x:p.x,y:p.y,fitness:Number(p.fitness.toFixed(2)),shirt:p.shirt}))
+        players:teams.flat().map(p=>({id:p.id,clubId:p.clubId,team:p.team,x:p.x,y:p.y,fitness:Number(p.fitness.toFixed(2)),shirt:p.shirt,position:p.position,phase:p.phase,role:p.phaseRole||""})),
+        teamPhases:[phaseForTeam(0),phaseForTeam(1)]
       });
     }
     events.sort((a,b)=>a.minute-b.minute);
@@ -422,8 +498,12 @@
       manOfTheMatch:motm,lineups:{[homeClub.id]:homeXI.map(p=>p.id),[awayClub.id]:awayXI.map(p=>p.id)},
       spatial:{
         rows:ROWS,columns:COLS,tickMinutes:0.5,ticks:TICKS,seed:seedInput,
+        phases:{
+          home:{inPossession:{formation:phaseSettings[0].inPossession.formation,style:phaseSettings[0].inPossession.style,width:phaseSettings[0].inPossession.width,tempo:phaseSettings[0].inPossession.tempo,passing:phaseSettings[0].inPossession.passing,buildUp:phaseSettings[0].inPossession.buildUp,roles:phaseSettings[0].inPossession.roles},outOfPossession:{formation:phaseSettings[0].outOfPossession.formation,line:phaseSettings[0].outOfPossession.line,pressing:phaseSettings[0].outOfPossession.pressing,pressIntensity:phaseSettings[0].outOfPossession.pressIntensity,pressTrigger:phaseSettings[0].outOfPossession.pressTrigger,transition:phaseSettings[0].outOfPossession.transition,roles:phaseSettings[0].outOfPossession.roles}},
+          away:{inPossession:{formation:phaseSettings[1].inPossession.formation,style:phaseSettings[1].inPossession.style,width:phaseSettings[1].inPossession.width,tempo:phaseSettings[1].inPossession.tempo,passing:phaseSettings[1].inPossession.passing,buildUp:phaseSettings[1].inPossession.buildUp,roles:phaseSettings[1].inPossession.roles},outOfPossession:{formation:phaseSettings[1].outOfPossession.formation,line:phaseSettings[1].outOfPossession.line,pressing:phaseSettings[1].outOfPossession.pressing,pressIntensity:phaseSettings[1].outOfPossession.pressIntensity,pressTrigger:phaseSettings[1].outOfPossession.pressTrigger,transition:phaseSettings[1].outOfPossession.transition,roles:phaseSettings[1].outOfPossession.roles}}
+        },
         trace:trace,
-        finalPlayers:teams.flat().map(p=>({id:p.id,clubId:p.clubId,team:p.team,x:p.x,y:p.y,fitness:Number(p.fitness.toFixed(2))}))
+        finalPlayers:teams.flat().map(p=>({id:p.id,clubId:p.clubId,team:p.team,x:p.x,y:p.y,fitness:Number(p.fitness.toFixed(2)),position:p.position,phase:p.phase,role:p.phaseRole||""}))
       }
     };
   }
