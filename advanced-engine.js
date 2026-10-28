@@ -45,6 +45,116 @@
     Object.keys(weights).forEach(k=>{num+=(Number(attr[k])||10)*weights[k];den+=weights[k];});
     return clamp(Math.round(num/den*5),20,99);
   }
+
+  function normalizedHiddenAttributes(value,id,age){
+    const existing=value&&typeof value==="object"&&!Array.isArray(value)?value:{};
+    const seed=String(id||"unknown-player");
+    const score=key=>stableHash(seed+"|hidden|"+key);
+    const defaults={
+      professionalism:clamp(5+(score("professionalism")%15)+(age>=27?1:0),1,20),
+      ambition:clamp(5+(score("ambition")%15)+(age<23?1:0),1,20),
+      consistency:clamp(4+(score("consistency")%16),1,20),
+      pressure:clamp(4+(score("pressure")%16),1,20),
+      durability:clamp(4+(score("durability")%16),1,20)
+    };
+    Object.keys(defaults).forEach(key=>{defaults[key]=clamp(finiteNumber(existing[key],defaults[key]),1,20);});
+    return defaults;
+  }
+  function syncAbilityRatings(player){
+    player.CA=clamp(Math.round((Number(player.overall)||50)*2),1,200);
+    player.PA=clamp(Math.max(player.CA,finiteNumber(player.PA,0),Math.round((Number(player.potential)||player.overall)*2)),player.CA,200);
+    return player;
+  }
+  function developmentChance(player,base){
+    const hidden=player.hiddenAttributes||{};
+    const personality=(finiteNumber(hidden.professionalism,10)-10)*0.004
+      +(finiteNumber(hidden.ambition,10)-10)*0.003;
+    return clamp(base+personality,Math.max(0.01,base*0.5),Math.min(0.95,base*1.6));
+  }
+  function ensureYouthIntakeState(state){
+    if(!state.youthIntake||typeof state.youthIntake!=="object"||Array.isArray(state.youthIntake)){
+      state.youthIntake={version:1,previews:{},announcedYears:[],history:[]};
+    }
+    const youth=state.youthIntake;
+    youth.version=1;
+    youth.previews=youth.previews&&typeof youth.previews==="object"&&!Array.isArray(youth.previews)?youth.previews:{};
+    youth.announcedYears=Array.isArray(youth.announcedYears)?youth.announcedYears:[];
+    youth.history=Array.isArray(youth.history)?youth.history:[];
+    return youth;
+  }
+  function addCareerInbox(state,item){
+    state.inbox=Array.isArray(state.inbox)?state.inbox:[];
+    if(state.inbox.some(message=>message&&message.id===item.id))return;
+    state.inbox.unshift(Object.assign({read:false,kind:"info",day:state.day},item));
+    state.inbox=state.inbox.slice(0,100);
+  }
+  function processYouthIntakeCalendar(state,date){
+    const youth=ensureYouthIntakeState(state);
+    const month=date.getUTCMonth()+1,day=date.getUTCDate();
+    const system=root.FM_YOUTH_SYSTEM||(root.FM_WORLD_DATA&&root.FM_WORLD_DATA.youthSystem);
+    if(!system||typeof system.previewIntake!=="function"||typeof system.announceIntake!=="function")
+      return {type:null,created:0};
+    const club=state.clubs.find(item=>item.id===state.userClubId);
+    if(!club)return {type:null,created:0};
+    if(month===12&&day===15){
+      const intakeYear=date.getUTCFullYear()+1,key=String(intakeYear);
+      if(!youth.previews[key]){
+        const preview=system.previewIntake(club,intakeYear,{country:state.nation||club.country});
+        youth.previews[key]=preview;
+        youth.lastPreviewYear=intakeYear;
+        addCareerInbox(state,{
+          id:"youth-preview-"+club.id+"-"+intakeYear,
+          title:"Youth intake preview",
+          text:"A preview of 16 academy prospects for "+intakeYear+" is ready. Expected quality reflects youth recruitment, coaching, facilities, club reputation and national youth rating.",
+          kind:"info",day:state.day
+        });
+        return {type:"preview",year:intakeYear,created:0,preview:preview};
+      }
+      return {type:"preview-existing",year:intakeYear,created:0,preview:youth.previews[key]};
+    }
+    if(month===3&&day===31){
+      const intakeYear=date.getUTCFullYear(),key=String(intakeYear);
+      if(youth.announcedYears.includes(intakeYear))
+        return {type:"announcement-existing",year:intakeYear,created:0};
+      const preview=youth.previews[key]||system.previewIntake(club,intakeYear,{country:state.nation||club.country});
+      const announcement=system.announceIntake(preview);
+      const knownIds=new Set(state.players.map(player=>String(player.id)));
+      const created=[];
+      announcement.players.forEach(raw=>{
+        if(knownIds.has(String(raw.id)))return;
+        const prospect=normalizePlayer(Object.assign({},raw,{
+          youthProspect:true,registered:false,status:"Youth Prospect",role:"Youth Prospect"
+        }),club.id);
+        prospect.registered=false;
+        prospect.status="Youth Prospect";
+        prospect.youthProspect=true;
+        prospect.youthIntakeYear=intakeYear;
+        prospect.youthIntakeClubId=club.id;
+        state.players.push(prospect);
+        knownIds.add(String(prospect.id));
+        created.push(prospect);
+      });
+      youth.announcedYears.push(intakeYear);
+      youth.announcedYears=[...new Set(youth.announcedYears)].sort((a,b)=>a-b);
+      youth.lastAnnouncementYear=intakeYear;
+      youth.history.unshift({
+        intakeYear:intakeYear,clubId:club.id,clubName:club.name,previewDate:preview.previewDate,
+        announcedOn:announcement.announcedOn,count:created.length,
+        prospectIds:announcement.players.map(player=>player.id)
+      });
+      youth.history=youth.history.slice(0,100);
+      state.world.players=state.players;
+      state.generatedCount=state.players.filter(player=>player.generated).length;
+      addCareerInbox(state,{
+        id:"youth-announcement-"+club.id+"-"+intakeYear,
+        title:"Youth intake announced",
+        text:created.length+" academy prospects joined "+club.name+". Review their potential, hidden attributes and development plans in the squad.",
+        kind:"success",day:state.day
+      });
+      return {type:"announcement",year:intakeYear,created:created.length,players:created,announcement:announcement};
+    }
+    return {type:null,created:0};
+  }
   function normalizePlayer(p, fallbackClub) {
     p = p && typeof p === "object" && !Array.isArray(p) ? p : {};
     const position = ["GK","RB","CB","LB","DM","CM","AM","RW","LW","ST"].includes(p.position || p.pos) ? (p.position || p.pos) : "CM";
@@ -80,6 +190,11 @@
       dateOfBirth:p.dateOfBirth||p.dob||null,nationalTeam:p.nationalTeam||null,
       sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
       worldCupSnapshot:!!p.worldCupSnapshot,retired:!!p.retired,
+      CA:clamp(finiteNumber(p.CA,rawOverall*2),1,200),PA:clamp(finiteNumber(p.PA,potentialInput*2),1,200),
+      hiddenAttributes:p.hiddenAttributes&&typeof p.hiddenAttributes==="object"&&!Array.isArray(p.hiddenAttributes)?p.hiddenAttributes:null,
+      abilityEstimated:p.abilityEstimated===true,youthProspect:!!p.youthProspect,
+      youthIntakeYear:p.youthIntakeYear==null?null:finiteNumber(p.youthIntakeYear,0),
+      youthIntakeClubId:p.youthIntakeClubId||null,youthIntakeQuality:p.youthIntakeQuality||null,
       suspendedMatches:clamp(Math.floor(finiteNumber(p.suspendedMatches,0)),0,52),
       fantasyPrice:p.fantasyPrice==null?null:finiteNumber(p.fantasyPrice,0),fantasyPriceCurrency:p.fantasyPriceCurrency||null,
       fplStatus:p.fplStatus||null,minutes:Math.max(0,finiteNumber(p.minutes,0)),
@@ -94,6 +209,10 @@
     if (player.position !== "GK") player.attributes.goalkeeping = 1;
     player.overall = playerOverall(player);
     player.potential = Math.max(player.overall,player.potential);
+    player.hiddenAttributes=normalizedHiddenAttributes(player.hiddenAttributes,player.id,player.age);
+    player.abilityEstimated=p.abilityEstimated===false?false:
+      (p.abilityEstimated===true||p.CA==null||p.PA==null||!p.hiddenAttributes);
+    syncAbilityRatings(player);
     return player;
   }
   function clubStrength(players) {
