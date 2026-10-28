@@ -1,55 +1,61 @@
 # Touchline Manager
 
-محاكي إدارة نادي كرة قدم يعمل في المتصفح، بواجهة عربية ودعم للهواتف، وحفظ تلقائي محلي.
+An original browser-based football management simulator with Arabic base UI, mobile layout, local saves, and an optional **Advanced Career** layer. The advanced mode is designed as an original football-director experience; it is not a 1:1 reproduction of Football Manager Mobile or its proprietary UI/code/assets.
 
-**المستودع:** [GeKa121111/Football-manger-](https://github.com/GeKa121111/Football-manger-)
+## Run
 
-## التشغيل
+Open `index.html` through a static web server or publish the repository with GitHub Pages. Click **Advanced Career** in the top bar to launch the multi-screen career. The original Touchline experience remains available.
 
-1. افتح `index.html` من خلال متصفح حديث، أو انشر المستودع باستخدام GitHub Pages.
-2. ابدأ المسيرة مع القاهرة يونايتد، وعدّل الخطة والتكتيك.
-3. استخدم **محاكاة الجولة التالية** لتشغيل نتائج الدوري وتحديث ترتيب الأندية والميزانية.
-4. إدارة الفريق، التدريب، الانتقالات والمالية متاحة من شريط التنقل.
-5. تُحفظ المسيرة تلقائيًا في `localStorage` على نفس المتصفح والجهاز. زر **حفظ الآن** ينفّذ الحفظ فورًا.
+## Advanced mode includes
 
-> ملاحظة: هذا إصدار تأسيسي قابل للعب، وليس نسخة مكتملة أو مطابقة لـ Football Manager. بعض الأنظمة المتقدمة مذكورة في `docs/feature-matrix.md` كخطوات قادمة.
+- Pre-game setup for career, challenge and custom-club starts; manager identity, reputation, coaching style, nation selection (up to five) and club choice.
+- A curated seed list of 42 real clubs from England, Spain, Italy, Germany, France, Egypt and Saudi Arabia, with stadiums, kit colours and club budget estimates.
+- A limited set of identifiable player examples, a 1–20 attribute model, role/position weighted ratings, and explicitly labelled generated academy slots to make roster sizes playable.
+- League fixtures/tables, domestic-cup framework, a 36-team / eight-round continental schedule framework, match results and stats.
+- Tactical formations and instructions, drag-and-drop Canvas tactics board, squad numbers and 25-player registration, training, mentoring groups and team dynamics.
+- Player search, scouting assignments, transfer offers/counteroffers, wage budget validation, installments, player sales and contract renewals.
+- Board requests, club budget allocation and staff hiring/release.
+- Canvas match presentation with animated tokens/ball, clock, highlights/commentary, score/stats, 1×/2×/4× controls, half-time, touchline shouts and substitution controls.
+- JSON save export/import, database JSON import, optional football-data.org team/squad import, LocalStorage save plus IndexedDB backup where available.
+- Regression tests for core database, roster, fixture, match and training invariants.
 
-## الأنظمة الموجودة حاليًا
+## Data accuracy and licensing
 
-- 12 ناديًا افتراضيًا و240 لاعبًا مولّدًا بسمات وتقييم وإمكانات ولياقة وقيمة سوقية.
-- جدول دوري من 22 جولة ذهابًا وإيابًا (132 مباراة إجمالًا)، مع محاكاة نتائج الجولة كاملة وترتيب يعتمد على النقاط وفارق الأهداف والأهداف المسجلة.
-- إعدادات للتشكيل وأسلوب اللعب وعقلية الفريق تؤثر في قوة المحاكاة.
-- قائمة فريق أساسية، البحث عن اللاعبين، ومؤشرات اللياقة والتقييم.
-- سوق انتقالات مبسّط مع فحص الرصيد وحد القائمة ونافذتين للتعاقدات: بداية الموسم ومنتصفه.
-- حصة تدريب واحدة لكل جولة مع محاور للتطوير واللياقة والاستشفاء.
-- دخل ومصروفات أسبوعية، أجور، إيراد مباريات، وتكاليف انتقالات.
-- حفظ تلقائي، بدء مسيرة جديدة بعد تأكيد، وواجهة متجاوبة للموبايل.
-- Web App Manifest وService Worker لتخزين واجهة التطبيق للاستخدام بعد أول تحميل، حيث يدعم المتصفح ذلك.
+The bundled player roster is a small illustrative seed snapshot, **not a verified current 2026/27 dataset**. Clubs and some player examples are real, but the full squads are not. Procedurally generated academy slots are visibly marked and must not be mistaken for real people. The app does not fabricate wages or market values where imported feeds omit them. Before treating ages, club membership, shirt numbers, stadium capacities, salaries or valuations as authoritative, import and validate a current, licensed source. Player value/wage figures embedded in the starter seed are estimates for gameplay, not official payroll disclosures.
 
-## الاختبارات
+The optional football-data.org importer uses the user's own API token in a request header. Availability and completeness depend on the provider's competition coverage, token plan, CORS behavior and response schema. Its team/squad endpoint does not guarantee every attribute needed by a management simulation. Do not commit private API tokens into the repository.
 
-يتضمن المستودع اختبار دخان بدون مكتبات خارجية للتحقق من عدد الأندية واللاعبين والمباريات، محاكاة الجولة، تحديث الترتيب، التدريب مرة واحدة أسبوعيًا، والحفظ المحلي. يعمل تلقائيًا عبر GitHub Actions عند التعديل على `main`.
+The bundled 36-team continental screen is an **engine framework**, not a complete official qualification/seed system. Exact UEFA, CAF, AFC, domestic-cup, promotion/relegation and squad registration regulations require separately verified competition datasets and rules. The initial cup framework is simplified. It should not be advertised as a complete, official league pyramid.
 
-محليًا باستخدام Node.js 20 أو أحدث:
+## Save storage
+
+Careers are stored per browser/device. Use **Settings → Export save JSON** before clearing browser data or moving devices. Import a Touchline save JSON to continue the career. You can also import a JSON database shaped like:
+
+```json
+{
+  "source": "Your provider and update date",
+  "clubs": [{"id":"club-id","name":"Club Name","country":"Country","league":"League","stadium":"Ground","primary":"#123456","secondary":"#ffffff"}],
+  "players": [{"id":"player-id","name":"Player Name","clubId":"club-id","position":"ST","nationality":"Country","age":23,"shirt":9,"overall":75,"potential":84,"value":12000000,"wage":45000}]
+}
+```
+
+Missing player positions are filled with generated slots, clearly marked as generated. Import is best treated as replacing/updating the existing seed world rather than an official database sync.
+
+## Tests
+
+With Node.js 20 or newer:
 
 ```sh
 node --check app.js
+node --check advanced-data.js
+node --check advanced-engine.js
+node --check advanced-ui.js
 node tests/smoke.test.cjs
+node tests/advanced.test.cjs
 ```
 
-## خارطة الطريق
+GitHub Actions runs the checks and publishes static assets through GitHub Pages on pushes to `main`.
 
-راجع [مصفوفة الميزات](docs/feature-matrix.md) لتفاصيل ما تم بناؤه وما يحتاج إلى تطوير تالٍ. الأولوية القادمة هي جعل المحاكاة أكثر عمقًا وربط جودة التعاقدات والتدريب بالملاءمة التكتيكية، ثم تطوير نظام الأخبار والكؤوس والتفاوض والعقود والاستكشاف.
+## Known limits
 
-## النشر على GitHub Pages
-
-ملف النشر التلقائي موجود في المسار .github/workflows/deploy.yml، لكن لازم تفعّل مصدر النشر من إعدادات المستودع أول مرة:
-
-1. افتح [Settings → Pages](https://github.com/GeKa121111/Football-manger-/settings/pages).
-2. في **Build and deployment** غيّر **Source** إلى **GitHub Actions**.
-3. افتح تبويب **Actions**، ثم شغّل **Deploy Touchline Manager** أو أعد تشغيل آخر محاولة فاشلة.
-
-بعد نجاح الـ workflow، رابط الموقع المتوقع هو:
-[https://geka121111.github.io/Football-manger-/](https://geka121111.github.io/Football-manger-/)
-
-قبل تفعيل مصدر GitHub Actions، فشل خطوة النشر طبيعي لأن إعداد Pages غير موجود؛ اختبارات اللعبة نفسها منفصلة وتعمل بنجاح.
+This is a substantial playable expansion, not a complete commercial-grade Football Manager clone. The match Canvas uses an event-driven probabilistic result with animated visual tokens; players are not running an advanced pathfinding/ball-control physics AI. Full 25-player *real* rosters across all divisions, official transfer/wage data, exhaustive domestic and continental rules, real press conferences/AI transfer negotiations, and full Arabic localization are not bundled. These need trusted data feeds and further iteration.

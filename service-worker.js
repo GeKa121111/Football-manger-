@@ -1,5 +1,5 @@
-const CACHE_NAME = "touchline-manager-v1";
-const CORE_ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./icon.svg"];
+const CACHE_NAME = "touchline-manager-v2";
+const CORE_ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./advanced.css", "./advanced-data.js", "./advanced-engine.js", "./advanced-ui.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", function (event) {
   event.waitUntil(caches.open(CACHE_NAME).then(function (cache) {
