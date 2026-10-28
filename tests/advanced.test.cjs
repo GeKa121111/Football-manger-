@@ -125,4 +125,64 @@ assert.equal(importResult.clubs, 1, "JSON importer should read clubs");
 assert.equal(importResult.playersAdded, 1, "JSON importer should add players");
 assert.ok(importState.players.some(p => p.id === "test-player-1" && p.name === "Test Import Player"), "imported player should be retained");
 
+
+assert.ok(!global.FM_WORLD_DATA.players.some(p => /\\bDemo\\b/i.test(p.name)), "demo-labelled fake player records must not ship in the real-player seed");
+
+const nestedResult = engine.normalizeImportedWorld({
+  source: "nested real squad test",
+  clubs: [{
+    id: "provider-liverpool",
+    name: "Liverpool FC",
+    shortName: "Liverpool",
+    area: {name: "England"},
+    competition: {name: "Premier League"},
+    clubColors: "Red / White",
+    venue: "Anfield",
+    squad: [{
+      id: 888001, name: "Nested Import Striker", position: "Attacker",
+      dateOfBirth: "2000-04-11", nationality: "England", shirtNumber: 88,
+      marketValue: 12500000, contract: {until: "2029-06"}
+    }]
+  }],
+  players: []
+}, importState);
+assert.equal(nestedResult.playersAdded, 1, "players nested inside a club squad must be imported");
+assert.ok(importState.players.some(p => p.name === "Nested Import Striker" && p.clubId === "liv"), "suffix variants such as Liverpool FC should map to the seeded Liverpool club");
+assert.equal(importState.players.filter(p => p.clubId === "liv" && p.generated).length, 0, "generated slots should be removed for clubs with imported real squads");
+assert.ok(importState.realSquadClubIds.includes("liv"), "the world state should remember which clubs have real source squads");
+assert.equal(importState.players.find(p => p.name === "Nested Import Striker")?.value, 12500000, "market value should come through the provider mapping");
+
 console.log("Advanced simulation tests passed.");
+
+(async function testBatchRealSquadImport() {
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      competition: {name: "Premier League", code: "PL"},
+      teams: [{
+        id: 12345, name: "Liverpool FC", shortName: "Liverpool", tla: "LIV",
+        area: {name: "England"}, clubColors: "Red / White", venue: "Anfield",
+        squad: [{
+          id: 888002, name: "Batch API Midfielder", position: "Midfield",
+          dateOfBirth: "2002-01-22", nationality: "England", shirtNumber: 89,
+          marketValue: 8500000, contract: {until: "2028-06"}
+        }]
+      }]
+    })
+  });
+  try {
+    const report = await engine.importFootballDataBatch("PL", 2026, "test-token", importState);
+    assert.equal(report.successes.length, 1, "batch importer should count successfully imported competitions");
+    assert.ok(importState.players.some(p => p.name === "Batch API Midfielder" && p.clubId === "liv"), "batch importer should save real squad records into the matching club");
+    assert.equal(importState.players.filter(p => p.clubId === "liv" && p.generated).length, 0, "batch import should not refill imported squads with generated slots");
+    console.log("Real squad import tests passed.");
+  } finally {
+    global.fetch = originalFetch;
+  }
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
