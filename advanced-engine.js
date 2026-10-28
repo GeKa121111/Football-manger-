@@ -729,10 +729,21 @@
       const assist=state.players.find(p=>p.id===e.assistId);if(assist){assist.assists=(assist.assists||0)+1;assist.seasonStats=assist.seasonStats||{assists:0};assist.seasonStats.assists=(Number(assist.seasonStats.assists)||0)+1;}
     });
     result.events.filter(e=>e.type==="yellow"||e.type==="red").forEach(e=>{
-      const p=state.players.find(p=>p.id===e.playerId);if(p){
-        p.seasonStats=p.seasonStats||{yellowCards:0,redCards:0};
-        if(e.type==="yellow"){p.yellowCards=(p.yellowCards||0)+1;p.seasonStats.yellowCards=(Number(p.seasonStats.yellowCards)||0)+1;}
-        else{p.redCards=(p.redCards||0)+1;p.seasonStats.redCards=(Number(p.seasonStats.redCards)||0)+1;}
+      const p=state.players.find(p=>p.id===e.playerId);if(!p)return;
+      p.seasonStats=p.seasonStats||{yellowCards:0,redCards:0};
+      if(e.type==="yellow"){
+        p.yellowCards=(Number(p.yellowCards)||0)+1;
+        p.seasonStats.yellowCards=(Number(p.seasonStats.yellowCards)||0)+1;
+        const seasonYellows=p.seasonStats.yellowCards;
+        if(seasonYellows>0&&seasonYellows%5===0){
+          p.suspendedMatches=Math.max(0,Number(p.suspendedMatches)||0)+1;
+          state.inbox.unshift({id:"suspension-yellow-"+p.id+"-"+Date.now(),title:"Suspension: yellow-card threshold",text:p.name+" has reached "+seasonYellows+" yellow cards this season and will miss the next match.",kind:"warning",read:false,day:state.day});
+        }
+      }else{
+        p.redCards=(Number(p.redCards)||0)+1;
+        p.seasonStats.redCards=(Number(p.seasonStats.redCards)||0)+1;
+        p.suspendedMatches=Math.max(Number(p.suspendedMatches)||0,1);
+        state.inbox.unshift({id:"suspension-red-"+p.id+"-"+Date.now(),title:"Suspension after red card",text:p.name+" is suspended for the next match after a red card.",kind:"warning",read:false,day:state.day});
       }
     });
     result.events.filter(e=>e.type==="injury").forEach(e=>{
