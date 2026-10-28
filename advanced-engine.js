@@ -115,7 +115,8 @@
     return fixtures;
   }
   function buildUCL(clubs) {
-    const uefaCountries=["England","Spain","Italy","Germany","France"];\n    const entrants=clubs.filter(c=>uefaCountries.includes(c.country)).slice().sort((a,b)=>b.strength-a.strength).slice(0,36);
+    const uefaCountries=["England","Spain","Italy","Germany","France"];
+    const entrants=clubs.filter(c=>uefaCountries.includes(c.country)).slice().sort((a,b)=>b.strength-a.strength).slice(0,36);
     if(entrants.length<36) return {name:"Continental league phase",note:"Import more clubs to run a full 36-team phase.",teams:entrants.map(c=>c.id),fixtures:[]};
     const schedule=circleSchedule(entrants.map(c=>c.id),8).filter(f=>f.round<=8);
     schedule.forEach((f,i)=>{f.id="ucl-"+f.round+"-"+i;f.competition="ucl";f.date=null;});
