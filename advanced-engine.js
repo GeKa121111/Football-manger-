@@ -70,7 +70,7 @@
   }
   function generateRoster(club, existing, dbSize) {
     const roster = existing.filter(p=>p.clubId===club.id).map(p=>normalizePlayer(p,club.id));
-    const minimum = dbSize === "small" ? 18 : 25;
+    const minimum = dbSize === "large" ? 30 : 25;
     let next = 1;
     while(roster.length < minimum) {
       const pos = POSITIONS[(roster.length+club.id.length)%POSITIONS.length];
@@ -149,6 +149,64 @@
   function defaultTactics() {
     return {formation:"4-2-3-1",mentality:"Balanced",width:"Balanced",tempo:"Normal",passing:"Mixed",finalThird:"Work Ball Into Box",line:"Balanced",pressing:"Balanced",tackling:"Normal",offsideTrap:false,style:"Possession",roles:{},captainId:null,viceCaptainId:null,penaltyId:null,freeKickId:null,cornerId:null};
   }
+  function createDomesticCup(nation, clubs, season) {
+    const countryClubs=clubs.filter(c=>c.country===nation).slice().sort((a,b)=>b.strength-a.strength);
+    const names={"England":"FA Cup","Spain":"Copa del Rey","Italy":"Coppa Italia","Germany":"DFB-Pokal","France":"Coupe de France","Egypt":"Egypt Cup","Saudi Arabia":"King's Cup"};
+    const ids=countryClubs.map(c=>c.id);
+    const fixtures=[];
+    if(ids.length>=6){
+      fixtures.push({id:"cup-"+season+"-r1-1",homeId:ids[2],awayId:ids[5],round:1,competition:"cup",played:false,homeGoals:null,awayGoals:null,date:season+"-08-15",events:[]});
+      fixtures.push({id:"cup-"+season+"-r1-2",homeId:ids[3],awayId:ids[4],round:1,competition:"cup",played:false,homeGoals:null,awayGoals:null,date:season+"-08-15",events:[]});
+    } else {
+      for(let i=0;i+1<ids.length;i+=2)fixtures.push({id:"cup-"+season+"-r1-"+i,homeId:ids[i],awayId:ids[i+1],round:1,competition:"cup",played:false,homeGoals:null,awayGoals:null,date:season+"-08-15",events:[]});
+    }
+    return {name:names[nation]||"National Cup",nation:nation,season:season,stage:"Round of 6",round:1,byes:ids.slice(0,2),participants:ids,fixtures:fixtures,champion:null,complete:false,note:"Playable cup framework for clubs in the bundled sample nation; import a complete pyramid before treating entry rules as official."};
+  }
+  function simulateDomesticCupRound(state) {
+    const cup=state.domesticCup;if(!cup||cup.complete)return {ok:false,message:"The domestic cup is complete."};
+    const games=cup.fixtures.filter(f=>f.round===cup.round&&!f.played);
+    if(!games.length)return {ok:false,message:"No fixtures are scheduled for this cup round."};
+    const winners=[];
+    games.forEach(f=>{
+      const h=state.clubs.find(c=>c.id===f.homeId),a=state.clubs.find(c=>c.id===f.awayId);
+      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:defaultTactics(),f.awayId===state.userClubId?state.tactics:defaultTactics());
+      f.played=true;f.homeGoals=result.homeGoals;f.awayGoals=result.awayGoals;f.stats=result.stats;f.events=result.events;
+      let winnerId=f.homeGoals===f.awayGoals?(Math.random()<.5?f.homeId:f.awayId):(f.homeGoals>f.awayGoals?f.homeId:f.awayId);
+      f.winnerId=winnerId;winners.push(winnerId);
+      if(f.homeId===state.userClubId||f.awayId===state.userClubId)applyResult(state,f,result);
+    });
+    let advancing=winners;
+    if(cup.round===1)advancing=cup.byes.concat(winners);
+    if(cup.round===1||cup.round===2){
+      const nextRound=cup.round+1;
+      const nextFixtures=[];
+      for(let i=0;i+1<advancing.length;i+=2){
+        nextFixtures.push({id:"cup-"+cup.season+"-r"+nextRound+"-"+(i/2+1),homeId:advancing[i],awayId:advancing[i+1],round:nextRound,competition:"cup",played:false,homeGoals:null,awayGoals:null,date:null,events:[]});
+      }
+      cup.fixtures.push(...nextFixtures);cup.round=nextRound;cup.stage=nextRound===2?"Semi-finals":"Final";
+      if(!nextFixtures.length){cup.complete=true;cup.champion=advancing[0]||null;}
+      return {ok:true,message:cup.stage+" scheduled.",winners:advancing};
+    }
+    cup.complete=true;cup.champion=advancing[0]||games[0]?.winnerId||null;cup.stage="Completed";
+    state.inbox.unshift({id:"cup-champion-"+cup.season,title:cup.name+" champions",text:(state.clubs.find(c=>c.id===cup.champion)?.name||"A club")+" won the cup.",read:false,kind:"success",day:state.day});
+    if(cup.champion===state.userClubId)state.board.confidence=clamp(state.board.confidence+8,0,100);
+    return {ok:true,message:(state.clubs.find(c=>c.id===cup.champion)?.name||"A club")+" win the "+cup.name+".",champion:cup.champion};
+  }
+  function simulateContinentalRound(state) {
+    const c=state.continental;
+    if(!c||!c.fixtures.length)return {ok:false,message:"Import at least 36 clubs for the continental league phase."};
+    const next=c.fixtures.filter(f=>!f.played).reduce((n,f)=>Math.min(n||f.round,f.round),0);
+    if(!next)return {ok:false,message:"All continental fixtures have been played."};
+    let count=0;
+    c.fixtures.filter(f=>!f.played&&f.round===next).forEach(f=>{
+      const h=state.clubs.find(x=>x.id===f.homeId),a=state.clubs.find(x=>x.id===f.awayId);if(!h||!a)return;
+      const r=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:defaultTactics(),f.awayId===state.userClubId?state.tactics:defaultTactics());
+      f.played=true;f.homeGoals=r.homeGoals;f.awayGoals=r.awayGoals;f.stats=r.stats;f.events=r.events;count++;
+      if(f.homeId===state.userClubId||f.awayId===state.userClubId)applyResult(state,f,r);
+    });
+    c.lastRound=next;
+    return {ok:true,message:"Continental round "+next+" simulated ("+count+" matches).",round:next,count:count};
+  }
   function newCareer(options) {
     const world=makeWorld(options||{});
     const nation=(options&&options.primaryNation)||((options&&options.nations&&options.nations[0])||"England");
@@ -160,7 +218,7 @@
     const state={
       schemaVersion:1,mode:options.mode||"career",manager:{name:options.managerName||"Alex Manager",nationality:options.managerNationality||nation,reputation:Number(options.reputation||45),badge:options.badge||"Tactician",clubId:chosen.id},
       season:2026,seasonNumber:1,day:"2026-07-01",seasonDays:0,userClubId:chosen.id,nation:nation,playableNations:options.nations||[nation],databaseSize:options.databaseSize||"medium",
-      world:world,players:world.players,clubs:world.clubs,fixtures:world.calendar[chosen.league]||[],continental:buildUCL(world.clubs),tactics:defaultTactics(),
+      world:world,players:world.players,clubs:world.clubs,fixtures:world.calendar[chosen.league]||[],continental:buildUCL(world.clubs),domesticCup:createDomesticCup(nation,world.clubs,2026),tactics:defaultTactics(),
       finances:{balance:chosen.transferBudget,transferBudget:chosen.transferBudget,wageBudget:chosen.wageBudget,weeklyIncome:350000,weeklyCosts:0,seasonIncome:0,seasonCosts:0},
       board:{confidence:68,expectation:"Finish in the top half",objectives:["Maintain positive finances","Develop young talent"],lastReview:null},
       morale:76,harmony:72,trainingFocus:"Balanced",lastTrainingDay:null,week:0,matchPending:null,careerHistory:[],inbox:[{id:"welcome",day:"2026-07-01",title:"Welcome to the club",text:"Review your squad, set your tactical identity, and prepare for the first league fixture.",read:false,kind:"info"}],
@@ -427,7 +485,7 @@
     if(p.includes("offence")||p.includes("forward")||p.includes("attacker"))return "ST";
     return "CM";
   }
-  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,baseAttributes,defaultTactics};
+  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,baseAttributes,defaultTactics};
   root.FM_ENGINE=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
