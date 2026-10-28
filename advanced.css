@@ -394,3 +394,20 @@
 #advanced-root[dir="rtl"] .fm-clubhead,
 #advanced-root[dir="rtl"] .fm-managerhead { text-align: right; }
 #advanced-root[dir="rtl"] .fm-sidebar-version { direction: ltr; }
+
+/* Recovery checkpoints and local database views */
+.fm-loading-screen{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;color:var(--fm-text)}
+.fm-loading-screen .fm-mark{width:48px;height:48px;display:grid;place-items:center;border-radius:14px;background:var(--fm-lime);color:#101720;font-weight:1000;font-size:20px}
+.fm-loading-screen small{color:var(--fm-muted);font-size:11px}
+.fm-loading-screen.compact{min-height:auto;padding:12px;gap:6px}
+.fm-season-archive{margin:9px 0;padding:10px;border:1px solid var(--fm-line);border-radius:10px;background:var(--fm-panel)}
+.fm-season-archive summary{display:flex;flex-wrap:wrap;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.fm-season-archive summary::-webkit-details-marker{display:none}
+.fm-season-archive summary b{color:var(--fm-lime)}
+.fm-season-archive summary span{color:var(--fm-muted);font-size:11px}
+.fm-season-archive .fm-table-wrap{margin-top:12px}
+.fm-data-note{display:flex;flex-wrap:wrap;gap:7px 12px;padding:12px;margin-top:12px;border:1px solid var(--fm-line);border-radius:10px;background:rgba(118,182,255,.04);font-size:11px}
+.fm-data-note b{width:100%;color:var(--fm-text)}
+.fm-data-note span{color:var(--fm-muted)}
+@media(max-width:480px){.fm-season-archive summary{gap:6px}.fm-season-archive summary span{width:100%}.fm-data-note{gap:8px}}
+
