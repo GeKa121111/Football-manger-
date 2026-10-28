@@ -483,7 +483,7 @@
   function currentClub(state) { return state.clubs.find(c=>c.id===state.userClubId); }
   function squad(state,clubId) { return state.players.filter(p=>p.clubId===clubId); }
   function selectedXI(state,clubId) {
-    const list=squad(state,clubId).filter(p=>p.injuredWeeks<=0).slice();
+    const list=squad(state,clubId).filter(p=>Number(p.injuredWeeks||0)<=0&&Number(p.suspendedMatches||0)<=0).slice();
     const plan=FORMATIONS[state.tactics.formation]||FORMATIONS["4-2-3-1"],out=[],used=new Set();
     const isManaged=clubId===state.userClubId,manual=isManaged&&Array.isArray(state.tactics.startingXI)?state.tactics.startingXI:[];
     const byId=new Map(list.map(p=>[p.id,p]));
