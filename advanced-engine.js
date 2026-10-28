@@ -930,8 +930,27 @@
   }
   function finishSeason(state) {
     const standings=recalcStandings(state,state.fixtures);
+    const winningClubId=standings[0]?.clubId||null;
+    state.seasonArchives=Array.isArray(state.seasonArchives)?state.seasonArchives:[];
+    if(!state.seasonArchives.some(archive=>Number(archive.season)===Number(state.season))){
+      const managedClub=state.clubs.find(c=>c.id===state.userClubId);
+      const managedPlayers=state.players.filter(p=>p.clubId===state.userClubId&&!p.retired).map(p=>({
+        id:p.id,name:p.name,clubId:p.clubId,position:p.position,age:p.age,
+        CA:clamp(finiteNumber(p.CA,(Number(p.overall)||50)*2),1,200),
+        PA:clamp(Math.max(finiteNumber(p.CA,(Number(p.overall)||50)*2),finiteNumber(p.PA,(Number(p.potential)||50)*2)),1,200),
+        overall:p.overall,potential:p.potential,value:p.value,
+        stats:Object.assign({},p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0})
+      }));
+      state.seasonArchives.unshift({
+        season:Number(state.season),seasonNumber:Number(state.seasonNumber)||1,
+        clubId:state.userClubId,clubName:managedClub?.name||String(state.userClubId||"Club"),
+        champion:winningClubId,finalPosition:standings.findIndex(row=>row.clubId===state.userClubId)+1,
+        players:managedPlayers
+      });
+      state.seasonArchives=state.seasonArchives.slice(0,40);
+    }
     state.inbox.unshift({id:"season-"+state.seasonNumber,title:"Season review complete",text:(standings[0]?.name||"Winner")+" finished top of the league. Career season "+state.seasonNumber+" complete.",read:false,kind:"success",day:state.day});
-    state.careerHistory.push({type:"season",season:state.season,champion:standings[0]?.clubId||null,table:standings});
+    state.careerHistory.push({type:"season",season:state.season,champion:winningClubId,table:standings});
     state.players.forEach(p=>{
       p.seasonStats=p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
       p.seasonHistory=p.seasonHistory||[];
