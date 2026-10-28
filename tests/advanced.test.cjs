@@ -11,10 +11,19 @@ assert.equal(worldCup.license, "CC0 1.0 Universal", "World Cup source licence sh
 const deploymentWorkflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "deploy.yml"), "utf8");
 const pageHtml = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const serviceWorker = fs.readFileSync(path.join(__dirname, "..", "service-worker.js"), "utf8");
+const advancedCss = fs.readFileSync(path.join(__dirname, "..", "advanced.css"), "utf8");
+const mainCss = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 assert.ok(pageHtml.includes('src="advanced-player-data.js"'), "the app shell must load the real-player dataset");
 assert.ok(deploymentWorkflow.includes("advanced-player-data.js") && deploymentWorkflow.includes("dist/"),
   "the Pages build must copy the real-player dataset into the deploy artifact");
 assert.ok(serviceWorker.includes('"./advanced-player-data.js"'), "the offline cache must include the real-player dataset");
+assert.ok(advancedCss.includes("@media (max-width: 480px)") && advancedCss.includes("position: fixed; top: auto; bottom: 0"),
+  "advanced manager mobile CSS must provide a small-screen breakpoint and persistent bottom navigation");
+assert.ok(advancedCss.includes("env(safe-area-inset-bottom)") && advancedCss.includes("min-height: 42px"),
+  "advanced manager mobile controls must respect device safe areas and touch target sizing");
+assert.ok(mainCss.includes("@media (max-width: 420px)") && mainCss.includes("overscroll-behavior-x: contain"),
+  "main shell mobile styles must handle narrow screens and horizontal table scrolling");
+assert.ok(serviceWorker.includes('touchline-manager-v4'), "mobile styles require a new offline cache version so existing installs refresh CSS");
 assert.ok(worldCup.players.some(p => p.name === "Kylian Mbappé" || p.name === "Kylian Mbappe"), "real national-team players should be bundled");
 assert.ok(worldCup.players.every(p => p.clubName && p.dateOfBirth && p.nationalTeam), "source snapshot should include player club, DOB and national team fields");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Mohamed Salah"), "known seed player should exist");
