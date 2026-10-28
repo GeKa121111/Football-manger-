@@ -632,8 +632,8 @@
     const importedSquadClubIds=new Set(Array.isArray(state.realSquadClubIds)?state.realSquadClubIds:[]);
     playersIn.forEach(p=>{
       const clubKey=String(p.clubId||p.teamId||p.club||p.team||"");
-      const mapped=idMap.get(clubKey);
-      const club= mapped||state.clubs.find(c=>c.id===clubKey||normalizeClubName(c.name)===normalizeClubName(clubKey));
+      const mappedId=idMap.get(clubKey);
+      const club=(mappedId&&state.clubs.find(c=>c.id===mappedId))||state.clubs.find(c=>c.id===clubKey||normalizeClubName(c.name)===normalizeClubName(clubKey));
       if(club)importedSquadClubIds.add(club.id);
       const existing=state.players.find(x=>x.name.toLowerCase()===String(p.name||"").toLowerCase()&&x.clubId===(club&&club.id));
       const src=Object.assign({},p,{clubId:club?club.id:null,realData:true,generated:false,source:data.source||"JSON dataset",
