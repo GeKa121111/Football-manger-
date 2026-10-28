@@ -1,8 +1,13 @@
 const assert = require("node:assert/strict");
 const data = require("../advanced-data.js");
+const worldCup = require("../advanced-player-data.js");
 const engine = require("../advanced-engine.js");
 
 assert.equal(global.FM_WORLD_DATA.clubs.length, 222, "expanded database should include 222 club seeds across 27 football markets");
+assert.equal(worldCup.playerCount, 1248, "registered 2026 World Cup snapshot should contain 1248 players");
+assert.equal(worldCup.license, "CC0 1.0 Universal", "World Cup source licence should be recorded");
+assert.ok(worldCup.players.some(p => p.name === "Kylian Mbappé" || p.name === "Kylian Mbappe"), "real national-team players should be bundled");
+assert.ok(worldCup.players.every(p => p.clubName && p.dateOfBirth && p.nationalTeam), "source snapshot should include player club, DOB and national team fields");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Mohamed Salah"), "known seed player should exist");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Erling Haaland"), "known seed player should exist");
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.name === "Al Ahly"), "Egyptian clubs should be represented");
@@ -27,9 +32,16 @@ const state = engine.newCareer({
   clubId: "liv"
 });
 assert.equal(state.userClubId, "liv", "chosen club should be used");
-assert.equal(state.clubs.length, 222, "world should retain global transfer-market clubs");
+assert.ok(state.clubs.length > 500, "world should also include clubs referenced by real World Cup player records");
 assert.equal(state.playableNations.length, 3, "career should keep selected playable nation list");
-assert.equal(state.players.length, 222 * 25, "medium world should have 25-player roster slots per club");
+assert.ok(state.players.length > 1248, "world should include the real World Cup player snapshot plus playable rosters");
+assert.ok(state.players.filter(p=>p.worldCupSnapshot).length >= 1200, "at least 1200 real snapshot player records should be present in the world");
+for (const seededClub of global.FM_WORLD_DATA.clubs) {
+  const seededSquad=state.players.filter(p=>p.clubId===seededClub.id);
+  assert.ok(seededSquad.length>=25, "every seeded club should have at least 25 player records: "+seededClub.name);
+}
+assert.ok(state.players.filter(p=>p.worldCupSnapshot).every(p=>p.realData&&!p.generated), "real snapshot players must not be marked as generated");
+assert.ok(state.players.filter(p=>p.wageEstimated).length>0, "unknown player wages should be marked as estimated");
 assert.equal(new Set(state.players.map(p => p.id)).size, state.players.length, "player ids must be unique");
 for (const club of state.clubs) {
   const roster = state.players.filter(p => p.clubId === club.id);
