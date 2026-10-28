@@ -31,7 +31,7 @@ assert.ok(advancedCss.includes("env(safe-area-inset-bottom)") && advancedCss.inc
   "advanced manager mobile controls must respect device safe areas and touch target sizing");
 assert.ok(mainCss.includes("@media (max-width: 420px)") && mainCss.includes("overscroll-behavior-x: contain"),
   "main shell mobile styles must handle narrow screens and horizontal table scrolling");
-assert.ok(serviceWorker.includes('touchline-manager-v19'), "IndexedDB persistence requires a fresh offline cache version");
+assert.ok(serviceWorker.includes('touchline-manager-v20'), "the spatial simulation requires a fresh offline cache version");
 assert.ok(serviceWorker.includes('"./simulation-worker.js"'), "offline cache should include the simulation worker");
 assert.ok(serviceWorker.includes('"./career-storage.js"'), "offline cache should include the career storage module");
 assert.doesNotThrow(() => new Function(simulationWorkerSource), "simulation worker source should be valid JavaScript");
