@@ -102,6 +102,7 @@ assert.equal(state.players.length, 240, "initial world should contain 20 players
 assert.equal(new Set(state.players.map((player) => player.id)).size, 240, "player IDs should be unique");
 assert.ok(state.players.filter((player) => player.position === "GK").every((player) => Number.isFinite(player.goalkeeping) && player.goalkeeping >= 35 && player.goalkeeping <= 98), "goalkeepers should have a valid goalkeeping attribute");
 assert.ok(state.players.filter((player) => player.position !== "GK").every((player) => player.goalkeeping === 0), "outfield players must not have goalkeeper skill");
+assert.ok(state.players.some((player) => player.id === state.tactics.captainId && player.clubId === state.userClubId), "a new career should appoint an eligible club captain");
 assert.equal(state.fixtures.length, 132, "double round-robin schedule should contain 132 fixtures");
 assert.equal(Math.max(...state.fixtures.map((fixture) => fixture.round)), 22, "a 12-club season should have 22 rounds");
 const firstLegFixtures = state.fixtures.filter((fixture) => fixture.round <= 11);
@@ -250,6 +251,14 @@ assert.ok(state.players.filter((player) => player.position !== "GK").every((play
 game.change("trainingFocus", "fitness");
 state = game.savedState();
 assert.equal(state.tactics.trainingFocus, "fitness", "tactical/training settings should persist");
+const newCaptain = state.players.find((player) => player.clubId === state.userClubId && player.id !== state.tactics.captainId);
+assert.ok(newCaptain, "another first-team player should be available for captaincy");
+game.change("captainId", newCaptain.id);
+state = game.savedState();
+assert.equal(state.tactics.captainId, newCaptain.id, "captain selection should persist");
+game.change("captainId", "");
+state = game.savedState();
+assert.equal(state.tactics.captainId, null, "captaincy can be cleared from the tactics screen");
 game.click("run-training");
 state = game.savedState();
 assert.equal(state.lastTrainingRound, 1, "training should be limited to once per round");
