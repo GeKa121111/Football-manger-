@@ -91,6 +91,7 @@
     });
   }
   function positionFit(actual, wanted) {
+    if ((actual === "GK") !== (wanted === "GK")) return -100;
     if (actual === wanted) return 7;
     const groups = {
       GK: ["GK"], LB: ["LB", "RB", "CB"], RB: ["RB", "LB", "CB"], CB: ["CB", "LB", "RB"],
@@ -119,6 +120,7 @@
         contractYears: randomInt(1, 4),
         value: Math.round((Math.max(1, overall - 42) * (age < 23 ? 330000 : 245000) * (potential > overall + 8 ? 1.4 : 1)) / 100000) * 100000,
         goals: 0, assists: 0, appearances: 0, yellowCards: 0, injuredWeeks: 0, trainingXp: 0,
+        goalkeeping: pos === "GK" ? clamp(skillBase + randomInt(2, 7), 35, 98) : 0,
         finishing: clamp(skillBase + (pos === "ST" ? 7 : pos.indexOf("W") >= 0 ? 3 : -2), 35, 95),
         passing: clamp(skillBase + (["CM", "AM", "DM"].indexOf(pos) >= 0 ? 6 : -1), 35, 95),
         defending: clamp(skillBase + (["CB", "LB", "RB", "DM"].indexOf(pos) >= 0 ? 7 : -6), 30, 95),
@@ -229,6 +231,11 @@
       if (!Number.isFinite(p.goals)) p.goals = 0;
       if (!Number.isFinite(p.assists)) p.assists = 0;
       if (!Number.isFinite(p.wage)) p.wage = Math.round((p.overall * 620 + 10000) / 100) * 100;
+      if (p.position === "GK") {
+        if (!Number.isFinite(p.goalkeeping) || p.goalkeeping < 1) p.goalkeeping = clamp(p.overall, 35, 98);
+      } else {
+        p.goalkeeping = 0;
+      }
     });
     return saved;
   }
@@ -284,9 +291,28 @@
   }
 
   function currentUserStrength() {
-    const xi = bestXI();
+    const xi = bestXI().filter(Boolean);
     if (!xi.length) return 50;
     return xi.reduce(function (sum, p) { return sum + p.overall; }, 0) / xi.length;
+  }
+
+  function roleAttributeScore(player, wanted) {
+    const weights = {
+      GK: { overall: 0.35, goalkeeping: 0.55, defending: 0.05, passing: 0.05 },
+      LB: { overall: 0.30, defending: 0.20, pace: 0.20, passing: 0.20, finishing: 0.10 },
+      RB: { overall: 0.30, defending: 0.20, pace: 0.20, passing: 0.20, finishing: 0.10 },
+      CB: { overall: 0.35, defending: 0.30, pace: 0.15, passing: 0.15, finishing: 0.05 },
+      DM: { overall: 0.30, defending: 0.25, passing: 0.25, pace: 0.08, finishing: 0.12 },
+      CM: { overall: 0.30, passing: 0.30, defending: 0.15, finishing: 0.15, pace: 0.10 },
+      AM: { overall: 0.30, passing: 0.25, finishing: 0.25, pace: 0.15, defending: 0.05 },
+      LW: { overall: 0.30, pace: 0.25, finishing: 0.25, passing: 0.15, defending: 0.05 },
+      RW: { overall: 0.30, pace: 0.25, finishing: 0.25, passing: 0.15, defending: 0.05 },
+      ST: { overall: 0.30, finishing: 0.40, pace: 0.15, passing: 0.10, defending: 0.05 }
+    };
+    const roleWeights = weights[wanted] || weights.CM;
+    return Object.keys(roleWeights).reduce(function (sum, attribute) {
+      return sum + (Number(player[attribute]) || 0) * roleWeights[attribute];
+    }, 0);
   }
 
   function bestXI(clubId) {
@@ -297,8 +323,9 @@
     return formation.map(function (wanted) {
       let bestIndex = -1, bestScore = -Infinity;
       available.forEach(function (p, i) {
+        if ((p.position === "GK") !== (wanted === "GK")) return;
         const fitnessPenalty = p.fitness < 60 ? 5 : p.fitness < 75 ? 2 : 0;
-        const score = p.overall + positionFit(p.position, wanted) - fitnessPenalty + (p.morale >= 75 ? 0.5 : 0);
+        const score = roleAttributeScore(p, wanted) + positionFit(p.position, wanted) - fitnessPenalty + (p.morale >= 75 ? 0.5 : 0);
         if (score > bestScore) { bestIndex = i; bestScore = score; }
       });
       if (bestIndex < 0) return null;
@@ -684,9 +711,15 @@
   function teamPower(clubId, isHome) {
     const club = clubById(clubId);
     if (!club) return 50;
-    const xi = bestXI(clubId).filter(Boolean);
+    const selectedXI = bestXI(clubId);
+    const xi = selectedXI.filter(Boolean);
     if (!xi.length) return club.strength - 12 + (isHome ? 2.8 : 0);
     const avg = xi.reduce(function (sum, p) { return sum + p.overall; }, 0) / xi.length;
+    const formation = clubId === state.userClubId ? (FORMATIONS[state.tactics.formation] || POSITION_ORDER) : POSITION_ORDER;
+    const roleTotal = selectedXI.reduce(function (sum, p, index) {
+      return p ? sum + roleAttributeScore(p, formation[index] || p.position) : sum;
+    }, 0);
+    const roleAverage = roleTotal / xi.length;
     const fitness = xi.reduce(function (sum, p) { return sum + p.fitness; }, 0) / xi.length;
     const morale = xi.reduce(function (sum, p) { return sum + p.morale; }, 0) / xi.length;
     const attackers = xi.filter(function (p) { return ["ST", "LW", "RW", "AM"].indexOf(p.position) >= 0; });
@@ -697,7 +730,7 @@
     const managerTactics = clubId === state.userClubId ? tacticalAttack() * .55 + tacticalDefense() * .25 : 0;
     const fitnessPenalty = fitness < 60 ? -5 : fitness < 75 ? -2 : (fitness - 80) / 20;
     const moraleBonus = (morale - 65) / 25;
-    return avg + (isHome ? 2.8 : 0) + managerTactics + skillBalance + fitnessPenalty + moraleBonus;
+    return avg * 0.35 + roleAverage * 0.65 + (isHome ? 2.8 : 0) + managerTactics + skillBalance + fitnessPenalty + moraleBonus;
   }
 
   function chooseWeightedPlayer(players, attribute) {
