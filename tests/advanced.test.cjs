@@ -420,3 +420,34 @@ assert.ok(disciplineState.inbox.some(m => m.title === "Suspension after red card
 assert.ok(disciplineState.inbox.some(m => m.title === "Suspension: yellow-card threshold"),
   "yellow-card threshold suspension should be communicated through the inbox");
 console.log("Matchday lookup and discipline suspension tests passed.");
+
+// Transfer finance regression: zero-upfront deals remain zero-upfront and reserve the full fee against the transfer budget.
+const installmentState = engine.newCareer({
+  mode: "career", managerName: "Installment Finance Test", primaryNation: "England",
+  nations: ["England"], databaseSize: "small", clubId: "liv"
+});
+installmentState.day = "2026-07-15";
+installmentState.finances.transferBudget = 10000000;
+installmentState.finances.balance = 10000000;
+installmentState.finances.wageBudget = 1000000;
+installmentState.finances.weeklyCosts = 0;
+const installmentTarget = installmentState.players.find(p => p.clubId && p.clubId !== installmentState.userClubId && !p.generated && !p.retired);
+assert.ok(installmentTarget, "installment test requires a player at another club");
+installmentTarget.value = 2000000;
+installmentTarget.valueEstimated = true;
+installmentTarget.wage = 1000;
+const installmentBudgetBefore = installmentState.finances.transferBudget;
+const installmentBalanceBefore = installmentState.finances.balance;
+const installmentDeal = engine.negotiateTransfer(installmentState, installmentTarget.id, {
+  fee: 2000000, upfront: 0, installmentMonths: 4, wage: 1000, years: 3, signingBonus: 0
+});
+assert.equal(installmentDeal.ok, true, "a valid fully-deferred transfer should be accepted in an open window");
+assert.equal(installmentState.finances.balance, installmentBalanceBefore, "a zero-upfront deal must not charge the fee immediately");
+assert.equal(installmentState.finances.transferBudget, installmentBudgetBefore - 2000000,
+  "the full agreed fee must be reserved from the transfer budget, not only the upfront payment");
+const installmentRecord = installmentState.transfers.find(t => t.type === "installments" && t.playerId === installmentTarget.id);
+assert.ok(installmentRecord, "deferred transfer balance must be recorded for monthly settlement");
+assert.equal(installmentRecord.remaining, 2000000, "all of the fee should remain payable after zero upfront");
+assert.equal(installmentRecord.monthsRemaining, 4, "installment term should be preserved");
+assert.equal(installmentRecord.monthly, 500000, "installment amount should be calculated from the agreed term");
+console.log("Transfer installment accounting tests passed.");
