@@ -817,7 +817,7 @@
     if(a==="open-inbox-item"){const msg=state.inbox.find(x=>x.id===action.dataset.message);if(msg){msg.read=true;showModal("inbox");save();}return;}
     if(a==="mark-read"){const msg=state.inbox.find(x=>x.id===action.dataset.message);if(msg)msg.read=true;save();showModal("inbox");return;}
     if(a==="mark-all-read"){state.inbox.forEach(x=>x.read=true);save();showModal("inbox");return;}
-    if(a==="save-now"){save(true,"manual").then(result=>toast(result&&result.ok?"Career saved with a recovery checkpoint.":"Career save failed; export a JSON backup.",result&&result.ok?"success":"warning"));return;}
+    if(a==="save-now"){save(true,"manual").then(result=>{const persisted=!!(result&&result.ok),indexed=!!(result&&result.storage==="indexedDB");toast(!persisted?"Career save failed; export a JSON backup.":indexed?"Career saved with a recovery checkpoint.":"Career saved to browser storage; recovery history requires IndexedDB.",persisted?"success":"warning");});return;}
     if(a==="save-history"){openSaveHistory();return;}
     if(a==="restore-save-snapshot"){restoreSaveSnapshot(action.dataset.snapshot);return;}
     if(a==="export-save"){const payload=E.exportData(state);save(true,"export").then(result=>{download("touchline-career-"+state.day+".json",payload);toast(result&&result.ok?"Career JSON exported; a recovery checkpoint was saved.":"Career JSON exported. Keep this file as a backup.",result&&result.ok?"success":"warning");});return;}
