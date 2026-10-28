@@ -73,6 +73,15 @@ const zeroVitalsPlayer = engine.normalizePlayer({
 });
 assert.equal(zeroVitalsPlayer.fitness, 0, "normalizing a saved player must not restore fitness when it is genuinely zero");
 assert.equal(zeroVitalsPlayer.morale, 0, "normalizing a saved player must not restore morale when it is genuinely zero");
+const nullVitalsPlayer = engine.normalizePlayer({
+  id:"null-vitals-regression",name:"Null Vitals Test",position:"CM",
+  fitness:null,morale:null,age:null,contractYears:null,
+  attributes:Object.fromEntries(engine.ATTRS.map(key=>[key,10]))
+});
+assert.equal(nullVitalsPlayer.fitness, 94, "null fitness should use the missing-value default");
+assert.equal(nullVitalsPlayer.morale, 72, "null morale should use the missing-value default");
+assert.equal(nullVitalsPlayer.age, 19, "null age should use the missing-value default");
+assert.equal(nullVitalsPlayer.contractYears, 2, "null contract length should use the missing-value default");
 const malformedNumericPlayer = engine.normalizePlayer({
   id:"malformed-numeric-regression",name:"Malformed Numeric Test",position:"ST",
   age:"not-a-number",overall:"broken",potential:"broken",value:"broken",wage:"broken",
