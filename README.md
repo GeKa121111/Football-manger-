@@ -1,6 +1,6 @@
 # Touchline Manager
 
-An original browser-based football management simulator with Arabic base UI, mobile layout, local saves, and an optional **Advanced Career** layer. The advanced mode is designed as an original football-director experience; it is not a 1:1 reproduction of Football Manager Mobile or its proprietary UI/code/assets.
+An original browser-based football management simulator with Arabic base UI, mobile layout, local saves, and an optional **Advanced Career** layer. The Advanced Career layer supports an English/Arabic interface switch, Arabic number/currency/date formatting, and RTL layout. The advanced mode is designed as an original football-director experience; it is not a 1:1 reproduction of Football Manager Mobile or its proprietary UI/code/assets.
 
 ## Run
 
