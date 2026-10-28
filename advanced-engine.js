@@ -87,6 +87,7 @@
     const minimum = dbSize === "large" ? 30 : 25;
     let next = 1;
     while(roster.length < minimum) {
+      while(roster.some(p=>p.id==="academy-"+club.id+"-"+String(next).padStart(2,"0")))next++;
       const pos = POSITIONS[(roster.length+club.id.length)%POSITIONS.length];
       const overall = clamp(Math.round(club.strength || 58) - rand(5,18),35,78);
       const p = normalizePlayer({
@@ -268,6 +269,106 @@
         "Clubs discovered only through national-team rosters are included with tier, stadium, kit colours and budgets marked as unverified; they do not receive invented league fixtures."
       ]:[])};
   }
+
+  function mergeBundledRealPlayers(state) {
+    const bundle=root.FM_WORLD_CUP_DATA;
+    if(!state||!Array.isArray(state.players)||!Array.isArray(state.clubs))throw new Error("A loaded career is required.");
+    if(!bundle||!Array.isArray(bundle.players)||!bundle.players.length)throw new Error("The bundled real-player dataset is missing.");
+    if(state.bundledRealDataImported&&state.players.some(p=>p.worldCupSnapshot)){
+      return {alreadyImported:true,playersAdded:0,playersUpdated:0,clubsAdded:0,realPlayers:state.players.filter(p=>p.worldCupSnapshot).length,generated:state.players.filter(p=>p.generated).length};
+    }
+    const freshWorld=makeWorld({nations:state.playableNations||[state.nation||"England"],databaseSize:state.databaseSize||"medium"});
+    const remap=new Map();
+    let clubsAdded=0;
+    freshWorld.clubs.forEach(sourceClub=>{
+      let found=state.clubs.find(c=>c.id===sourceClub.id);
+      if(!found){
+        found=state.clubs.find(c=>c.country===sourceClub.country
+          &&normalizeClubName(c.name)===normalizeClubName(sourceClub.name)
+          &&(!!c.unverifiedDivision===!!sourceClub.unverifiedDivision||!sourceClub.unverifiedDivision));
+      }
+      if(!found){
+        found=Object.assign({},sourceClub);
+        state.clubs.push(found);clubsAdded++;
+      }
+      remap.set(sourceClub.id,found.id);
+    });
+    const snapshotPlayers=freshWorld.players.filter(p=>p.worldCupSnapshot);
+    const snapshotNames=new Set(snapshotPlayers.map(p=>normalizePersonName(p.name)));
+    let playersAdded=0,playersUpdated=0,playersMoved=0;
+    snapshotPlayers.forEach(source=>{
+      const targetClubId=remap.get(source.clubId)||source.clubId;
+      const nameKey=normalizePersonName(source.name);
+      const sameName=state.players.filter(p=>!p.generated&&normalizePersonName(p.name)===nameKey);
+      let existing=sameName.find(p=>p.clubId===targetClubId)
+        ||sameName.find(p=>p.dateOfBirth&&source.dateOfBirth&&String(p.dateOfBirth).slice(0,10)===String(source.dateOfBirth).slice(0,10))
+        ||(sameName.length===1?sameName[0]:null);
+      if(existing){
+        const old=Object.assign({},existing);
+        const oldId=existing.id;
+        if(old.clubId!==targetClubId)playersMoved++;
+        Object.assign(existing,source,{
+          id:oldId,clubId:targetClubId,
+          goals:Number(old.goals)||0,assists:Number(old.assists)||0,
+          form:Array.isArray(old.form)?old.form:source.form,
+          contractYears:old.contractYears==null?source.contractYears:old.contractYears,
+          fitness:old.fitness==null?source.fitness:old.fitness,
+          morale:old.morale==null?source.morale:old.morale,
+          injuredWeeks:Number(old.injuredWeeks)||0,
+          attributes:old.attributes||source.attributes,
+          overall:Number(old.overall)||source.overall,
+          potential:Number(old.potential)||source.potential,
+          wage:old.wageKnown&&Number(old.wage)>0?old.wage:source.wage,
+          wageKnown:old.wageKnown===true&&Number(old.wage)>0,
+          wageEstimated:!(old.wageKnown===true&&Number(old.wage)>0),
+          value:Number(old.value)>0?old.value:source.value,
+          valueEstimated:Number(old.value)>0?old.valueEstimated!==false:true,
+          registered:old.clubId===targetClubId?old.registered:false,
+          worldCupSnapshot:true,realData:true,generated:false,
+          source:source.source||bundle.source
+        });
+        playersUpdated++;
+      }else{
+        state.players.push(Object.assign({},source,{clubId:targetClubId,registered:false,worldCupSnapshot:true,realData:true,generated:false}));
+        playersAdded++;
+      }
+    });
+    // If a legacy seed record for a source-snapshot player remains at an outdated club, keep only its upgraded snapshot profile.
+    state.players=state.players.filter(p=>p.generated||!snapshotNames.has(normalizePersonName(p.name))||p.worldCupSnapshot);
+    // Keep every seeded/active domestic squad playable without inventing registrations for source-only clubs.
+    state.clubs.filter(c=>!c.unverifiedDivision).forEach(c=>{
+      let roster=state.players.filter(p=>p.clubId===c.id);
+      if(roster.length>25){
+        const excess=roster.length-25;
+        const removable=roster.filter(p=>p.generated).sort((a,b)=>{
+          const pa=(Number(a.goals)||0)+(Number(a.assists)||0),pb=(Number(b.goals)||0)+(Number(b.assists)||0);
+          return pa-pb||(Number(a.overall)||0)-(Number(b.overall)||0);
+        }).slice(0,excess);
+        const removeIds=new Set(removable.map(p=>p.id));
+        state.players=state.players.filter(p=>!removeIds.has(p.id));
+        roster=state.players.filter(p=>p.clubId===c.id);
+      }
+      if(roster.length<25){
+        const generated=generateRoster(c,roster,"large");
+        generated.forEach(p=>{if(!state.players.some(x=>x.id===p.id)&&state.players.filter(x=>x.clubId===c.id).length<25)state.players.push(p);});
+      }
+    });
+    state.bundledRealDataImported=true;
+    state.worldCupPlayers=snapshotPlayers.length;
+    state.world=state.world||freshWorld;
+    state.world.clubs=state.clubs;state.world.players=state.players;
+    state.world.worldCupSource=bundle.source;state.world.worldCupSnapshotDate=bundle.snapshotDate;
+    state.world.worldCupPlayers=snapshotPlayers.length;
+    state.world.realRosterClubCount=new Set(snapshotPlayers.map(p=>remap.get(p.clubId)||p.clubId)).size;
+    state.world.sourceSeason=(state.world.sourceSeason||"Touchline career")+" · "+snapshotPlayers.length+" bundled real World Cup players";
+    state.world.notes=state.world.notes||[];
+    state.world.notes.unshift("Bundled real-player data added to this career on "+state.day+": "+playersAdded+" new player profiles, "+playersUpdated+" updated, "+playersMoved+" club affiliations reconciled.");
+    state.generatedCount=state.players.filter(p=>p.generated).length;
+    if(state.settings)state.settings.databaseSource=state.world.sourceSeason;
+    state.inbox=state.inbox||[];
+    state.inbox.unshift({id:"bundled-real-player-update-"+Date.now(),day:state.day,title:"Real-player database updated",text:snapshotPlayers.length+" source-listed World Cup players are now included in this career. Unverified affiliations and estimated ratings/valuations are marked as such.",read:false,kind:"success"});
+    return {alreadyImported:false,playersAdded:playersAdded,playersUpdated:playersUpdated,playersMoved:playersMoved,clubsAdded:clubsAdded,realPlayers:snapshotPlayers.length,generated:state.generatedCount};
+  }
   function defaultTactics() {
     return {formation:"4-2-3-1",mentality:"Balanced",width:"Balanced",tempo:"Normal",passing:"Mixed",finalThird:"Work Ball Into Box",line:"Balanced",pressing:"Balanced",tackling:"Normal",offsideTrap:false,style:"Possession",roles:{},captainId:null,viceCaptainId:null,penaltyId:null,freeKickId:null,cornerId:null};
   }
@@ -339,7 +440,7 @@
     const clubPlayers=world.players.filter(p=>p.clubId===chosen.id);
     const state={
       schemaVersion:1,mode:options.mode||"career",manager:{name:options.managerName||"Alex Manager",nationality:options.managerNationality||nation,reputation:Number(options.reputation||45),badge:options.badge||"Tactician",clubId:chosen.id},
-      season:2026,seasonNumber:1,day:"2026-07-01",seasonDays:0,userClubId:chosen.id,nation:nation,playableNations:options.nations||[nation],databaseSize:options.databaseSize||"medium",
+      season:2026,seasonNumber:1,day:"2026-07-01",seasonDays:0,userClubId:chosen.id,nation:nation,playableNations:options.nations||[nation],databaseSize:options.databaseSize||"medium",bundledRealDataImported:!!world.worldCupPlayers,worldCupPlayers:world.worldCupPlayers||0,
       world:world,players:world.players,clubs:world.clubs,fixtures:world.calendar[chosen.league]||[],continental:buildUCL(world.clubs),domesticCup:createDomesticCup(nation,world.clubs,2026),tactics:defaultTactics(),
       finances:{balance:chosen.transferBudget,transferBudget:chosen.transferBudget,wageBudget:chosen.wageBudget,weeklyIncome:350000,weeklyCosts:0,seasonIncome:0,seasonCosts:0},
       board:{confidence:68,expectation:"Finish in the top half",objectives:["Maintain positive finances","Develop young talent"],lastReview:null},
@@ -815,7 +916,7 @@
     if(p.includes("offence")||p.includes("forward")||p.includes("attacker"))return "ST";
     return "CM";
   }
-  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
+  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,mergeBundledRealPlayers,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
   root.FM_ENGINE=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
