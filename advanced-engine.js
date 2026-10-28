@@ -930,7 +930,7 @@
     roundFixtures.forEach(f=>{
       const h=state.clubs.find(c=>c.id===f.homeId),a=state.clubs.find(c=>c.id===f.awayId);
       if(!h||!a)return;
-      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?userT:aiTactics(h,state.season),f.awayId===state.userClubId?userT:aiTactics(a,state.season));
+      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?userT:aiTactics(h,state.season),f.awayId===state.userClubId?userT:aiTactics(a,state.season),{seed:String(state.season)+"|"+String(state.day)+"|"+String(f.id||f.homeId+"-"+f.awayId)});
       applyResult(state,f,result);
     });
     return recalcStandings(state,state.fixtures);

@@ -652,14 +652,15 @@
     const all=homePlayers.concat(awayPlayers);
     const spatialTrace=live.result&&live.result.spatial&&live.result.spatial.trace;
     if(Array.isArray(spatialTrace)&&spatialTrace.length){
-      const index=clampCanvas(live.minute/90, H) < 0 ? 0 : Math.min(spatialTrace.length-1,Math.max(0,Math.floor(live.minute/90*(spatialTrace.length-1))));
+      const progress=Math.max(0,Math.min(1,Number(live.minute||0)/90));
+      const index=Math.min(spatialTrace.length-1,Math.max(0,Math.floor(progress*(spatialTrace.length-1))));
       const frame=spatialTrace[index];
-      const rosterById=new Map(state.players.map(p=>[String(p.id),p]));
+      const rosterById=live.spatialPlayersById||(live.spatialPlayersById=new Map(state.players.map(p=>[String(p.id),p])));
       (frame.players||[]).forEach((simPlayer,i)=>{
         const p=rosterById.get(String(simPlayer.id));if(!p)return;
         const isHome=simPlayer.team===0;
         const teamClub=isHome?h:a;
-        const x=W*(.08+simPlayer.x/(spatialTrace.length?13:13)*.84);
+        const x=W*(.08+simPlayer.x/13*.84);
         const y=H*(.07+simPlayer.y/8*.86);
         drawToken(ctx,x,y,String(p.shirt||simPlayer.shirt||((i%11)+1)),teamClub.primary,p.name,p.id,i,false);
       });

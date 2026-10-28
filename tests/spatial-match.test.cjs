@@ -1,8 +1,29 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 require("../advanced-data.js");
 require("../advanced-player-data.js");
 const engine = require("../advanced-engine.js");
 const spatial = require("../spatial-match-engine.js");
+
+const html = fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8");
+const serviceWorker = fs.readFileSync(path.join(__dirname,"..","service-worker.js"),"utf8");
+const deployWorkflow = fs.readFileSync(path.join(__dirname,"..",".github","workflows","deploy.yml"),"utf8");
+const qualityWorkflow = fs.readFileSync(path.join(__dirname,"..",".github","workflows","quality.yml"),"utf8");
+const uiSource = fs.readFileSync(path.join(__dirname,"..","advanced-ui.js"),"utf8");
+const engineSource = fs.readFileSync(path.join(__dirname,"..","advanced-engine.js"),"utf8");
+assert.ok(html.indexOf('src="spatial-match-engine.js"') < html.indexOf('src="advanced-engine.js"'),
+  "the spatial engine must load before the career engine binds its simulator");
+assert.ok(serviceWorker.includes("touchline-manager-v20") && serviceWorker.includes('"./spatial-match-engine.js"'),
+  "offline cache should version and include the spatial engine");
+assert.ok(deployWorkflow.includes("spatial-match-engine.js") && deployWorkflow.includes("tests/spatial-match.test.cjs"),
+  "the Pages workflow must validate and ship the spatial engine");
+assert.ok(qualityWorkflow.includes("node tests/advanced.test.cjs") && qualityWorkflow.includes("node tests/spatial-match.test.cjs"),
+  "quality workflow should run the regression and spatial-engine suites");
+assert.ok(engineSource.includes('spatialEngine.simulateMatch') && engineSource.includes('matchContext'),
+  "the career match simulation must call the spatial engine with a deterministic fixture context");
+assert.ok(uiSource.includes("live.result.spatial") && uiSource.includes("live.spatialPlayersById"),
+  "live-pitch rendering should use cached player positions from the spatial trace");
 
 assert.equal(global.FM_SPATIAL_MATCH_ENGINE, spatial, "spatial engine should publish its browser/global API");
 assert.equal(spatial.ROWS, 9);
@@ -37,7 +58,8 @@ assert.ok(a.spatial.trace.every(t=>t.players.length===22&&t.players.every(p=>p.x
 assert.ok(a.spatial.finalPlayers.every(p=>p.fitness<=100&&p.fitness>=15),"fatigue values must remain bounded");
 assert.ok(a.stats.possession[0]+a.stats.possession[1]===100,"possession should sum to 100%");
 assert.ok(a.stats.shots[0]>=0&&a.stats.shots[1]>=0);
-assert.ok(a.stats.passAccuracy.every(value=>value>=0&&value<=100));
+assert.ok(a.stats.passAccuracy.every(value=>value>=0&&value<=100),"pass accuracy must not exceed 100 percent");
+assert.ok(a.stats.shots[0]+a.stats.shots[1]>0,"the deterministic fixture should produce actual shot decisions");
 assert.equal(a.homeGoals,a.events.filter(e=>e.type==="goal"&&e.clubId===home.id).length);
 assert.equal(a.awayGoals,a.events.filter(e=>e.type==="goal"&&e.clubId===away.id).length);
 assert.ok(a.lineups[home.id].length>=7&&a.lineups[away.id].length>=7);
