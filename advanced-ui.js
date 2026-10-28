@@ -269,8 +269,20 @@
   }
   function matchStatsAtMinute(minute) {
     if(!live?.result)return null;
-    const r=live.result.stats,frac=clamp(minute/90,0,1);
-    const scale=(arr)=>arr.map(v=>Math.round(v*frac));
+    const r=live.result.stats,frac=clamp(minute/90,0,1),base=live.statBase;
+    if(base&&Number(minute)>Number(base.minute)){
+      const start=clamp(Number(base.minute)||0,0,90),played=Math.max(0,Number(minute)-start),den=Math.max(1,start+played);
+      const counts=(key,decimal)=>Array.isArray(r[key])?r[key].map((v,i)=>{
+        const current=Number(base.stats?.[key]?.[i]||0),projected=Number(v||0)*played/90;
+        return decimal?Number((current+projected).toFixed(2)):Math.round(current+projected);
+      }):[];
+      const averages=key=>Array.isArray(r[key])?r[key].map((v,i)=>{
+        const before=Number(base.stats?.[key]?.[i]??v),after=Number(v);
+        return start>0?Math.round((before*start+after*played)/den):Math.round(after*frac);
+      }):[];
+      return {possession:averages("possession"),shots:counts("shots",false),shotsOnTarget:counts("shotsOnTarget",false),xg:counts("xg",true),corners:counts("corners",false),fouls:counts("fouls",false),yellow:counts("yellow",false),passAccuracy:averages("passAccuracy")};
+    }
+    const scale=arr=>arr.map(v=>Math.round(v*frac));
     return {possession:r.possession,shots:scale(r.shots),shotsOnTarget:scale(r.shotsOnTarget),xg:r.xg.map(v=>Number((v*frac).toFixed(2))),corners:scale(r.corners),fouls:scale(r.fouls),yellow:scale(r.yellow),passAccuracy:r.passAccuracy};
   }
   function startMatch(fixture) {
@@ -288,6 +300,7 @@
     if(!live||live.finished)return;
     const fixture=live.fixture,home=club(fixture.homeId),away=club(fixture.awayId);
     const elapsed=clamp(Number(live.minute||0)/90,0,1);
+    const displayedStats=matchStatsAtMinute(live.minute);
     const previous=live.result||null;
     const pastEvents=previous?(previous.events||[]).filter(e=>Number(e.minute||0)<=live.minute):[];
     const previousStats=previous&&previous.stats||null;
@@ -302,17 +315,6 @@
     const futureEvents=(next.events||[]).filter(e=>Number(e.minute||0)>live.minute);
     const events=pastEvents.concat(futureEvents).sort((a,b)=>a.minute-b.minute);
     const stats=next.stats||{};
-    if(previousStats&&elapsed>0){
-      ["shots","shotsOnTarget","corners","fouls","yellow","red","xg"].forEach(key=>{
-        if(!Array.isArray(previousStats[key])||!Array.isArray(stats[key]))return;
-        const shown=previousStats[key].map(v=>key==="xg"?Number((Number(v)*elapsed).toFixed(2)):Math.round(Number(v)*elapsed));
-        stats[key]=stats[key].map((v,i)=>Number((shown[i]/elapsed+Number(v)*(1-elapsed)).toFixed(2)));
-      });
-      ["possession","passAccuracy"].forEach(key=>{
-        if(!Array.isArray(previousStats[key])||!Array.isArray(stats[key]))return;
-        stats[key]=stats[key].map((v,i)=>Math.round(Number(previousStats[key][i])*elapsed+Number(v)*(1-elapsed)));
-      });
-    }
     const oldLineups=previous&&previous.lineups||{};
     const lineups=Object.assign({},oldLineups,next.lineups||{});
     const userId=state.userClubId;
@@ -325,6 +327,7 @@
     const homeGoals=events.filter(e=>e.type==="goal"&&e.clubId===fixture.homeId).length;
     const awayGoals=events.filter(e=>e.type==="goal"&&e.clubId===fixture.awayId).length;
     live.result=Object.assign({},next,{events:events,homeGoals:homeGoals,awayGoals:awayGoals,stats:Object.assign({},stats,{ratings:ratings}),lineups:lineups});
+    live.statBase=elapsed>0?{minute:live.minute,stats:displayedStats}:null;
     live.motm=null;
     live.latest="Tactical changes applied. "+(live.minute<45?"First-half plan updated.":"Second-half plan updated.");
     live.commentary.push({minute:Math.floor(live.minute),type:"tactics",text:live.latest});
