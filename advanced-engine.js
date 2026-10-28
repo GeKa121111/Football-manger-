@@ -89,7 +89,7 @@
     return first.reduce((s,p)=>s+p.overall,0)/first.length;
   }
   function generateRoster(club, existing, dbSize) {
-    const roster = existing.filter(p=>p.clubId===club.id).map(p=>normalizePlayer(p,club.id));
+    const roster = existing.filter(p=>p.clubId===club.id&&!p.retired).map(p=>normalizePlayer(p,club.id));
     const minimum = dbSize === "large" ? 30 : 25;
     let next = 1;
     while(roster.length < minimum) {
