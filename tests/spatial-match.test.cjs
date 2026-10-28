@@ -14,7 +14,7 @@ const uiSource = fs.readFileSync(path.join(__dirname,"..","advanced-ui.js"),"utf
 const engineSource = fs.readFileSync(path.join(__dirname,"..","advanced-engine.js"),"utf8");
 assert.ok(html.indexOf('src="spatial-match-engine.js"') < html.indexOf('src="advanced-engine.js"'),
   "the spatial engine must load before the career engine binds its simulator");
-assert.ok(serviceWorker.includes("touchline-manager-v20") && serviceWorker.includes('"./spatial-match-engine.js"'),
+assert.ok(serviceWorker.includes("touchline-manager-v21") && serviceWorker.includes('"./spatial-match-engine.js"'),
   "offline cache should version and include the spatial engine");
 assert.ok(deployWorkflow.includes("spatial-match-engine.js") && deployWorkflow.includes("tests/spatial-match.test.cjs"),
   "the Pages workflow must validate and ship the spatial engine");
