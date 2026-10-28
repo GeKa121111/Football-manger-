@@ -433,3 +433,18 @@
   #advanced-root .fm-phase-lineup-row .fm-starter-select{width:100%}
   #advanced-root .fm-phase-role{display:grid;grid-template-columns:70px minmax(0,1fr);align-items:center}
 }
+
+
+/* Performance Data Hub: compact analytics, readable tables and mobile-safe panels. */
+#advanced-root .fm-data-hub-intro{margin:0 0 14px;padding:14px 16px;border:1px solid var(--fm-line);border-radius:12px;background:linear-gradient(120deg,rgba(185,255,72,.06),rgba(118,182,255,.04))}
+#advanced-root .fm-data-hub-intro p{margin:7px 0 0;color:var(--fm-muted);font-size:12px;line-height:1.7}
+#advanced-root .fm-data-hub-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:14px;margin-top:14px;align-items:start}
+#advanced-root .fm-data-hub-grid>div{min-width:0}
+#advanced-root .fm-data-hub-metric{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--fm-line)}
+#advanced-root .fm-data-hub-metric:last-child{border-bottom:0}
+#advanced-root .fm-data-hub-metric span{font-size:12px;color:var(--fm-muted)}
+#advanced-root .fm-data-hub-metric b{font-size:17px;font-variant-numeric:tabular-nums}
+#advanced-root .fm-data-hub-grid .fm-table{min-width:520px}
+#advanced-root .fm-data-hub-grid .fm-player-link+small{display:block;margin-top:3px;color:var(--fm-muted);font-size:10px}
+@media(max-width:900px){#advanced-root .fm-data-hub-grid{grid-template-columns:1fr}}
+@media(max-width:560px){#advanced-root .fm-data-hub-intro{padding:11px}#advanced-root .fm-data-hub-grid .fm-table{min-width:500px}#advanced-root .fm-data-hub-metric{padding:10px 0}}
