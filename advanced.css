@@ -199,3 +199,144 @@
 
 @media(max-width:760px){.fm-lineup-row{grid-template-columns:24px minmax(0,1fr) minmax(95px,.9fr) minmax(85px,.8fr)!important}.fm-starter-select,.fm-role-select{font-size:7px!important;padding:5px 2px!important}}
 @media(max-width:420px){.fm-lineup-row{grid-template-columns:21px minmax(70px,1fr) minmax(82px,1fr) minmax(70px,.85fr)!important}}
+
+/* Mobile-first usability pass: touch targets, safe areas, readable controls, and no page-width overflow. */
+#advanced-root, #advanced-root .fm-app-layout, #advanced-root .fm-main { min-width: 0; }
+#advanced-root { -webkit-text-size-adjust: 100%; }
+#advanced-root input, #advanced-root select, #advanced-root textarea { min-width: 0; max-width: 100%; }
+#advanced-root .fm-panel, #advanced-root .fm-stat-card, #advanced-root .fm-overview-grid > *,
+#advanced-root .fm-two-col > *, #advanced-root .fm-live-layout > *, #advanced-root .fm-tactic-layout > * { min-width: 0; }
+#advanced-root .fm-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+#advanced-root .fm-table-wrap table { min-width: 620px; }
+#advanced-root .fm-modal-root, #advanced-root .fm-modal-shade { overscroll-behavior: contain; }
+#advanced-root button, #advanced-root .fm-btn, #advanced-root .fm-icon-btn, #advanced-root .fm-inbox-btn { touch-action: manipulation; }
+#advanced-root .fm-btn:focus-visible, #advanced-root .fm-nav-item:focus-visible,
+#advanced-root .fm-icon-btn:focus-visible, #advanced-root .fm-inbox-btn:focus-visible {
+  outline: 2px solid var(--fm-lime); outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  #advanced-root { overflow-x: hidden; padding-bottom: env(safe-area-inset-bottom); }
+  #advanced-root .fm-topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: grid; grid-template-columns: minmax(0,1fr) auto auto;
+    gap: 7px; padding: 9px 10px; min-height: auto;
+    padding-top: max(9px, env(safe-area-inset-top));
+  }
+  #advanced-root .fm-head-brand, #advanced-root .fm-managerhead { display: none; }
+  #advanced-root .fm-clubhead { min-width: 0; width: auto; gap: 7px; }
+  #advanced-root .fm-clubhead > div { min-width: 0; }
+  #advanced-root .fm-clubhead b { font-size: 11px; max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #advanced-root .fm-clubhead small { max-width: 42vw; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #advanced-root .fm-mini-crest { width: 31px; height: 31px; border-radius: 9px; }
+  #advanced-root .fm-datehead { margin: 0; padding: 0; border: 0; min-width: 0; text-align: center; white-space: normal; }
+  #advanced-root .fm-datehead span { font-size: 7px; letter-spacing: .7px; }
+  #advanced-root .fm-datehead b { font-size: 9px; line-height: 1.3; }
+  #advanced-root .fm-inbox-btn { justify-self: end; min-height: 40px; padding: 8px 10px; }
+  #advanced-root .fm-continue { grid-column: 1 / 3; grid-row: 2; width: 100%; min-width: 0; min-height: 42px; font-size: 12px; }
+  #advanced-root .fm-icon-btn { grid-column: 3; grid-row: 2; width: 42px; height: 42px; }
+  #advanced-root .fm-app-layout { display: flex; flex-direction: column; min-height: 0; padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  #advanced-root .fm-sidebar {
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 35;
+    width: 100%; height: auto; min-height: 0; max-height: 100px;
+    overflow: hidden; align-self: auto; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    border: 0; border-top: 1px solid var(--fm-line); border-right: 0;
+    background: rgba(8,11,26,.97); backdrop-filter: blur(16px);
+    box-shadow: 0 -8px 24px rgba(0,0,0,.22);
+  }
+  #advanced-root .fm-nav-label, #advanced-root .fm-sidebar-bottom { display: none; }
+  #advanced-root .fm-nav {
+    display: flex; flex-direction: row; gap: 4px; overflow-x: auto; overflow-y: hidden;
+    width: 100%; padding: 0 0 2px; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  }
+  #advanced-root .fm-nav::-webkit-scrollbar { display: none; }
+  #advanced-root .fm-nav-item {
+    position: relative; flex: 0 0 76px; width: 76px; min-width: 76px;
+    min-height: 57px; padding: 6px 4px 5px; border-radius: 9px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    gap: 3px; font-size: 10px; line-height: 1.2; white-space: normal; text-align: center;
+    border: 1px solid transparent;
+  }
+  #advanced-root .fm-nav-item > span { width: auto; min-width: 22px; font-size: 19px; line-height: 1.05; }
+  #advanced-root .fm-nav-item i { position: absolute; top: 2px; right: 17px; margin: 0; font-size: 9px; }
+  #advanced-root .fm-nav-item.active { background: #1d2540; border-color: #3d4a64; box-shadow: inset 0 -3px var(--fm-lime); }
+  #advanced-root .fm-main { width: 100%; min-width: 0; padding: 14px 10px 20px; }
+  #advanced-root .fm-view-title { gap: 8px; margin-bottom: 13px; align-items: center; }
+  #advanced-root .fm-view-title h1 { font-size: clamp(19px, 5vw, 23px); line-height: 1.25; overflow-wrap: anywhere; }
+  #advanced-root .fm-eyebrow { font-size: 8px; letter-spacing: 1px; }
+  #advanced-root .fm-view-actions { max-width: 48%; }
+  #advanced-root .fm-status-chip { font-size: 9px; padding: 6px 8px; }
+  #advanced-root .fm-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #advanced-root .fm-stat-card { min-width: 0; min-height: 95px; padding: 12px; }
+  #advanced-root .fm-stat-card > b { font-size: clamp(18px, 5vw, 23px); overflow-wrap: anywhere; }
+  #advanced-root .fm-stat-card > span { font-size: 10px; line-height: 1.4; }
+  #advanced-root .fm-panel { border-radius: 12px; }
+  #advanced-root .fm-panel-head { padding: 12px 12px 10px; gap: 8px; flex-wrap: wrap; }
+  #advanced-root .fm-panel-head h2 { font-size: 13px; line-height: 1.35; }
+  #advanced-root .fm-panel-body { padding: 10px; }
+  #advanced-root .fm-btn { min-height: 42px; padding: 10px 12px; font-size: 11px; }
+  #advanced-root .fm-input, #advanced-root .fm-select, #advanced-root input, #advanced-root select, #advanced-root textarea {
+    min-height: 42px; font-size: 14px !important; padding: 9px 10px;
+  }
+  #advanced-root .fm-squad-toolbar { padding: 10px; gap: 10px; }
+  #advanced-root .fm-toolbar-controls { display: grid; grid-template-columns: minmax(0,1fr) minmax(100px,.8fr); gap: 7px; }
+  #advanced-root .fm-toolbar-controls .fm-input { width: 100%; min-width: 0; grid-column: 1 / -1; }
+  #advanced-root .fm-toolbar-controls .fm-select, #advanced-root .fm-toolbar-controls .fm-btn { width: 100%; min-width: 0; }
+  #advanced-root .fm-lineup-row {
+    grid-template-columns: 25px minmax(0,1fr) minmax(95px,.9fr) minmax(90px,.8fr) !important;
+    gap: 5px; padding: 8px 4px; align-items: center;
+  }
+  #advanced-root .fm-starter-select, #advanced-root .fm-role-select { min-height: 40px; font-size: 11px !important; padding: 6px 5px !important; }
+  #advanced-root .fm-pitch { min-height: 330px; }
+  #advanced-root .fm-pitch canvas, #advanced-root canvas { max-width: 100%; }
+  #advanced-root .fm-match-topline { flex-wrap: wrap; gap: 8px; }
+  #advanced-root .fm-scoreboard { grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); }
+  #advanced-root .fm-score-team { min-width: 0; }
+  #advanced-root .fm-score-team b { max-width: 30vw; overflow-wrap: anywhere; line-height: 1.25; }
+  #advanced-root .fm-score { font-size: clamp(21px,7vw,28px); }
+  #advanced-root .fm-live-controls { display: flex; flex-wrap: wrap; gap: 7px; }
+  #advanced-root .fm-live-controls > * { flex: 1 1 95px; min-width: 0; }
+  #advanced-root .fm-live-side { display: flex; flex-direction: column; }
+  #advanced-root .fm-attribute-grid, #advanced-root .fm-profile-summary { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  #advanced-root .fm-form-grid, #advanced-root .fm-filter-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+  #advanced-root .fm-field { min-width: 0; }
+  #advanced-root .fm-field label { font-size: 11px; line-height: 1.4; }
+  #advanced-root .fm-setup-shell { width: 100%; max-width: 100%; padding: 15px; }
+  #advanced-root .fm-setup-copy h1 { font-size: clamp(24px,7vw,31px); line-height: 1.2; }
+  #advanced-root .fm-setup-form { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  #advanced-root .fm-field.full, #advanced-root .fm-data-warning, #advanced-root .fm-setup-actions { grid-column: 1 / -1; }
+  #advanced-root .fm-modal-shade { align-items: flex-end; padding: 0; }
+  #advanced-root .fm-modal {
+    width: 100%; max-width: 100%; max-height: calc(100dvh - env(safe-area-inset-top) - 8px);
+    border-radius: 18px 18px 0 0; overflow: auto; overscroll-behavior: contain;
+  }
+  #advanced-root .fm-modal-body { padding: 14px 12px; }
+  #advanced-root .fm-modal-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--fm-panel); }
+  #advanced-root .fm-modal-foot .fm-btn { flex: 1 1 120px; min-width: 0; }
+}
+
+@media (max-width: 480px) {
+  #advanced-root .fm-topbar { grid-template-columns: minmax(0,1fr) auto auto; }
+  #advanced-root .fm-clubhead b, #advanced-root .fm-clubhead small { max-width: 40vw; }
+  #advanced-root .fm-main { padding-left: 8px; padding-right: 8px; }
+  #advanced-root .fm-stat-grid { gap: 7px; }
+  #advanced-root .fm-stat-card { padding: 10px; }
+  #advanced-root .fm-nav-item { flex-basis: 70px; min-width: 70px; width: 70px; font-size: 9px; }
+  #advanced-root .fm-lineup-row { grid-template-columns: 22px minmax(65px,1fr) minmax(85px,1fr) minmax(72px,.82fr) !important; gap: 4px; }
+  #advanced-root .fm-starter-select, #advanced-root .fm-role-select { font-size: 10px !important; padding: 5px 3px !important; }
+  #advanced-root .fm-filter-grid, #advanced-root .fm-form-grid { grid-template-columns: 1fr; }
+  #advanced-root .fm-setup-form { grid-template-columns: 1fr; }
+  #advanced-root .fm-field.full, #advanced-root .fm-data-warning, #advanced-root .fm-setup-actions { grid-column: 1; }
+  #advanced-root .fm-nations { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #advanced-root .fm-history-row { grid-template-columns: 42px minmax(0,1fr) auto; gap: 5px; }
+}
+
+@media (max-width: 360px) {
+  #advanced-root .fm-topbar { padding-left: 7px; padding-right: 7px; }
+  #advanced-root .fm-datehead b { font-size: 8px; }
+  #advanced-root .fm-continue { font-size: 11px; }
+  #advanced-root .fm-nav-item { flex-basis: 64px; min-width: 64px; width: 64px; }
+  #advanced-root .fm-panel-head, #advanced-root .fm-panel-body { padding-left: 9px; padding-right: 9px; }
+  #advanced-root .fm-stat-card > span { font-size: 9px; }
+}
