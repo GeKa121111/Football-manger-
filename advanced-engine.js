@@ -821,11 +821,24 @@
           }else p.clubId=null;
         }
       }
-      if(!p.retired&&p.age>32&&Math.random()<.13)p.overall=Math.max(35,p.overall-1);
-      if(!p.retired&&p.age<24&&Math.random()<.18)p.overall=Math.min(p.potential,p.overall+1);
-      if(!p.retired&&p.age<24&&p.overall<p.potential&&Math.random()<.12){
-        const k=pick(ATTRS.filter(key=>key!=="goalkeeping"||p.position==="GK"));
-        p.attributes=p.attributes||baseAttributes(p);p.attributes[k]=clamp((p.attributes[k]||10)+1,1,20);
+      if(!p.retired&&p.age>32&&Math.random()<.13){
+        const declineKeys=p.position==="GK"?["goalkeeping","positioning","decisions"]:
+          p.position==="ST"?["shooting","movement","pace","stamina"]:
+          ["passing","technique","decisions","stamina","tackling","positioning"];
+        const k=pick(declineKeys);
+        p.attributes=p.attributes||baseAttributes(p);
+        p.attributes[k]=clamp((p.attributes[k]||10)-1,1,20);
+        p.overall=Math.max(35,Math.min(p.overall,playerOverall(p)));
+      }
+      if(!p.retired&&p.age<24&&p.overall<p.potential&&Math.random()<.18){
+        const developmentKeys=p.position==="GK"?["goalkeeping","positioning","decisions","passing"]:
+          p.position==="ST"?["shooting","movement","pace","technique","heading"]:
+          ["passing","technique","decisions","stamina","dribbling","tackling","positioning"];
+        const k=pick(developmentKeys);
+        p.attributes=p.attributes||baseAttributes(p);
+        p.attributes[k]=clamp((p.attributes[k]||10)+1,1,20);
+        const recalculated=playerOverall(p);
+        if(recalculated>p.overall)p.overall=Math.min(Number(p.potential)||99,recalculated);
       }
     });
     retirements.forEach(({player:p,clubId})=>{
