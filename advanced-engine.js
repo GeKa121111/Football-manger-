@@ -43,6 +43,12 @@
   function normalizePlayer(p, fallbackClub) {
     const position = ["GK","RB","CB","LB","DM","CM","AM","RW","LW","ST"].includes(p.position || p.pos) ? (p.position || p.pos) : "CM";
     const rawOverall = Number(p.overall || p.ovr || 55);
+    const sourceName=String(p.source||"");
+    const rawValue=Number(p.value ?? p.marketValue ?? 0);
+    const rawWage=Number(p.wage ?? p.weeklyWage ?? 0);
+    const legacyEstimate=sourceName==="seeded demo snapshot"||!!p.generated;
+    const wageKnown=p.wageKnown===true&&rawWage>0&&p.wageEstimated!==true;
+    const wage=rawWage>0?rawWage:Math.max(650,Math.round(rawOverall*rawOverall*8));
     const player = {
       id:String(p.id || ("p-"+Math.random().toString(36).slice(2,10))),
       name:String(p.name || "Unnamed import").slice(0,100),
@@ -50,13 +56,19 @@
       position:position,nationality:String(p.nationality || p.country || "Unknown"),contractUntil:p.contractUntil||p.contract?.until||null,
       age:clamp(Number(p.age || 19),15,48),shirt:clamp(Number(p.shirt || p.number || 0),0,99),
       overall:clamp(rawOverall,20,99),potential:clamp(Number(p.potential || rawOverall+5),20,99),
-      value:Math.max(0,Number(p.value || p.marketValue || 0)),wage:Math.max(0,Number(p.wage || p.weeklyWage || 0)),
+      value:Math.max(0,rawValue),wage:Math.max(0,wage),
+      valueEstimated:p.valueEstimated===true||legacyEstimate,
+      wageKnown:wageKnown,wageEstimated:p.wageEstimated===true||legacyEstimate||!wageKnown,
+      ratingsEstimated:p.ratingsEstimated===true||legacyEstimate||!!p.worldCupSnapshot,
       contractYears:clamp(Number(p.contractYears ?? 2),0,8),fitness:clamp(Number(p.fitness || 94),0,100),
       morale:clamp(Number(p.morale || 72),0,100),form:Array.isArray(p.form)?p.form.slice(-5):[6.8,6.9,7.0,7.0,6.9],
       goals:Number(p.goals||0),assists:Number(p.assists||0),injuredWeeks:Number(p.injuredWeeks||0),
       realData:p.realData !== false && !p.generated, source:p.source || (p.generated?"Generated academy slot":"Imported dataset"),
       generated:!!p.generated, attributes:p.attributes && typeof p.attributes==="object" ? p.attributes : null,
-      role:p.role || null, status:p.status || "Available", dob:p.dateOfBirth || p.dob || null
+      role:p.role || null, status:p.status || "Available", dob:p.dateOfBirth || p.dob || null,
+      dateOfBirth:p.dateOfBirth||p.dob||null,nationalTeam:p.nationalTeam||null,
+      sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
+      worldCupSnapshot:!!p.worldCupSnapshot
     };
     player.attributes = Object.assign(baseAttributes(player), player.attributes || {});
     player.overall = playerOverall(player);
@@ -511,7 +523,7 @@
     state.finances.balance-=upfront;
     if(installments>0)state.transfers.push({id:"installment-"+player.id+"-"+Date.now(),type:"installments",playerId:player.id,remaining:installments,months:months||12,monthsRemaining:months||12,monthly:Math.ceil(installments/(months||12)),due:state.day});
     if(player.clubId){const old=state.clubs.find(c=>c.id===player.clubId);if(old)old.transferBudget=(old.transferBudget||0)+fee;}
-    player.clubId=state.userClubId;player.wage=wage;player.contractYears=Number(offer.years||4);player.value=Math.max(player.value,fee);player.morale=clamp(player.morale+7,0,100);player.generated=false;player.appearanceBonus=Math.max(0,Number(offer.appearanceBonus)||0);player.goalBonus=Math.max(0,Number(offer.goalBonus)||0);player.sellOnPercent=clamp(Number(offer.sellOn)||0,0,50);player.releaseClause=Math.max(0,Number(offer.releaseClause)||0);player.signingBonus=Math.max(0,Number(offer.signingBonus)||0);state.finances.balance-=player.signingBonus;
+    player.clubId=state.userClubId;player.wage=wage;player.wageKnown=true;player.wageEstimated=false;player.contractYears=Number(offer.years||4);player.value=Math.max(player.value,fee);player.morale=clamp(player.morale+7,0,100);player.generated=false;player.appearanceBonus=Math.max(0,Number(offer.appearanceBonus)||0);player.goalBonus=Math.max(0,Number(offer.goalBonus)||0);player.sellOnPercent=clamp(Number(offer.sellOn)||0,0,50);player.releaseClause=Math.max(0,Number(offer.releaseClause)||0);player.signingBonus=Math.max(0,Number(offer.signingBonus)||0);state.finances.balance-=player.signingBonus;
     state.finances.weeklyCosts+=wage;state.inbox.unshift({id:"signed-"+player.id+"-"+Date.now(),title:"Signing complete",text:player.name+" signed for "+fee+" with a weekly wage of "+wage+".",kind:"success",read:false,day:state.day});
     state.careerHistory.push({type:"transfer-in",day:state.day,playerId:player.id,fee:fee,wage:wage});
     return {ok:true,message:"Transfer and contract registered.",player:player};
@@ -535,7 +547,7 @@
     if(wage<Math.max(500,oldWage*.82)&&Math.random()>.25)return {ok:false,message:"The player rejected the wage proposal."};
     const signingBonus=Math.max(0,Number(deal.signingBonus)||0);
     if(signingBonus>state.finances.balance)return {ok:false,message:"The club cannot afford the signing-on fee."};
-    p.wage=wage;p.contractYears=years;p.releaseClause=Math.max(0,Number(deal.releaseClause)||0);p.signingBonus=signingBonus;
+    p.wage=wage;p.wageKnown=true;p.wageEstimated=false;p.contractYears=years;p.releaseClause=Math.max(0,Number(deal.releaseClause)||0);p.signingBonus=signingBonus;
     p.appearanceBonus=Math.max(0,Number(deal.appearanceBonus)||p.appearanceBonus||0);
     p.goalBonus=Math.max(0,Number(deal.goalBonus)||p.goalBonus||0);
     state.finances.weeklyCosts+=wage-oldWage;state.finances.balance-=signingBonus;
@@ -614,7 +626,10 @@
       const club= mapped||state.clubs.find(c=>c.id===clubKey||normalizeClubName(c.name)===normalizeClubName(clubKey));
       if(club)importedSquadClubIds.add(club.id);
       const existing=state.players.find(x=>x.name.toLowerCase()===String(p.name||"").toLowerCase()&&x.clubId===(club&&club.id));
-      const src=Object.assign({},p,{clubId:club?club.id:null,realData:true,generated:false,source:data.source||"JSON dataset"});
+      const src=Object.assign({},p,{clubId:club?club.id:null,realData:true,generated:false,source:data.source||"JSON dataset",
+        wageKnown:p.wageKnown===true||(Number(p.wage??p.weeklyWage)>0&&p.wageEstimated!==true),
+        valueEstimated:p.valueEstimated===true,
+        wageEstimated:p.wageEstimated===true});
       const player=normalizePlayer(src,club&&club.id);
       if(existing){Object.assign(existing,player,{id:existing.id,clubId:club?club.id:existing.clubId});updated++;}
       else{state.players.push(player);added++;}
