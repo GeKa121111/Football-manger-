@@ -56,6 +56,10 @@ Careers are stored per browser/device. Use **Settings → Export save JSON** bef
 
 Missing player positions are filled with generated slots, clearly marked as generated. Import is best treated as replacing/updating the existing seed world rather than an official database sync.
 
+## Code review notes
+
+The startup flow now opens a welcome screen, offers separate resume paths for classic and advanced local saves, and uses the advanced manager wizard for a new career. A successful new career removes the welcome overlay; the club picker excludes source-only/unverified affiliations that cannot be managed as valid domestic clubs. The smoke-test DOM harness now models `document.body` and attached elements so startup-menu tests exercise the same lifecycle as the browser.
+
 ## Tests
 
 With Node.js 20 or newer:
