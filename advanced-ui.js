@@ -21,7 +21,32 @@
     "On poor touch":"عند لمسة سيئة","On back pass":"عند تمريرة للخلف","Always":"دائمًا","Never":"أبدًا",
     "Phase instructions":"تعليمات كل مرحلة","Width":"عرض الملعب","Defensive line":"خط الدفاع",
     "Pressing intensity":"حدة الضغط","Tackling":"التدخلات","Use the offside trap":"استخدام مصيدة التسلل",
-    "Formation & mentality":"التشكيل والعقلية","Interactive tactics board":"لوحة تكتيك تفاعلية"
+    "Formation & mentality":"التشكيل والعقلية","Interactive tactics board":"لوحة تكتيك تفاعلية",
+    "Performance Data Hub":"مركز بيانات الأداء",
+    "MATCH MODEL · PERFORMANCE ANALYTICS":"نموذج المباراة · تحليلات الأداء",
+    "MATCHES WITH xG":"مباريات ببيانات xG",
+    "EXPECTED GOALS (xG)":"الأهداف المتوقعة (xG)",
+    "EXPECTED ASSISTS (xA)":"التمريرات الحاسمة المتوقعة (xA)",
+    "KEY PASSES":"التمريرات المفتاحية",
+    "Recent match data":"بيانات المباريات الأخيرة",
+    "Player chance contribution · current season":"مساهمة اللاعبين في صناعة الفرص · الموسم الحالي",
+    "Shot quality":"جودة التسديد",
+    "How to read the numbers":"شرح الإحصائيات",
+    "LAST 12":"آخر 12 مباراة",
+    "FIRST TEAM":"الفريق الأول",
+    "CHANCE CREATION":"صناعة الفرص",
+    "MODEL NOTES":"ملاحظات النموذج",
+    "Matches with shot-level data":"مباريات بها بيانات لكل تسديدة",
+    "Tracked shots · all saved seasons":"التسديدات المسجلة · كل المواسم المحفوظة",
+    "Completed pass leading to a shot":"تمريرة مكتملة سبقت تسديدة",
+    "Total shots tracked":"إجمالي التسديدات المسجلة",
+    "xG per shot":"الأهداف المتوقعة لكل تسديدة",
+    "xA coverage":"تغطية بيانات xA",
+    "Shots on target":"التسديدات على المرمى",
+    "No match data recorded yet. Play a match to start building analytics.":"لا توجد بيانات مباريات بعد. العب مباراة لبدء بناء التحليلات.",
+    "Player chance data will appear after the next tracked match.":"ستظهر بيانات صناعة الفرص للاعبين بعد المباراة التالية.",
+    "Older saved matches without shot-level event data cannot be reconstructed retroactively; the dashboard builds its tracking history from new matches.":"لا يمكن إعادة بناء بيانات التسديدات للمباريات القديمة التي لم تحفظ أحداث التسديد؛ ستتراكم البيانات من المباريات الجديدة.",
+    "Data Hub":"مركز البيانات"
   });
   const AR_UI_ENTRIES = Object.entries(AR_UI).sort((a,b)=>b[0].length-a[0].length);
   function translateUiText(value) {
@@ -386,7 +411,7 @@
     const c=myClub(), unread=state.inbox.filter(m=>!m.read).length;
     return '<header class="fm-topbar"><div class="fm-head-brand"><span class="fm-mark">TM</span><div><b>TOUCHLINE</b><small>FOOTBALL DIRECTOR</small></div></div><div class="fm-clubhead"><span class="fm-mini-crest" style="--club-primary:'+c.primary+';--club-secondary:'+c.secondary+'">'+esc(c.code)+'</span><div><b>'+esc(c.name)+'</b><small>'+esc(c.league)+' · '+esc(state.season)+'/'+String((state.season+1)%100).padStart(2,"0")+'</small></div></div><div class="fm-datehead"><span>CAREER DATE</span><b>'+dateLabel(state.day)+'</b></div><div class="fm-managerhead"><b>'+esc(state.manager.name)+'</b><small>'+esc(state.manager.badge)+' · REP '+state.manager.reputation+'</small></div><button class="fm-inbox-btn" data-action="inbox" aria-label="Inbox">✉ <i>'+unread+'</i></button><button class="fm-btn fm-btn-primary fm-continue" data-action="continue">Continue <span>→</span></button><button class="fm-icon-btn" data-action="close" aria-label="Close advanced mode">×</button></header>';
   }
-  const NAV=[["overview","⌂","Home / Hub"],["squad","♙","Squad"],["tactics","⌗","Tactics board"],["training","↗","Training & dynamics"],["scouting","◎","Scouting agency"],["transfers","⇄","Transfers & contracts"],["finances","◇","Board, finances & staff"],["competitions","▦","Competitions & calendar"],["settings","⚙","Database & settings"]];
+  const NAV=[["overview","⌂","Home / Hub"],["squad","♙","Squad"],["tactics","⌗","Tactics board"],["training","↗","Training & dynamics"],["scouting","◎","Scouting agency"],["transfers","⇄","Transfers & contracts"],["finances","◇","Board, finances & staff"],["competitions","▦","Competitions & calendar"],["data-hub","▤","Performance Data Hub"],["settings","⚙","Database & settings"]];
   function render() {
     if(!state){renderSetup();return;}
     const root=makeOverlay();root.classList.add("is-open");
@@ -401,7 +426,7 @@
     localizeUi(root);
   }
   function viewTitle() {
-    return {overview:"Manager's Hub",squad:"First Team Squad",tactics:"Tactics & Match Plan",training:"Training & Team Dynamics",scouting:"Player Search & Scouting",transfers:"Transfer Centre",finances:"Club Operations",competitions:"Competitions & Calendar",settings:"World Database & Settings",match:"Match Day"}[view]||"Manager's Hub";
+    return {overview:"Manager's Hub",squad:"First Team Squad",tactics:"Tactics & Match Plan",training:"Training & Team Dynamics",scouting:"Player Search & Scouting",transfers:"Transfer Centre",finances:"Club Operations",competitions:"Competitions & Calendar","data-hub":"Performance Data Hub",settings:"World Database & Settings",match:"Match Day"}[view]||"Manager's Hub";
   }
   function statCard(label,value,caption,accent="lime") {
     return '<article class="fm-stat-card accent-'+accent+'"><span>'+label+'</span><b>'+value+'</b><small>'+caption+'</small></article>';
@@ -422,6 +447,7 @@
     if(view==="transfers")return renderTransfers();
     if(view==="finances")return renderFinances();
     if(view==="competitions")return renderCompetitions();
+    if(view==="data-hub")return renderDataHub();
     if(view==="settings")return renderSettings();
     if(view==="match")return renderMatch();
     return renderOverview();
@@ -522,6 +548,52 @@
     const topScorers=state.players.slice().sort((a,b)=>b.goals-a.goals).filter(p=>p.goals>0).slice(0,10).map(p=>'<div class="fm-history-row"><b>'+esc(p.name)+'</b><span>'+esc(playerClubLabel(p))+'</span><strong>'+p.goals+'</strong></div>').join("")||'<div class="fm-empty">No goals recorded yet.</div>';
     return panel(esc(state.domesticCup?.name||"Domestic Cup"),cupBody,"KNOCKOUT") + panel(esc(myClub().league)+" table",'<div class="fm-table-wrap"><table class="fm-table"><thead><tr><th>#</th><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th><th>Form</th></tr></thead><tbody>'+rows+'</tbody></table></div>',"LEAGUE")+ '<div class="fm-two-col">'+panel("Fixture calendar",'<div class="fm-table-wrap"><table class="fm-table"><thead><tr><th>Date</th><th>Home</th><th>Score</th><th>Away</th><th>Round</th></tr></thead><tbody>'+fixtures+'</tbody></table></div>')+panel("Continental league phase",uclBody,"36-TEAM FORMAT")+panel("Top scorers",topScorers)+'</div>';
   }
+  function renderDataHub() {
+    const clubId=state.userClubId,clubName=myClub().name;
+    const currentFixtures=[].concat(state.fixtures||[],state.domesticCup&&Array.isArray(state.domesticCup.fixtures)?state.domesticCup.fixtures:[],state.continental&&Array.isArray(state.continental.fixtures)?state.continental.fixtures:[])
+      .filter(f=>f&&f.played&&(f.homeId===clubId||f.awayId===clubId))
+      .sort((a,b)=>Number(b.round||0)-Number(a.round||0));
+    const rows=[],seen=new Set();
+    const signature=r=>[r.day||r.date||"",r.home||r.homeName||"",r.score||((r.homeGoals!=null&&r.awayGoals!=null)?String(r.homeGoals)+"–"+String(r.awayGoals):""),r.away||r.awayName||""].join("|");
+    const arrayMetric=(stats,key,side)=>Array.isArray(stats&&stats[key])&&Number.isFinite(Number(stats[key][side]))?Number(stats[key][side]):null;
+    currentFixtures.forEach(f=>{
+      const side=f.homeId===clubId?0:1,stats=f.stats||{},home=club(f.homeId),away=club(f.awayId);
+      const row={key:String(f.id||signature({date:f.date,home:home.name,score:String(f.homeGoals)+"–"+String(f.awayGoals),away:away.name})),day:f.date||f.day||"",home:home.name,away:away.name,score:String(f.homeGoals)+"–"+String(f.awayGoals),xg:arrayMetric(stats,"xg",side),xa:arrayMetric(stats,"xa",side),shots:arrayMetric(stats,"shots",side),shotsOnTarget:arrayMetric(stats,"shotsOnTarget",side),keyPasses:arrayMetric(stats,"keyPasses",side)};
+      rows.push(row);seen.add(row.key);seen.add(signature(row));
+    });
+    (Array.isArray(state.careerHistory)?state.careerHistory:[]).filter(h=>h&&h.score).forEach(h=>{
+      const key=String(h.fixtureId||signature(h));
+      if(seen.has(key)||seen.has(signature(h)))return;
+      const metrics=h.stats||{};
+      rows.push({key:key,day:h.day||"",home:h.home||"—",away:h.away||"—",score:h.score||"—",
+        xg:metrics.xg!=null&&Number.isFinite(Number(metrics.xg))?Number(metrics.xg):null,
+        xa:metrics.xa!=null&&Number.isFinite(Number(metrics.xa))?Number(metrics.xa):null,
+        shots:metrics.shots!=null&&Number.isFinite(Number(metrics.shots))?Number(metrics.shots):null,
+        shotsOnTarget:metrics.shotsOnTarget!=null&&Number.isFinite(Number(metrics.shotsOnTarget))?Number(metrics.shotsOnTarget):null,
+        keyPasses:metrics.keyPasses!=null&&Number.isFinite(Number(metrics.keyPasses))?Number(metrics.keyPasses):null});
+      seen.add(key);seen.add(signature(h));
+    });
+    const tracked=rows.filter(r=>Number.isFinite(r.xg));
+    const trackedXa=tracked.filter(r=>Number.isFinite(r.xa));
+    const totalXg=tracked.reduce((sum,r)=>sum+r.xg,0);
+    const totalXa=trackedXa.reduce((sum,r)=>sum+r.xa,0);
+    const totalShots=tracked.reduce((sum,r)=>sum+(Number.isFinite(r.shots)?r.shots:0),0);
+    const totalKeyPasses=tracked.reduce((sum,r)=>sum+(Number.isFinite(r.keyPasses)?r.keyPasses:0),0);
+    const players=mySquad().map(p=>({player:p,xg:Number(p.seasonStats&&p.seasonStats.xg)||0,xa:Number(p.seasonStats&&p.seasonStats.xa)||0,keyPasses:Number(p.seasonStats&&p.seasonStats.keyPasses)||0,goals:Number(p.seasonStats&&p.seasonStats.goals)||0}))
+      .filter(r=>r.xg>0||r.xa>0||r.keyPasses>0).sort((a,b)=>b.xa-a.xa||b.xg-a.xg||b.keyPasses-a.keyPasses).slice(0,10);
+    const matchRows=rows.slice(0,12).map(r=>{
+      const opponent=r.home===clubName?r.away:r.home;
+      const trackedData=Number.isFinite(r.xg);
+      return '<tr><td>'+esc(r.day||"—")+'</td><td>'+esc(opponent)+'</td><td><b>'+esc(r.score)+'</b></td><td>'+(trackedData?r.xg.toFixed(2):"—")+'</td><td>'+(Number.isFinite(r.xa)?r.xa.toFixed(2):"—")+'</td><td>'+(Number.isFinite(r.shots)?String(r.shots):"—")+'</td></tr>';
+    }).join("")||'<tr><td colspan="6"><div class="fm-empty">No match data recorded yet. Play a match to start building analytics.</div></td></tr>';
+    const playerRows=players.map(r=>'<tr><td><button class="fm-player-link" data-action="profile" data-player="'+esc(r.player.id)+'">'+esc(r.player.name)+'</button><small>'+esc(r.player.position)+' · '+esc(playerClubLabel(r.player))+'</small></td><td>'+r.xg.toFixed(2)+'</td><td>'+r.xa.toFixed(2)+'</td><td>'+r.keyPasses+'</td><td>'+r.goals+'</td></tr>').join("")||'<tr><td colspan="5"><div class="fm-empty">Player chance data will appear after the next tracked match.</div></td></tr>';
+    return '<div class="fm-data-hub-intro"><span class="fm-eyebrow">MATCH MODEL · PERFORMANCE ANALYTICS</span><p>Turn match events into measurable chance quality. xG is recorded for each shot; xA is credited to the passer whose completed pass reached the shooter before the attempt.</p></div>'+
+      '<div class="fm-stat-grid">'+statCard("MATCHES WITH xG",tracked.length,"Matches with shot-level data","lime")+statCard("EXPECTED GOALS (xG)",totalXg.toFixed(2),"Tracked shots · all saved seasons","purple")+statCard("EXPECTED ASSISTS (xA)",totalXa.toFixed(2),trackedXa.length+" matches with xA","blue")+statCard("KEY PASSES",totalKeyPasses,"Completed pass leading to a shot","orange")+'</div>'+
+      '<div class="fm-data-hub-grid"><div>'+panel("Recent match data",'<div class="fm-table-wrap"><table class="fm-table"><thead><tr><th>Date</th><th>Opponent</th><th>Score</th><th>xG</th><th>xA</th><th>Shots</th></tr></thead><tbody>'+matchRows+'</tbody></table></div>',"LAST 12")+
+      panel("Player chance contribution · current season",'<div class="fm-table-wrap"><table class="fm-table"><thead><tr><th>Player</th><th>xG</th><th>xA</th><th>Key passes</th><th>Goals</th></tr></thead><tbody>'+playerRows+'</tbody></table></div>',"FIRST TEAM")+'</div><div>'+panel("Shot quality",'<div class="fm-data-hub-metric"><span>Total shots tracked</span><b>'+totalShots+'</b></div><div class="fm-data-hub-metric"><span>xG per shot</span><b>'+(totalShots?(totalXg/totalShots).toFixed(3):"—")+'</b></div><div class="fm-data-hub-metric"><span>xA coverage</span><b>'+trackedXa.length+' / '+tracked.length+'</b></div><div class="fm-data-hub-metric"><span>Shots on target</span><b>'+tracked.reduce((sum,r)=>sum+(Number.isFinite(r.shotsOnTarget)?r.shotsOnTarget:0),0)+'</b></div>',"CHANCE CREATION")+
+      panel("How to read the numbers",'<p class="fm-help"><b>xG</b> estimates the scoring probability of each shot, summed for a match or player. <b>xA</b> sums the xG of shots linked to a completed pass to the shooter, regardless of whether the shot becomes a goal. A goal assist is still counted only when a goal is scored.</p><p class="fm-help">Older saved matches without shot-level event data cannot be reconstructed retroactively; the dashboard builds its tracking history from new matches.</p>',"MODEL NOTES")+'</div></div>';
+  }
+
   function renderSettings() {
     const persistence=Storage&&Storage.status?Storage.status():{indexedDBAvailable:false,mode:"localStorage",databaseVersion:0};
     const checkpointDay=state.storageMeta&&state.storageMeta.lastCheckpointDay||"Not created yet";
