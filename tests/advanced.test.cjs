@@ -491,7 +491,24 @@ assert.ok(disciplineState.inbox.some(m => m.title === "Suspension after red card
   "red-card suspension should be communicated through the inbox");
 assert.ok(disciplineState.inbox.some(m => m.title === "Suspension: yellow-card threshold"),
   "yellow-card threshold suspension should be communicated through the inbox");
-console.log("Matchday lookup and discipline suspension tests passed.");
+
+const injuredMatchPlayer = disciplineState.players.find(p => p.clubId === disciplineState.userClubId &&
+  p.id !== redCardPlayer.id && p.id !== yellowCardPlayer.id && !p.generated && !p.retired);
+assert.ok(injuredMatchPlayer, "injury test requires a third player in the managed squad");
+engine.applyResult(disciplineState,
+  {id:"match-injury-test",homeId:disciplineState.userClubId,awayId:disciplineOpponentId,round:4},
+  {
+    homeGoals:0,awayGoals:0,stats:emptyMatchStats(),
+    events:[{type:"injury",clubId:disciplineState.userClubId,playerId:injuredMatchPlayer.id,minute:36,weeksOut:3,text:"Injury"}],
+    lineups:emptyLineups(disciplineState.userClubId,disciplineOpponentId),manOfTheMatch:null
+  });
+assert.equal(injuredMatchPlayer.injuredWeeks, 3, "match injury events must persist a multi-week injury");
+assert.ok(disciplineState.inbox.some(m => m.title === "Injury during match" && m.text.includes(injuredMatchPlayer.name)),
+  "manager should receive a message for an injured player in their own squad");
+const postInjuryMatch = engine.simulateMatch(managedClub,opponentClub,disciplineState.players,disciplineState.tactics,engine.defaultTactics());
+assert.ok(!(postInjuryMatch.lineups[managedClub.id]||[]).includes(injuredMatchPlayer.id),
+  "a player injured during a match must be unavailable for later match selection until recovered");
+console.log("Matchday lookup, discipline and injury availability tests passed.");
 
 // Transfer finance regression: zero-upfront deals remain zero-upfront and reserve the full fee against the transfer budget.
 const installmentState = engine.newCareer({
