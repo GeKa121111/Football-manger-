@@ -756,7 +756,7 @@
     const player=state.players.find(p=>p.id===playerId);
     if(!player||player.clubId===state.userClubId)return {ok:false,message:"Player is not available to buy."};
     const windowStatus=transferWindowStatus(state.day);
-    if(!windowStatus.open&&Number(player.value)>0)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
+    if(player.clubId&&!windowStatus.open)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
     const fee=Math.max(0,Number(offer.fee)||0),wage=Math.max(0,Number(offer.wage)||0),upfront=clamp(Number(offer.upfront||fee),0,fee);
     const months=Number(offer.installmentMonths||0),installments=Math.max(0,fee-upfront);
     if(fee>state.finances.transferBudget)return {ok:false,message:"Transfer budget is too low for the offer."};
@@ -777,7 +777,7 @@
     if(!p||p.clubId!==state.userClubId)return {ok:false,message:"Player is not in your squad."};
     if(squad(state,state.userClubId).length<=18)return {ok:false,message:"Keep at least 18 registered players."};
     const windowStatus=transferWindowStatus(state.day);
-    if(!windowStatus.open&&Number(p.value)>0)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
+    if(p.clubId&&!windowStatus.open)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
     const amount=Math.max(0,Number(fee)||p.value);
     p.clubId=null;state.finances.balance+=amount;state.finances.transferBudget+=amount;state.finances.weeklyCosts=Math.max(0,state.finances.weeklyCosts-p.wage);
     state.careerHistory.push({type:"transfer-out",day:state.day,playerId:p.id,fee:amount});
