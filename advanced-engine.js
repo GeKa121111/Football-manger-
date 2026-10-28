@@ -115,7 +115,7 @@
     return fixtures;
   }
   function buildUCL(clubs) {
-    const entrants=clubs.slice().sort((a,b)=>b.strength-a.strength).slice(0,36);
+    const uefaCountries=["England","Spain","Italy","Germany","France"];\n    const entrants=clubs.filter(c=>uefaCountries.includes(c.country)).slice().sort((a,b)=>b.strength-a.strength).slice(0,36);
     if(entrants.length<36) return {name:"Continental league phase",note:"Import more clubs to run a full 36-team phase.",teams:entrants.map(c=>c.id),fixtures:[]};
     const schedule=circleSchedule(entrants.map(c=>c.id),8).filter(f=>f.round<=8);
     schedule.forEach((f,i)=>{f.id="ucl-"+f.round+"-"+i;f.competition="ucl";f.date=null;});
@@ -298,7 +298,7 @@
     for(let i=0;i<hg;i++){const p=pick(hscorers.length?hscorers:hp);if(p){events.push({minute:rand(3,90),type:"goal",clubId:homeClub.id,playerId:p.id,text:p.name+" scores for "+homeClub.name+"!"});}}
     for(let i=0;i<ag;i++){const p=pick(ascorers.length?ascorers:ap);if(p){events.push({minute:rand(3,90),type:"goal",clubId:awayClub.id,playerId:p.id,text:p.name+" scores for "+awayClub.name+"!"});}}
     const foulCount=rand(8,29), yellowHome=rand(0,3),yellowAway=rand(0,3);
-    if(Math.random()<.12)events.push({minute:rand(10,88),type:"injury",clubId:Math.random()<.5?homeClub.id:awayClub.id,text:"Player injury reported"});
+    if(Math.random()<.12){const injuredClub=Math.random()<.5?homeClub:awayClub,injuredXI=injuredClub.id===homeClub.id?hxi:axi,injuredPlayer=pick(injuredXI);events.push({minute:rand(10,88),type:"injury",clubId:injuredClub.id,playerId:injuredPlayer?.id||null,text:(injuredPlayer?.name||"A player")+" is injured"});}
     events.sort((a,b)=>a.minute-b.minute);
     const ratings={};
     hxi.concat(axi).forEach(p=>{ratings[p.id]=clamp(6.1+Math.random()*1.5+(events.some(e=>e.type==="goal"&&e.playerId===p.id)?1.2:0),4,10);});
@@ -339,6 +339,14 @@
     const dt=new Date(state.day+"T12:00:00Z");
     if(dt.getUTCDay()===1){state.week++;state.finances.balance+=state.finances.weeklyIncome-state.finances.weeklyCosts;state.finances.seasonIncome+=state.finances.weeklyIncome;state.finances.seasonCosts+=state.finances.weeklyCosts;}
     state.players.forEach(p=>{if(p.injuredWeeks>0 && dt.getUTCDay()===1)p.injuredWeeks--;p.fitness=clamp(p.fitness+(dt.getUTCDay()===0?3:0)-.18,30,100);});
+    if(dt.getUTCDate()===1){
+      state.transfers.filter(t=>t.type==="installments"&&t.remaining>0).forEach(t=>{
+        const payment=Math.min(t.remaining,Math.max(0,Number(t.monthly)||0));
+        t.remaining-=payment;t.monthsRemaining=Math.max(0,(t.monthsRemaining||t.months||0)-1);
+        state.finances.balance-=payment;t.due=state.day;
+      });
+      state.transfers=state.transfers.filter(t=>t.type!=="installments"||t.remaining>0);
+    }
     const todays=state.fixtures.find(f=>!f.played&&f.date===state.day);
     if(todays&&(todays.homeId===state.userClubId||todays.awayId===state.userClubId)){state.matchPending=todays.id;return {match:true,fixture:todays};}
     return {match:false};
@@ -348,6 +356,10 @@
     const home=state.clubs.find(c=>c.id===fixture.homeId),away=state.clubs.find(c=>c.id===fixture.awayId);
     (state.players.filter(p=>p.clubId===fixture.homeId||p.clubId===fixture.awayId)).forEach(p=>{p.fitness=clamp(p.fitness-rand(5,14),20,100);p.form=(p.form||[]).concat([result.stats.ratings[p.id]||6.6]).slice(-5);});
     result.events.filter(e=>e.type==="goal").forEach(e=>{const p=state.players.find(p=>p.id===e.playerId);if(p)p.goals=(p.goals||0)+1;});
+    result.events.filter(e=>e.type==="injury").forEach(e=>{
+      const p=state.players.find(p=>p.id===e.playerId);
+      if(p){p.injuredWeeks=Math.max(p.injuredWeeks||0,rand(1,5));state.inbox.unshift({id:"injury-"+p.id+"-"+Date.now(),title:"Injury report",text:p.name+" is out for approximately "+p.injuredWeeks+" week(s).",read:false,kind:"warning",day:state.day});}
+    });
     if(fixture.homeId===state.userClubId||fixture.awayId===state.userClubId){
       const userGoals=fixture.homeId===state.userClubId?result.homeGoals:result.awayGoals, oppGoals=fixture.homeId===state.userClubId?result.awayGoals:result.homeGoals;
       state.careerHistory.unshift({day:state.day,home:home.name,away:away.name,score:result.homeGoals+"–"+result.awayGoals,goalsFor:userGoals,goalsAgainst:oppGoals});
@@ -389,9 +401,9 @@
     if(wage<Math.max(500,player.wage*.78)&&Math.random()>.18)return {ok:false,counterWage:Math.round(player.wage*1.1),message:"The player rejected the wage offer."};
     state.finances.transferBudget-=upfront;
     state.finances.balance-=upfront;
-    if(installments>0)state.transfers.push({type:"installments",playerId:player.id,remaining:installments,months:months||12,monthly:Math.ceil(installments/(months||12)),due:state.day});
+    if(installments>0)state.transfers.push({id:"installment-"+player.id+"-"+Date.now(),type:"installments",playerId:player.id,remaining:installments,months:months||12,monthsRemaining:months||12,monthly:Math.ceil(installments/(months||12)),due:state.day});
     if(player.clubId){const old=state.clubs.find(c=>c.id===player.clubId);if(old)old.transferBudget=(old.transferBudget||0)+fee;}
-    player.clubId=state.userClubId;player.wage=wage;player.contractYears=Number(offer.years||4);player.value=Math.max(player.value,fee);player.morale=clamp(player.morale+7,0,100);player.generated=false;
+    player.clubId=state.userClubId;player.wage=wage;player.contractYears=Number(offer.years||4);player.value=Math.max(player.value,fee);player.morale=clamp(player.morale+7,0,100);player.generated=false;player.appearanceBonus=Math.max(0,Number(offer.appearanceBonus)||0);player.goalBonus=Math.max(0,Number(offer.goalBonus)||0);player.sellOnPercent=clamp(Number(offer.sellOn)||0,0,50);player.releaseClause=Math.max(0,Number(offer.releaseClause)||0);player.signingBonus=Math.max(0,Number(offer.signingBonus)||0);state.finances.balance-=player.signingBonus;
     state.finances.weeklyCosts+=wage;state.inbox.unshift({id:"signed-"+player.id+"-"+Date.now(),title:"Signing complete",text:player.name+" signed for "+fee+" with a weekly wage of "+wage+".",kind:"success",read:false,day:state.day});
     state.careerHistory.push({type:"transfer-in",day:state.day,playerId:player.id,fee:fee,wage:wage});
     return {ok:true,message:"Transfer and contract registered.",player:player};
@@ -409,11 +421,16 @@
   function offerRenewal(state, playerId, deal) {
     const p=state.players.find(x=>x.id===playerId);
     if(!p||p.clubId!==state.userClubId)return {ok:false,message:"Player is not in your club."};
-    const wage=Math.max(0,Number(deal.wage)||p.wage),years=clamp(Number(deal.years||3),1,5);
+    const oldWage=Number(p.wage)||0;
+    const wage=Math.max(0,Number(deal.wage)||oldWage),years=clamp(Number(deal.years||3),1,5);
     if(wage>state.finances.wageBudget)return {ok:false,message:"Weekly wage budget exceeded."};
-    if(wage<p.wage*.82&&Math.random()>.25)return {ok:false,message:"The player rejected the wage proposal."};
-    p.wage=wage;p.contractYears=years;p.releaseClause=Math.max(0,Number(deal.releaseClause)||0);p.signingBonus=Math.max(0,Number(deal.signingBonus)||0);
-    state.finances.weeklyCosts+=wage;
+    if(wage<Math.max(500,oldWage*.82)&&Math.random()>.25)return {ok:false,message:"The player rejected the wage proposal."};
+    const signingBonus=Math.max(0,Number(deal.signingBonus)||0);
+    if(signingBonus>state.finances.balance)return {ok:false,message:"The club cannot afford the signing-on fee."};
+    p.wage=wage;p.contractYears=years;p.releaseClause=Math.max(0,Number(deal.releaseClause)||0);p.signingBonus=signingBonus;
+    p.appearanceBonus=Math.max(0,Number(deal.appearanceBonus)||p.appearanceBonus||0);
+    p.goalBonus=Math.max(0,Number(deal.goalBonus)||p.goalBonus||0);
+    state.finances.weeklyCosts+=wage-oldWage;state.finances.balance-=signingBonus;
     state.inbox.unshift({id:"renew-"+p.id+"-"+Date.now(),title:"Contract renewed",text:p.name+" renewed for "+years+" seasons.",kind:"success",read:false,day:state.day});
     return {ok:true,message:"Renewal accepted."};
   }
