@@ -70,8 +70,13 @@
       sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
       worldCupSnapshot:!!p.worldCupSnapshot,
       fantasyPrice:p.fantasyPrice==null?null:Number(p.fantasyPrice),fantasyPriceCurrency:p.fantasyPriceCurrency||null,
-      fplStatus:p.fplStatus||null,minutes:Number(p.minutes||0)
+      fplStatus:p.fplStatus||null,minutes:Number(p.minutes||0),
+      seasonHistory:Array.isArray(p.seasonHistory)?p.seasonHistory.slice(-20):[]
     };
+    player.seasonStats=Object.assign({
+      appearances:player.appearances,goals:player.goals,assists:player.assists,yellowCards:player.yellowCards,
+      redCards:player.redCards,cleanSheets:player.cleanSheets,averageRating:player.averageRating,lastMatchRating:player.lastMatchRating
+    },p.seasonStats||{});
     player.attributes = Object.assign(baseAttributes(player), player.attributes || {});
     player.overall = playerOverall(player);
     if (player.position !== "GK") player.attributes.goalkeeping = 1;
@@ -707,26 +712,34 @@
         p.form=(p.form||[]).concat([rating]).slice(-5);
         p.appearances=(p.appearances||0)+1;p.lastMatchRating=rating;
         const previous=Number(p.averageRating)||0;p.averageRating=Number(((previous*(p.appearances-1)+rating)/p.appearances).toFixed(2));
+        p.seasonStats=p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
+        const seasonApps=Number(p.seasonStats.appearances)||0,seasonAverage=Number(p.seasonStats.averageRating)||0;
+        p.seasonStats.appearances=seasonApps+1;p.seasonStats.lastMatchRating=rating;
+        p.seasonStats.averageRating=Number(((seasonAverage*seasonApps+rating)/(seasonApps+1)).toFixed(2));
       }else{
         p.fitness=clamp(p.fitness+rand(0,2),20,100);
       }
     });
     result.events.filter(e=>e.type==="goal").forEach(e=>{
-      const p=state.players.find(p=>p.id===e.playerId);if(p)p.goals=(p.goals||0)+1;
-      const assist=state.players.find(p=>p.id===e.assistId);if(assist)assist.assists=(assist.assists||0)+1;
+      const p=state.players.find(p=>p.id===e.playerId);if(p){p.goals=(p.goals||0)+1;p.seasonStats=p.seasonStats||{goals:0};p.seasonStats.goals=(Number(p.seasonStats.goals)||0)+1;}
+      const assist=state.players.find(p=>p.id===e.assistId);if(assist){assist.assists=(assist.assists||0)+1;assist.seasonStats=assist.seasonStats||{assists:0};assist.seasonStats.assists=(Number(assist.seasonStats.assists)||0)+1;}
     });
     result.events.filter(e=>e.type==="yellow"||e.type==="red").forEach(e=>{
-      const p=state.players.find(p=>p.id===e.playerId);if(p){if(e.type==="yellow")p.yellowCards=(p.yellowCards||0)+1;else p.redCards=(p.redCards||0)+1;}
+      const p=state.players.find(p=>p.id===e.playerId);if(p){
+        p.seasonStats=p.seasonStats||{yellowCards:0,redCards:0};
+        if(e.type==="yellow"){p.yellowCards=(p.yellowCards||0)+1;p.seasonStats.yellowCards=(Number(p.seasonStats.yellowCards)||0)+1;}
+        else{p.redCards=(p.redCards||0)+1;p.seasonStats.redCards=(Number(p.seasonStats.redCards)||0)+1;}
+      }
     });
     result.events.filter(e=>e.type==="injury").forEach(e=>{
       const p=state.players.find(p=>p.id===e.playerId);
       if(p){p.injuredWeeks=Math.max(p.injuredWeeks||0,rand(1,5));state.inbox.unshift({id:"injury-"+p.id+"-"+Date.now(),title:"Injury report",text:p.name+" is out for approximately "+p.injuredWeeks+" week(s).",read:false,kind:"warning",day:state.day});}
     });
     if(Number(fixture.awayGoals)===0){
-      (lineupMap[fixture.homeId]||[]).map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&p.position==="GK").forEach(p=>p.cleanSheets=(p.cleanSheets||0)+1);
+      (lineupMap[fixture.homeId]||[]).map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&p.position==="GK").forEach(p=>{p.cleanSheets=(p.cleanSheets||0)+1;p.seasonStats=p.seasonStats||{cleanSheets:0};p.seasonStats.cleanSheets=(Number(p.seasonStats.cleanSheets)||0)+1;});
     }
     if(Number(fixture.homeGoals)===0){
-      (lineupMap[fixture.awayId]||[]).map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&p.position==="GK").forEach(p=>p.cleanSheets=(p.cleanSheets||0)+1);
+      (lineupMap[fixture.awayId]||[]).map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&p.position==="GK").forEach(p=>{p.cleanSheets=(p.cleanSheets||0)+1;p.seasonStats=p.seasonStats||{cleanSheets:0};p.seasonStats.cleanSheets=(Number(p.seasonStats.cleanSheets)||0)+1;});
     }
     if(fixture.homeId===state.userClubId||fixture.awayId===state.userClubId){
       const userGoals=fixture.homeId===state.userClubId?result.homeGoals:result.awayGoals,oppGoals=fixture.homeId===state.userClubId?result.awayGoals:result.homeGoals;
@@ -752,6 +765,13 @@
     const standings=recalcStandings(state,state.fixtures);
     state.inbox.unshift({id:"season-"+state.seasonNumber,title:"Season review complete",text:(standings[0]?.name||"Winner")+" finished top of the league. Career season "+state.seasonNumber+" complete.",read:false,kind:"success",day:state.day});
     state.careerHistory.push({type:"season",season:state.season,champion:standings[0]?.clubId||null,table:standings});
+    state.players.forEach(p=>{
+      p.seasonStats=p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
+      p.seasonHistory=p.seasonHistory||[];
+      p.seasonHistory.unshift({season:state.season,stats:Object.assign({},p.seasonStats)});
+      p.seasonHistory=p.seasonHistory.slice(0,20);
+      p.seasonStats={appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
+    });
     state.players.forEach(p=>{p.age=Math.min(48,p.age+1);p.contractYears=Math.max(0,p.contractYears-1);if(p.age>32&&Math.random()<.13)p.overall=Math.max(35,p.overall-1);if(p.age<24&&Math.random()<.18)p.overall=Math.min(p.potential,p.overall+1);if(p.age<24&&p.overall<p.potential&&Math.random()<.12){const k=pick(ATTRS.filter(key=>key!=="goalkeeping"||p.position==="GK"));p.attributes=p.attributes||baseAttributes(p);p.attributes[k]=clamp((p.attributes[k]||10)+1,1,20);}});
     state.season++;state.seasonNumber++;state.day=String(state.season)+"-07-01";state.currentRound=0;state.seasonDays=0;state.fixtures=state.world.calendar[currentClub(state).league]||[];state.fixtures=setFixtureDates(circleSchedule(state.clubs.filter(c=>c.league===currentClub(state).league).map(c=>c.id)).map(f=>Object.assign(f,{competition:currentClub(state).league})),String(state.season)+"-07-08");
     state.players.filter(p=>p.clubId===state.userClubId).forEach(p=>{p.fitness=rand(80,100);p.morale=clamp(p.morale+rand(-5,5),40,95);p.registered=(p.registered===true);});
