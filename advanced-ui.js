@@ -105,7 +105,7 @@
     const checkboxes=$$('input[name="nations"]',form);
     checkboxes.forEach(cb=>cb.addEventListener("change",()=>{
       const checked=checkboxes.filter(x=>x.checked);
-      if(checked.length>5){cb.checked=false;toast("Choose up to five playable nations.","warning");}
+      if(checked.length>5){cb.checked=false;toast("اختار خمس دول كحد أقصى.", "warning");}
       selectedNations=checkboxes.filter(x=>x.checked).map(x=>x.value);
       if(!selectedNations.length){cb.checked=true;selectedNations=[cb.value];}
       const nationSel=$("#fm-nation",form);if(!selectedNations.includes(nationSel.value))nationSel.value=selectedNations[0];
@@ -120,11 +120,13 @@
       if(!selectedNations.includes(primary))selectedNations.unshift(primary);
       selectedNations=selectedNations.slice(0,5);
       try{
-        setup={mode:String(fd.get("mode")||"career"),managerName:String(fd.get("managerName")||"Alex Manager"),managerNationality:primary,reputation:Number(fd.get("reputation")||45),badge:String(fd.get("badge")||"Tactician"),primaryNation:primary,databaseSize:String(fd.get("databaseSize")||"medium"),clubId:String(fd.get("clubId")||"")};
+        setup={mode:String(fd.get("mode")||"career"),managerName:String(fd.get("managerName")||"").trim(),managerNationality:String(fd.get("managerNationality")||"Egypt"),reputation:Number(fd.get("reputation")||45),badge:String(fd.get("badge")||"Tactician"),primaryNation:primary,databaseSize:String(fd.get("databaseSize")||"medium"),clubId:String(fd.get("clubId")||"")};
+        if(!setup.managerName)throw new Error("اكتب اسم المدير الفني الأول.");
+        if(!setup.clubId&&setup.mode!=="myclub")throw new Error("اختار النادي اللي هتدربه.");
         if(setup.mode==="myclub") setup.clubId=createMyClub(setup);
         state=E.newCareer(Object.assign({},setup,{nations:selectedNations}));
         if(setup.mode==="myclub"){state.manager.clubId=setup.clubId;}
-        save();view="overview";root.classList.add("is-open");render();toast("Career created. Loading current Premier League squads in the background…","success");runFPLImport(true);
+        save();view="overview";root.classList.add("is-open");render();toast("اتعملت المسيرة. جاري تحديث بيانات لاعبي الدوري الإنجليزي…","success");runFPLImport(true);
       }catch(err){toast(err.message||"Unable to create career.","warning");}
     });
     $("#fm-import-file",root).addEventListener("change",handleImportFile);
@@ -688,5 +690,5 @@
   }
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(modal){modal=null;const m=$("#fm-modal-root");if(m)m.innerHTML="";}else close();}});
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",installLauncher);else installLauncher();
-  window.FM_ADVANCED={open:open,close:close,getState:()=>state,createCareer:options=>{state=E.newCareer(options||{});save();return state;},render:render};
+  window.FM_ADVANCED={open:open,close:close,openNewCareer:openNewCareer,getState:()=>state,createCareer:options=>{state=E.newCareer(options||{});save();return state;},render:render};
 })();
