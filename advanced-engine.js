@@ -225,6 +225,7 @@
       staff:[{id:"asst",type:"Assistant Manager",name:"Assistant Coach",rating:3,salary:3000},{id:"physio",type:"Physio",name:"Club Physio",rating:2,salary:1800},{id:"scout",type:"Scout",name:"Regional Scout",rating:2,salary:1600}],
       transfers:[],sponsorships:[],trainingLog:[],challenge:options.mode==="challenge"?(options.challenge||"Relegation survival"):null,achievements:[],settings:{currency:"GBP",wageDisplay:"weekly",language:"en",speed:1,highlightMode:"key",databaseSource:world.sourceSeason},generatedCount:world.players.filter(p=>p.generated).length
     };
+    clubPlayers.slice().sort((a,b)=>b.overall-a.overall).forEach((p,i)=>{p.registered=i<25;});
     const startingXI=clubPlayers.slice().sort((a,b)=>b.overall-a.overall).slice(0,11);
     if(startingXI[0]) state.tactics.captainId=startingXI[0].id;
     state.finances.weeklyCosts=clubPlayers.reduce((a,p)=>a+p.wage,0);
@@ -372,8 +373,9 @@
     state.inbox.unshift({id:"season-"+state.seasonNumber,title:"Season review complete",text:(standings[0]?.name||"Winner")+" finished top of the league. Career season "+state.seasonNumber+" complete.",read:false,kind:"success",day:state.day});
     state.careerHistory.push({type:"season",season:state.season,champion:standings[0]?.clubId||null,table:standings});
     state.players.forEach(p=>{p.age=Math.min(48,p.age+1);p.contractYears=Math.max(0,p.contractYears-1);if(p.age>32&&Math.random()<.13)p.overall=Math.max(35,p.overall-1);if(p.age<24&&Math.random()<.18)p.overall=Math.min(p.potential,p.overall+1);p.attributes=baseAttributes(p);});
-    state.season++;state.seasonNumber++;state.day=String(state.season)+"-07-01";state.currentRound=0;state.seasonDays=0;state.fixtures=state.world.calendar[currentClub(state).league]||[];state.fixtures=setFixtureDates(circleSchedule(state.clubs.filter(c=>c.league===currentClub(state).league).map(c=>c.id)).map(f=>Object.assign(f,{competition:currentClub(state).league})),state.day);
-    state.players.filter(p=>p.clubId===state.userClubId).forEach(p=>{p.fitness=rand(80,100);p.morale=clamp(p.morale+rand(-5,5),40,95);});
+    state.season++;state.seasonNumber++;state.day=String(state.season)+"-07-01";state.currentRound=0;state.seasonDays=0;state.fixtures=state.world.calendar[currentClub(state).league]||[];state.fixtures=setFixtureDates(circleSchedule(state.clubs.filter(c=>c.league===currentClub(state).league).map(c=>c.id)).map(f=>Object.assign(f,{competition:currentClub(state).league})),String(state.season)+"-07-08");
+    state.players.filter(p=>p.clubId===state.userClubId).forEach(p=>{p.fitness=rand(80,100);p.morale=clamp(p.morale+rand(-5,5),40,95);p.registered=(p.registered===true);});
+    state.domesticCup=createDomesticCup(state.nation,state.clubs,state.season);
     state.finances.balance+=state.finances.weeklyIncome*4;
   }
   function negotiateTransfer(state, playerId, offer) {
