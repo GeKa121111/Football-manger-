@@ -145,6 +145,17 @@ assert.equal(new Set(simulatedUserLineup).size, simulatedUserLineup.length, "sim
 assert.equal(simulatedUserLineup.filter(id => state.players.find(p => p.id === id)?.position === "GK").length, 1,
   "match simulation must preserve one goalkeeper even with a malformed manual selection");
 state.tactics.startingXI = [];
+const retiredLineupCandidate = state.players.find(p => p.clubId === state.userClubId && p.position !== "GK" && !p.retired);
+assert.ok(retiredLineupCandidate, "retired player regression needs an outfield squad member");
+retiredLineupCandidate.retired = true;
+assert.ok(!engine.squad(state,state.userClubId).some(p => p.id === retiredLineupCandidate.id),
+  "retired players should not remain in the active squad list");
+assert.ok(!engine.selectedXI(state,state.userClubId).some(p => p.id === retiredLineupCandidate.id),
+  "retired players must not be selected for the starting XI");
+const retiredPlayerMatch = engine.simulateMatch(managedClubForXI,opponentClubForXI,state.players,engine.defaultTactics(),engine.defaultTactics());
+assert.ok(!(retiredPlayerMatch.lineups[state.userClubId]||[]).includes(retiredLineupCandidate.id),
+  "retired players must not appear in simulated match lineups");
+retiredLineupCandidate.retired = false;
 const poorShape = Object.assign({},engine.defaultTactics(),{positions:Object.fromEntries(xi.map(p=>[p.id,[.5,.02]]))});
 assert.ok(engine.strengthForXI(xi,poorShape,false)<engine.strengthForXI(xi,engine.defaultTactics(),false),
   "dragging the whole team out of its role zones should reduce tactical strength");
