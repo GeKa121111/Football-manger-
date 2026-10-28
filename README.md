@@ -21,11 +21,11 @@ Open `index.html` through a static web server or publish the repository with Git
 
 ## Data accuracy and licensing
 
-The bundled player roster is a small illustrative seed snapshot, **not a verified current 2026/27 dataset**. Clubs and some player examples are real, but the full squads are not. Procedurally generated academy slots are visibly marked and must not be mistaken for real people. The app does not fabricate wages or market values where imported feeds omit them. Before treating ages, club membership, shirt numbers, stadium capacities, salaries or valuations as authoritative, import and validate a current, licensed source. Player value/wage figures embedded in the starter seed are estimates for gameplay, not official payroll disclosures.
+The expanded club list is a broad seed catalogue, **not a verified complete 2026/27 divisional database**. Club names are real and tier labels are representative seed groupings, but affiliations can change by season and most full squads are not bundled. Procedurally generated academy slots are visibly marked and must not be mistaken for real people. The app does not fabricate wages or market values where imported feeds omit them. Before treating ages, club membership, shirt numbers, stadium capacities, salaries or valuations as authoritative, import and validate a current, licensed source. Player value/wage figures embedded in the starter seed are estimates for gameplay, not official payroll disclosures.
 
 The optional football-data.org importer uses the user's own API token in a request header. Availability and completeness depend on the provider's competition coverage, token plan, CORS behavior and response schema. Its team/squad endpoint does not guarantee every attribute needed by a management simulation. Do not commit private API tokens into the repository.
 
-The bundled 36-team continental screen is an **engine framework**, not a complete official qualification/seed system. Exact UEFA, CAF, AFC, domestic-cup, promotion/relegation and squad registration regulations require separately verified competition datasets and rules. The initial cup framework is simplified. It should not be advertised as a complete, official league pyramid.
+The bundled 36-team continental screen selects from supported European first-tier seed clubs, but remains an **engine framework**, not a complete official qualification/seed system. Exact UEFA, CAF, AFC, domestic-cup, promotion/relegation and squad registration regulations require separately verified competition datasets and rules. The initial cup framework is simplified. It should not be advertised as a complete, official league pyramid.
 
 ## Save storage
 
