@@ -45,6 +45,7 @@
     attacking: { label: "هجومي", attack: 2.1, defense: -1.1 }
   };
   let state = null;
+  let pendingSavedState = null;
   let currentView = "overview";
   let playerSearch = "";
   let marketSearch = "";
@@ -1041,6 +1042,30 @@
   function handleAction(button) {
     const action = button.dataset.action;
     if (!action) return;
+    if (action === "resume-classic-career") {
+      if (!pendingSavedState) { toast("مفيش مسيرة محفوظة للاستكمال.", "warning"); return; }
+      state = pendingSavedState;
+      pendingSavedState = null;
+      removeStartScreen();
+      updateClubStrengths();
+      render();
+      return;
+    }
+    if (action === "resume-advanced-career") {
+      removeStartScreen();
+      if (window.FM_ADVANCED_MANAGER && typeof window.FM_ADVANCED_MANAGER.open === "function") window.FM_ADVANCED_MANAGER.open();
+      else { toast("وضع المسيرة المتقدمة لسه بيحمّل. حدّث الصفحة وجرب تاني.", "warning"); renderStartScreen(pendingSavedState); }
+      return;
+    }
+    if (action === "start-new-career") {
+      if (window.FM_ADVANCED_MANAGER && typeof window.FM_ADVANCED_MANAGER.openNewCareer === "function") {
+        removeStartScreen();
+        window.FM_ADVANCED_MANAGER.openNewCareer();
+      } else {
+        toast("وضع المسيرة المتقدمة لسه بيحمّل. حدّث الصفحة وجرب تاني.", "warning");
+      }
+      return;
+    }
     if (action === "play-next-round") playNextRound();
     else if (action === "save-now") saveGame(true);
     else if (action === "open-inbox") openInbox();
@@ -1088,14 +1113,47 @@
     }
   });
 
+  function removeStartScreen() {
+    const screen = document.getElementById("tm-start-screen");
+    if (screen) screen.remove();
+  }
+
+  function renderStartScreen(saved) {
+    pendingSavedState = saved || null;
+    let advanced = null;
+    try { advanced = JSON.parse(localStorage.getItem("touchline-advanced-save-v1") || "null"); } catch (error) { advanced = null; }
+    const classicClub = saved && Array.isArray(saved.clubs) ? saved.clubs.find(c => c.id === saved.userClubId) : null;
+    const advancedClub = advanced && Array.isArray(advanced.clubs) ? advanced.clubs.find(c => c.id === advanced.userClubId) : null;
+    const advancedName = advanced && advanced.manager ? advanced.manager.name : "";
+    let screen = document.getElementById("tm-start-screen");
+    if (!screen) {
+      screen = document.createElement("section");
+      screen.id = "tm-start-screen";
+      screen.className = "tm-start-screen";
+      screen.setAttribute("aria-label", "بداية اللعبة");
+      document.body.appendChild(screen);
+    }
+    screen.innerHTML =
+      '<div class="tm-start-pitch" aria-hidden="true"><span></span></div>' +
+      '<div class="tm-start-content">' +
+        '<div class="tm-start-brand"><span class="tm-start-mark">TM</span><div><b>TOUCHLINE MANAGER</b><small>محاكي إدارة كرة القدم</small></div></div>' +
+        '<div class="tm-start-hero"><span class="tm-start-eyebrow">مسيرتك. قراراتك. تاريخك.</span><h1>كل أسطورة<br><em>بتبدأ بقرار.</em></h1><p>اختار ناديك، اكتب اسمك، وابدأ رحلتك على خط التماس.</p></div>' +
+        '<div class="tm-start-panel"><div class="tm-start-panel-heading"><span>ابدأ من هنا</span><small>ملف مدير محلي على جهازك</small></div>' +
+        (saved ? '<button type="button" class="tm-start-resume" data-action="resume-classic-career"><span class="tm-start-button-icon">↻</span><span><b>استكمال المسيرة</b><small>'+safeName(classicClub ? classicClub.name : "مسيرتك المحفوظة")+' · الموسم '+safeName(saved.seasonYear || "")+'</small></span><strong>←</strong></button>' : '') +
+        (advanced ? '<button type="button" class="tm-start-resume" data-action="resume-advanced-career"><span class="tm-start-button-icon">♜</span><span><b>استكمال المسيرة المتقدمة</b><small>'+safeName(advancedName || "ملف المدير")+(advancedClub ? " · "+safeName(advancedClub.name) : "")+'</small></span><strong>←</strong></button>' : '') +
+        '<button type="button" class="tm-start-new" data-action="start-new-career"><span><small>NEW CAREER</small><b>إنشاء مسيرة جديدة</b><em>اختيار النادي وملف المدير</em></span><strong>←</strong></button>' +
+        '<div class="tm-start-footnote"><span class="tm-start-live-dot"></span> يتم حفظ مسيرتك على هذا الجهاز تلقائيًا</div></div>' +
+        '<div class="tm-start-version">TOUCHLINE MANAGER <span>•</span> LOCAL CAREER</div>' +
+      '</div>';
+  }
+
   function initialize() {
     let saved = null;
     try { saved = repairLoadedState(JSON.parse(localStorage.getItem(STORAGE_KEY) || "null")); } catch (error) { saved = null; }
-    state = saved || makeInitialState();
-    updateClubStrengths();
+    state = null;
     document.getElementById("save-now").addEventListener("click", function () { saveGame(true); });
     document.getElementById("reset-game").addEventListener("click", resetGame);
-    render();
+    renderStartScreen(saved);
   }
 
   initialize();
