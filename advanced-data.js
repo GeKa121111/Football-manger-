@@ -1,6 +1,45 @@
 /* Curated demo seed. Refresh squad membership, values and wages with the import tools before treating it as a current-season database. */
 (function (root) {
   "use strict";
+  function youthHash(value) {
+    const s=String(value||"");let h=2166136261;
+    for(let i=0;i<s.length;i++)h=Math.imul(h^s.charCodeAt(i),16777619);
+    return h>>>0;
+  }
+  function youthClamp(value,min,max){return Math.max(min,Math.min(max,Math.round(Number(value)||0)));}
+  function hiddenAttributeEstimate(seed,age){
+    const value=function(key){return youthHash(String(seed)+"|hidden|"+key);};
+    return {
+      professionalism:youthClamp(5+(value("professionalism")%15)+(age>=27?1:0),1,20),
+      ambition:youthClamp(5+(value("ambition")%15)+(age<23?1:0),1,20),
+      consistency:youthClamp(4+(value("consistency")%16),1,20),
+      pressure:youthClamp(4+(value("pressure")%16),1,20),
+      durability:youthClamp(4+(value("durability")%16),1,20)
+    };
+  }
+  function youthRandom(seed){
+    let state=youthHash(seed)||0x6d2b79f5;
+    return function(){state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
+  }
+  function youthInteger(rng,min,max){return min+Math.floor(rng()*(max-min+1));}
+  function youthRating(value,fallback){const n=Number(value);return youthClamp(Number.isFinite(n)?n:fallback,1,20);}
+  const YOUTH_FIRST_NAMES=[
+    "Alex","Amir","Adam","Aidan","André","Bilal","Daniel","Elias","Emil","Felix","Gabriel","Hassan",
+    "Ibrahim","Ismail","Jamal","Jonas","Karim","Leo","Luca","Malik","Marco","Mateo","Mikael","Nabil",
+    "Noah","Omar","Rayan","Samir","Theo","Youssef","Zayn","Ziad"
+  ];
+  const YOUTH_LAST_NAMES=[
+    "Adams","Bennett","Costa","Diallo","Elmasry","Fischer","Garcia","Haddad","Ibrahim","Jensen","Khalil",
+    "Kovac","Laurent","Mansour","Marin","Nasser","Novak","Okafor","Petrov","Rahman","Rossi","Santos",
+    "Sato","Silva","Smith","Tanaka","Traore","Williams","Yilmaz","Young","Zidan","Zimmermann"
+  ];
+  const NATION_YOUTH_RATINGS={
+    "England":16,"Spain":17,"Italy":14,"Germany":16,"France":18,"Egypt":10,"Saudi Arabia":10,
+    "Portugal":15,"Netherlands":16,"Belgium":15,"Turkey":12,"Greece":11,"Austria":13,"Switzerland":14,
+    "Denmark":14,"Norway":13,"Sweden":14,"Brazil":18,"Argentina":18,"United States":13,"Mexico":13,
+    "Japan":14,"South Korea":12,"Australia":12,"Morocco":14,"South Africa":11,"United Arab Emirates":8
+  };
+
   const clubs = [
     ["liv","Liverpool","ENG","England","Premier League","Anfield","#C8102E","#F6EB61",61000,145000000],
     ["mci","Manchester City","ENG","England","Premier League","Etihad Stadium","#6CABDD","#1C2C5B",53400,180000000],
@@ -226,7 +265,18 @@
     ["ksa-jeddah","Jeddah Club","KSA","Saudi Arabia","Saudi First Division","King Abdullah Sports City","#D71920","#FFFFFF",10000,5050000,2,48],
     ["ksa-orobah","Al-Orobah FC","KSA","Saudi Arabia","Saudi First Division","Al-Orobah Stadium","#FDE100","#000000",10000,4875000,2,48]
   ].map(function (c) {
-    return { id:c[0],name:c[1],code:c[2],country:c[3],nation:c[3],league:c[4],stadium:c[5],primary:c[6],secondary:c[7],capacity:c[8],transferBudget:c[9],wageBudget:Math.round(c[9]*0.004),tier:Number(c[10]||1),strength:Number(c[11]||72),seeded:true };
+    const tier=Number(c[10]||1);
+    const strength=Number(c[11]||72);
+    const seed=youthHash(c[0]);
+    return {
+      id:c[0],name:c[1],code:c[2],country:c[3],nation:c[3],league:c[4],stadium:c[5],
+      primary:c[6],secondary:c[7],capacity:c[8],transferBudget:c[9],wageBudget:Math.round(c[9]*0.004),
+      tier:tier,strength:strength,seeded:true,
+      reputation:youthClamp(strength*0.78+(tier===1?12:0),1,100),
+      youthRecruitment:youthClamp(3+(strength-45)*0.28+(tier===1?5:0)+(seed%4),1,20),
+      juniorCoaching:youthClamp(3+(strength-45)*0.24+(tier===1?5:0)+((seed>>>5)%4),1,20),
+      youthFacilities:youthClamp(3+(strength-45)*0.23+(tier===1?4:0)+((seed>>>9)%4),1,20)
+    };
   });
   const stars = [
     ["salah","Mohamed Salah","liv","RW","Egypt",34,11,88,89,78,82,67,85,84,65000000,400000],
@@ -268,7 +318,20 @@
     ["mitrovic","Aleksandar Mitrović","hil","ST","Serbia",32,9,82,88,65,74,64,70,79,18000000,250000],
     ["mahrez","Riyad Mahrez","ahl","RW","Algeria",35,7,80,82,80,87,40,69,75,10000000,180000]
   ].map(function (p) {
-    return { id:p[0],name:p[1],clubId:p[2],position:p[3],nationality:p[4],age:p[5],shirt:p[6],overall:p[7],finishing:p[8],pace:p[9],technique:p[10],defending:p[11],stamina:p[12],creativity:p[13],leadership:Math.max(30,Math.min(95,Math.round((p[7]+p[11]+p[13])/3))),value:p[14],wage:p[15],realData:true,source:"seeded demo snapshot",potential:Math.min(99,p[7]+(p[5]<23?8:p[5]<27?4:1)),contractYears:2,fitness:94,morale:75,form:[6.8,7.1,7.0,7.4,6.9],goals:0,assists:0,injuredWeeks:0 };
+    const potential=Math.min(99,p[7]+(p[5]<23?8:p[5]<27?4:1));
+    return {
+      id:p[0],name:p[1],clubId:p[2],position:p[3],nationality:p[4],age:p[5],shirt:p[6],overall:p[7],
+      CA:youthClamp(p[7]*2,1,200),PA:youthClamp(Math.max(p[7]*2,potential*2),1,200),
+      hiddenAttributes:hiddenAttributeEstimate(p[0],p[5]),abilityEstimated:true,
+      finishing:p[8],pace:p[9],technique:p[10],defending:p[11],stamina:p[12],creativity:p[13],
+      leadership:Math.max(30,Math.min(95,Math.round((p[7]+p[11]+p[13])/3))),value:p[14],wage:p[15],
+      realData:true,source:"seeded demo snapshot",potential:potential,contractYears:2,fitness:94,morale:75,
+      form:[6.8,7.1,7.0,7.4,6.9],goals:0,assists:0,injuredWeeks:0
+    };
   });
   root.FM_WORLD_DATA = { dataSeason:"Expanded club seed for 2026 — divisions and player squads require season verification", clubs:clubs, players:stars, nations:["England","Spain","Italy","Germany","France","Egypt","Saudi Arabia","Portugal","Netherlands","Belgium","Turkey","Greece","Austria","Switzerland","Denmark","Norway","Sweden","Brazil","Argentina","United States","Mexico","Japan","South Korea","Australia","Morocco","South Africa","United Arab Emirates"], databaseNotes:["The built-in list is expanded to 222 club seeds across multiple league divisions but is not a complete licensed/current database.","Most clubs do not have a full real player squad embedded; their missing slots are generated. Imported player values and wages are source-dependent.","Generated academy slots are explicitly marked and should not be mistaken for real-world players."] };
+  root.FM_WORLD_DATA.nationYouthRatings=Object.assign({},NATION_YOUTH_RATINGS);
+  root.FM_WORLD_DATA.youthSystem=createYouthSystem(root.FM_WORLD_DATA);
+  root.FM_YOUTH_SYSTEM=root.FM_WORLD_DATA.youthSystem;
+  if(typeof module!=="undefined"&&module.exports)module.exports=root.FM_WORLD_DATA;
 })(typeof window !== "undefined" ? window : globalThis);
