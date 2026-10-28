@@ -641,7 +641,10 @@
     addCards(hxi,homeClub,homeT,hRed,"red");addCards(axi,awayClub,awayT,aRed,"red");
     if(Math.random()<.1){
       const injuredClub=Math.random()<.5?homeClub:awayClub,injuredXI=injuredClub.id===homeClub.id?hxi:axi,injuredPlayer=pick(injuredXI);
-      if(injuredPlayer)events.push({minute:rand(10,88),type:"injury",clubId:injuredClub.id,playerId:injuredPlayer.id,text:injuredPlayer.name+" is injured"});
+      if(injuredPlayer){
+        const weeksOut=rand(1,4);
+        events.push({minute:rand(10,88),type:"injury",clubId:injuredClub.id,playerId:injuredPlayer.id,weeksOut:weeksOut,text:injuredPlayer.name+" is injured and is expected to miss "+weeksOut+" week(s)."});
+      }
     }
     events.sort((a,b)=>a.minute-b.minute);
     const ratings={};
@@ -736,6 +739,15 @@
     result.events.filter(e=>e.type==="goal").forEach(e=>{
       const p=state.players.find(p=>p.id===e.playerId);if(p){p.goals=(p.goals||0)+1;p.seasonStats=p.seasonStats||{goals:0};p.seasonStats.goals=(Number(p.seasonStats.goals)||0)+1;}
       const assist=state.players.find(p=>p.id===e.assistId);if(assist){assist.assists=(assist.assists||0)+1;assist.seasonStats=assist.seasonStats||{assists:0};assist.seasonStats.assists=(Number(assist.seasonStats.assists)||0)+1;}
+    });
+    result.events.filter(e=>e.type==="injury").forEach(e=>{
+      const p=state.players.find(p=>p.id===e.playerId);
+      if(!p)return;
+      const weeksOut=clamp(Math.floor(Number(e.weeksOut)||1),1,52);
+      p.injuredWeeks=Math.max(Number(p.injuredWeeks)||0,weeksOut);
+      if(p.clubId===state.userClubId){
+        state.inbox.unshift({id:"injury-"+p.id+"-"+Date.now(),title:"Injury during match",text:p.name+" suffered an injury and is expected to miss "+weeksOut+" week(s).",kind:"warning",read:false,day:state.day});
+      }
     });
     result.events.filter(e=>e.type==="yellow"||e.type==="red").forEach(e=>{
       const p=state.players.find(p=>p.id===e.playerId);if(!p)return;
