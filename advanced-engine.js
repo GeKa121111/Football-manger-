@@ -488,9 +488,10 @@
     const isManaged=clubId===state.userClubId,manual=isManaged&&Array.isArray(state.tactics.startingXI)?state.tactics.startingXI:[];
     const byId=new Map(list.map(p=>[p.id,p]));
     plan.forEach((pos,index)=>{
+      const compatible=p=>(p.position==="GK")===(pos==="GK");
       const preferred=manual[index]?byId.get(manual[index]):null;
-      const choices=list.filter(p=>!used.has(p.id)).sort((a,b)=>(positionFit(b.position,pos)-positionFit(a.position,pos))*.55+(b.overall-a.overall));
-      const chosen=preferred&&!used.has(preferred.id)?preferred:choices[0];
+      const choices=list.filter(p=>!used.has(p.id)&&compatible(p)).sort((a,b)=>(positionFit(b.position,pos)-positionFit(a.position,pos))*.55+(b.overall-a.overall));
+      const chosen=preferred&&!used.has(preferred.id)&&compatible(preferred)?preferred:choices[0];
       if(chosen){out.push(Object.assign({},chosen,{assignedPosition:pos}));used.add(chosen.id);}
     });
     return out;
@@ -582,9 +583,10 @@
       const plan=FORMATIONS[t.formation]||FORMATIONS["4-2-3-1"],used=new Set(),manual=Array.isArray(t.startingXI)?t.startingXI:[];
       const byId=new Map(list.map(p=>[p.id,p]));
       return plan.map((pos,i)=>{
+        const compatible=p=>(p.position==="GK")===(pos==="GK");
         const preferredId=manual[i],preferred=preferredId&&byId.get(preferredId);
-        const choices=list.filter(p=>!used.has(p.id)).sort((a,b)=>(positionFit(b.position,pos)-positionFit(a.position,pos))*0.55+(b.overall-a.overall));
-        const c=preferred&&!used.has(preferred.id)?preferred:choices[0];
+        const choices=list.filter(p=>!used.has(p.id)&&compatible(p)).sort((a,b)=>(positionFit(b.position,pos)-positionFit(a.position,pos))*0.55+(b.overall-a.overall));
+        const c=preferred&&!used.has(preferred.id)&&compatible(preferred)?preferred:choices[0];
         if(c)used.add(c.id);
         return c?Object.assign({},c,{assignedPosition:pos}):null;
       }).filter(Boolean);
