@@ -274,11 +274,12 @@
   }
   function startMatch(fixture) {
     const h=club(fixture.homeId),a=club(fixture.awayId);
-    const ht=fixture.homeId===state.userClubId?state.tactics:E.defaultTactics(),at=fixture.awayId===state.userClubId?state.tactics:E.defaultTactics();
+    const ht=fixture.homeId===state.userClubId?state.tactics:E.aiTactics(h,state.season),at=fixture.awayId===state.userClubId?state.tactics:E.aiTactics(a,state.season);
     const result=E.simulateMatch(h,a,state.players,ht,at);
     live={fixture:fixture,minute:0,started:false,paused:true,halfTime:false,halfDone:false,finished:false,speed:Number(state.settings.speed||1),result:result,commentary:[],latest:"Match ready. Confirm your team talk and kick off.",subs:0,windows:0,shouts:[],lineup:E.selectedXI(state,state.userClubId),subbedOut:[],motm:null,seenEvents:new Set()};
     const opposition=fixture.homeId===state.userClubId?a:h;
-    const report=opposition.name+" rated "+opposition.strength+" · "+(state.tactics.mentality==="Attacking"?"Space may open behind the line.":"Watch transitions and set pieces.");
+    const opponentTactics=fixture.homeId===state.userClubId?at:ht;
+    const report=opposition.name+" rated "+opposition.strength+" · "+opponentTactics.formation+" · "+opponentTactics.style+" · "+opponentTactics.mentality+" mentality. "+(opponentTactics.line==="High Line"?"Space may open behind the line.":opponentTactics.pressing==="Sit Back"?"Expect a compact defensive block.":"Watch transitions and set pieces.");
     addInbox("Opposition report: "+opposition.name,report,"info");
     save();
   }
