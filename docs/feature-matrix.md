@@ -9,7 +9,7 @@ This is a staged implementation plan for an original football club-management si
 | Game world | 12 fictional clubs, 20 generated players per club | Foundation |
 | Player model | Age, position, overall, potential, fitness, morale, sharpness, wages, estimated value, training experience and basic performance stats | Foundation |
 | League | Double round-robin schedule (home and away), 22 matchweeks and 132 fixtures for 12 clubs, all fixtures simulated per round, points table, goal difference, form and match history | Foundation |
-| Match simulation | Probabilistic goals based on squad strength, home advantage and the user's tactical settings | Foundation |
+| Match simulation | Probabilistic goals tied to squad strength, home advantage and tactics; per-match expected goals (xG), possession, shots, shots on target, corners, passing accuracy, cards, injuries and event timeline | Foundation |
 | Tactics | One selected formation, playing style and mentality affect XI selection and team power | Foundation |
 | Squad | Searchable first-team table, position, rating, potential, fitness, wage and estimated value | Foundation |
 | Transfers | Simplified immediate signing with transfer fee, budget validation, roster-size limit and two transfer windows (season start and midseason) | Foundation |
