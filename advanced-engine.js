@@ -92,7 +92,7 @@
     const minimum = dbSize === "large" ? 30 : 25;
     let next = 1;
     while(roster.length < minimum) {
-      while(roster.some(p=>p.id==="academy-"+club.id+"-"+String(next).padStart(2,"0")))next++;
+      while(existing.some(p=>p.id==="academy-"+club.id+"-"+String(next).padStart(2,"0"))||roster.some(p=>p.id==="academy-"+club.id+"-"+String(next).padStart(2,"0")))next++;
       const pos = POSITIONS[(roster.length+club.id.length)%POSITIONS.length];
       const overall = clamp(Math.round(club.strength || 58) - rand(5,18),35,78);
       const p = normalizePlayer({
