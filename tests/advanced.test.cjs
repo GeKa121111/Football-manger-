@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const data = require("../advanced-data.js");
 const engine = require("../advanced-engine.js");
 
-assert.equal(global.FM_WORLD_DATA.clubs.length, 42, "seed should contain the selected set of real club names");
+assert.equal(global.FM_WORLD_DATA.clubs.length, 48, "seed should include 48 clubs across seven nations");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Mohamed Salah"), "known seed player should exist");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Erling Haaland"), "known seed player should exist");
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.name === "Al Ahly"), "Egyptian clubs should be represented");
@@ -17,9 +17,9 @@ const state = engine.newCareer({
   clubId: "liv"
 });
 assert.equal(state.userClubId, "liv", "chosen club should be used");
-assert.equal(state.clubs.length, 42, "world should retain global transfer-market clubs");
+assert.equal(state.clubs.length, 48, "world should retain global transfer-market clubs");
 assert.equal(state.playableNations.length, 3, "career should keep selected playable nation list");
-assert.equal(state.players.length, 42 * 25, "medium world should have 25-player roster slots per club");
+assert.equal(state.players.length, 48 * 25, "medium world should have 25-player roster slots per club");
 assert.equal(new Set(state.players.map(p => p.id)).size, state.players.length, "player ids must be unique");
 for (const club of state.clubs) {
   const roster = state.players.filter(p => p.clubId === club.id);
@@ -33,7 +33,7 @@ assert.ok(managed.some(p => p.generated), "missing roster slots should be marked
 assert.ok(state.fixtures.length === 30, "six-club seeded English league gets 30 home/away fixtures");
 assert.equal(Math.max(...state.fixtures.map(f => f.round)), 10, "six-club double round robin has 10 rounds");
 assert.equal(state.fixtures[0].date, "2026-07-08", "the opening matchweek should start after career setup day");
-assert.equal(state.continental.fixtures.length, 144, "36 entrants with eight fixtures each means 144 matches");
+assert.equal(state.continental.teams.length, 36, "continental entrants should be limited to the five European seed nations");\nassert.ok(state.continental.teams.every(id => ["England","Spain","Italy","Germany","France"].includes(state.clubs.find(c=>c.id===id)?.country)), "UEFA-style entrants must not include Egypt or Saudi Arabia");\nassert.equal(state.continental.fixtures.length, 144, "36 European entrants with eight fixtures each means 144 matches");
 assert.ok(state.domesticCup && state.domesticCup.fixtures.length >= 2, "career needs a domestic cup framework");
 
 const xi = engine.selectedXI(state, state.userClubId);
