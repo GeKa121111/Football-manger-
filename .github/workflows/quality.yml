@@ -28,3 +28,4 @@ jobs:
           node tests/smoke.test.cjs
           node tests/advanced.test.cjs
           node tests/spatial-match.test.cjs
+          node tests/tactical-phases.test.cjs
