@@ -350,3 +350,73 @@ assert.ok(contractExpiryState.inbox.some(m => m.title === "Contract expired" && 
   "manager should receive an inbox notice when a contract expires");
 assert.ok(contractExpiryState.players.filter(p => p.clubId === contractExpiryState.userClubId && !p.retired).length >= 25,
   "club should replenish squad depth after contract expiry");
+
+// Same-day calendar regression: an earlier fixture belonging to two AI clubs must not hide the user's match.
+const matchdayLookupState = engine.newCareer({
+  mode: "career", managerName: "Matchday Lookup Test", primaryNation: "England",
+  nations: ["England"], databaseSize: "small", clubId: "liv"
+});
+const managedFixture = matchdayLookupState.fixtures.find(f => !f.played && (f.homeId === matchdayLookupState.userClubId || f.awayId === matchdayLookupState.userClubId));
+assert.ok(managedFixture, "test career should have an upcoming managed-club fixture");
+const followingDate = new Date(matchdayLookupState.day + "T12:00:00Z");
+followingDate.setUTCDate(followingDate.getUTCDate() + 1);
+const followingDay = followingDate.toISOString().slice(0, 10);
+managedFixture.date = followingDay;
+const unrelatedFixture = matchdayLookupState.fixtures.find(f => f.id !== managedFixture.id &&
+  f.homeId !== matchdayLookupState.userClubId && f.awayId !== matchdayLookupState.userClubId);
+assert.ok(unrelatedFixture, "test career should have an AI-only fixture");
+unrelatedFixture.date = followingDay;
+matchdayLookupState.fixtures.splice(matchdayLookupState.fixtures.indexOf(unrelatedFixture), 1);
+matchdayLookupState.fixtures.unshift(unrelatedFixture);
+const matchdayResult = engine.continueDay(matchdayLookupState);
+assert.equal(matchdayResult.match, true, "the calendar must find the managed-club fixture even when an AI fixture is listed first on that date");
+assert.equal(matchdayResult.fixture.id, managedFixture.id, "the user's fixture must be selected for matchday");
+
+
+// Discipline regression: red cards and five yellow cards suspend a player for the next match.
+const disciplineState = engine.newCareer({
+  mode: "career", managerName: "Discipline Rules Test", primaryNation: "England",
+  nations: ["England"], databaseSize: "small", clubId: "liv"
+});
+const disciplineFixture = disciplineState.fixtures.find(f => !f.played &&
+  (f.homeId === disciplineState.userClubId || f.awayId === disciplineState.userClubId));
+assert.ok(disciplineFixture, "discipline test requires a managed-club fixture");
+const disciplineOpponentId = disciplineFixture.homeId === disciplineState.userClubId ? disciplineFixture.awayId : disciplineFixture.homeId;
+const redCardPlayer = disciplineState.players.find(p => p.clubId === disciplineState.userClubId && !p.generated && !p.retired);
+assert.ok(redCardPlayer, "discipline test requires a player in the managed squad");
+const emptyMatchStats = () => ({ratings: {}, xg: [0, 0], possession: [50, 50]});
+const emptyLineups = (homeId, awayId) => ({[homeId]: [], [awayId]: []});
+engine.applyResult(disciplineState, disciplineFixture, {
+  homeGoals: 0, awayGoals: 0, stats: emptyMatchStats(),
+  events: [{type: "red", clubId: disciplineState.userClubId, playerId: redCardPlayer.id, minute: 72, text: "Red card"}],
+  lineups: {[disciplineState.userClubId]: [redCardPlayer.id], [disciplineOpponentId]: []},
+  manOfTheMatch: null
+});
+assert.equal(redCardPlayer.redCards, 1, "red cards must increment the player's career tally");
+assert.equal(redCardPlayer.suspendedMatches, 1, "a red card must trigger a one-match suspension");
+const managedClub = disciplineState.clubs.find(c => c.id === disciplineState.userClubId);
+const opponentClub = disciplineState.clubs.find(c => c.id === disciplineOpponentId);
+const nextSimulatedMatch = engine.simulateMatch(managedClub, opponentClub, disciplineState.players, disciplineState.tactics, engine.defaultTactics());
+assert.ok(!(nextSimulatedMatch.lineups[managedClub.id] || []).includes(redCardPlayer.id),
+  "a suspended player must be unavailable for selection in the next match");
+engine.applyResult(disciplineState, {id:"suspension-served-test",homeId:disciplineState.userClubId,awayId:disciplineOpponentId,round:2}, {
+  homeGoals: 0, awayGoals: 0, stats: emptyMatchStats(), events: [],
+  lineups: emptyLineups(disciplineState.userClubId, disciplineOpponentId), manOfTheMatch: null
+});
+assert.equal(redCardPlayer.suspendedMatches, 0, "serving the next club match must clear a one-match suspension");
+
+const yellowCardPlayer = disciplineState.players.find(p => p.clubId === disciplineState.userClubId && p.id !== redCardPlayer.id && !p.generated && !p.retired);
+assert.ok(yellowCardPlayer, "discipline test requires a second squad player");
+yellowCardPlayer.seasonStats = Object.assign({}, yellowCardPlayer.seasonStats, {yellowCards: 4});
+engine.applyResult(disciplineState, {id:"yellow-threshold-test",homeId:disciplineState.userClubId,awayId:disciplineOpponentId,round:3}, {
+  homeGoals: 0, awayGoals: 0, stats: emptyMatchStats(),
+  events: [{type:"yellow",clubId:disciplineState.userClubId,playerId:yellowCardPlayer.id,minute:61,text:"Yellow card"}],
+  lineups: emptyLineups(disciplineState.userClubId, disciplineOpponentId), manOfTheMatch: null
+});
+assert.equal(yellowCardPlayer.seasonStats.yellowCards, 5, "yellow cards must update the season tally");
+assert.equal(yellowCardPlayer.suspendedMatches, 1, "five yellow cards in a season must trigger a suspension");
+assert.ok(disciplineState.inbox.some(m => m.title === "Suspension after red card"),
+  "red-card suspension should be communicated through the inbox");
+assert.ok(disciplineState.inbox.some(m => m.title === "Suspension: yellow-card threshold"),
+  "yellow-card threshold suspension should be communicated through the inbox");
+console.log("Matchday lookup and discipline suspension tests passed.");
