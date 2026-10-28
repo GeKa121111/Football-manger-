@@ -65,7 +65,7 @@
       goals:Number(p.goals||0),assists:Number(p.assists||0),appearances:Number(p.appearances||0),yellowCards:Number(p.yellowCards||0),redCards:Number(p.redCards||0),averageRating:Number(p.averageRating||0),lastMatchRating:Number(p.lastMatchRating||0),cleanSheets:Number(p.cleanSheets||0),injuredWeeks:Number(p.injuredWeeks||0),
       realData:p.realData !== false && !p.generated, source:p.source || (p.generated?"Generated academy slot":"Imported dataset"),
       generated:!!p.generated, attributes:p.attributes && typeof p.attributes==="object" ? p.attributes : null,
-      role:p.role || null, status:p.status || "Available", dob:p.dateOfBirth || p.dob || null,
+      role:p.role || null, status:p.status || "Available", registered:p.registered!==false, dob:p.dateOfBirth || p.dob || null,
       dateOfBirth:p.dateOfBirth||p.dob||null,nationalTeam:p.nationalTeam||null,
       sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
       worldCupSnapshot:!!p.worldCupSnapshot,retired:!!p.retired,
