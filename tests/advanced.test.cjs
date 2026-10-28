@@ -2,11 +2,17 @@ const assert = require("node:assert/strict");
 const data = require("../advanced-data.js");
 const engine = require("../advanced-engine.js");
 
-assert.equal(global.FM_WORLD_DATA.clubs.length, 48, "seed should include 48 clubs across seven nations");
+assert.equal(global.FM_WORLD_DATA.clubs.length, 222, "expanded database should include 222 club seeds across 27 football markets");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Mohamed Salah"), "known seed player should exist");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Erling Haaland"), "known seed player should exist");
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.name === "Al Ahly"), "Egyptian clubs should be represented");
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.name === "Al Hilal"), "Saudi clubs should be represented");
+assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.league === "Championship" && c.tier === 2), "English second tier should be present");
+assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.league === "Liga Portugal 2" && c.tier === 2), "Portuguese second tier should be present");
+assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.league === "J1 League"), "Japan should be represented");
+assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.league === "Major League Soccer"), "MLS should be represented");
+assert.equal(new Set(global.FM_WORLD_DATA.clubs.map(c => c.id)).size, global.FM_WORLD_DATA.clubs.length, "club ids should be unique");
+assert.equal(new Set(global.FM_WORLD_DATA.nations).size, 27, "playable nation list should have 27 entries");
 
 assert.equal(engine.normalizeKitColor("red"), "#D71920", "named imported kit colours should map to displayable hex colours");
 assert.ok(Number.isInteger(engine.contractYearsFromUntil("2030-06")), "contract expiry should convert to remaining contract years");
@@ -23,7 +29,7 @@ const state = engine.newCareer({
 assert.equal(state.userClubId, "liv", "chosen club should be used");
 assert.equal(state.clubs.length, 48, "world should retain global transfer-market clubs");
 assert.equal(state.playableNations.length, 3, "career should keep selected playable nation list");
-assert.equal(state.players.length, 48 * 25, "medium world should have 25-player roster slots per club");
+assert.equal(state.players.length, 222 * 25, "medium world should have 25-player roster slots per club");
 assert.equal(new Set(state.players.map(p => p.id)).size, state.players.length, "player ids must be unique");
 for (const club of state.clubs) {
   const roster = state.players.filter(p => p.clubId === club.id);
@@ -37,8 +43,9 @@ assert.ok(managed.some(p => p.generated), "missing roster slots should be marked
 assert.ok(state.fixtures.length === 30, "six-club seeded English league gets 30 home/away fixtures");
 assert.equal(Math.max(...state.fixtures.map(f => f.round)), 10, "six-club double round robin has 10 rounds");
 assert.equal(state.fixtures[0].date, "2026-07-08", "the opening matchweek should start after career setup day");
-assert.equal(state.continental.teams.length, 36, "continental entrants should be limited to the five European seed nations");
-assert.ok(state.continental.teams.every(id => ["England","Spain","Italy","Germany","France"].includes(state.clubs.find(c=>c.id===id)?.country)), "UEFA-style entrants must not include Egypt or Saudi Arabia");
+assert.equal(state.continental.teams.length, 36, "continental entrants should be limited to European first divisions");
+assert.ok(state.continental.teams.every(id => ["England","Spain","Italy","Germany","France","Portugal","Netherlands","Belgium","Turkey","Greece","Austria","Switzerland","Denmark","Norway","Sweden"].includes(state.clubs.find(c=>c.id===id)?.country)), "continental entrants must be from supported European countries");
+assert.ok(state.continental.teams.every(id => state.clubs.find(c=>c.id===id)?.tier === 1), "second-tier clubs must not qualify as first-division continental entrants");
 assert.equal(state.continental.fixtures.length, 144, "36 European entrants with eight fixtures each means 144 matches");
 assert.ok(state.domesticCup && state.domesticCup.fixtures.length >= 2, "career needs a domestic cup framework");
 
