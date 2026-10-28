@@ -20,7 +20,9 @@ Open `index.html` through a static web server or publish the repository with Git
 - Real squad import reads nested squad arrays, maps provider club names to the existing 222-club world, refreshes player identity/position/age/nationality/shirt number/contract expiry/market value fields when supplied, and removes generated roster slots for clubs with real squads imported.
 - One-click live Premier League importer uses the public Fantasy Premier League `bootstrap-static` endpoint (with a CORS-proxy fallback) to load current players for all 20 clubs; FPL fantasy cost is kept separate from player market value, while wages and simulation ratings remain marked as estimates unless a source reports them.
 - Bulk squad importer defaults to PL, ELC, BL1, PD, SA, FL1, DED, PPL and BSA (Premier League, Championship, Bundesliga, La Liga, Serie A, Ligue 1, Eredivisie, Primeira Liga and Brazilian Série A) and runs sequentially to respect provider rate limits.
-- Regression tests for core database, roster, fixture, match and training invariants.
+- Matchday selection checks all fixtures scheduled for the date, so an AI-only fixture cannot hide the managed club's match.
+- Red cards trigger a one-match suspension, five season yellow cards trigger a suspension, and suspended players are excluded from tactical lineup selection and shown in the squad UI.
+- Regression coverage includes same-day fixture lookup, red-card availability, yellow-card thresholds and suspension service.
 
 ## Data accuracy and licensing
 
