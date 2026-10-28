@@ -758,13 +758,13 @@
         const seasonYellows=p.seasonStats.yellowCards;
         if(seasonYellows>0&&seasonYellows%5===0){
           p.suspendedMatches=Math.max(0,Number(p.suspendedMatches)||0)+1;
-          state.inbox.unshift({id:"suspension-yellow-"+p.id+"-"+Date.now(),title:"Suspension: yellow-card threshold",text:p.name+" has reached "+seasonYellows+" yellow cards this season and will miss the next match.",kind:"warning",read:false,day:state.day});
+          if(p.clubId===state.userClubId)state.inbox.unshift({id:"suspension-yellow-"+p.id+"-"+Date.now(),title:"Suspension: yellow-card threshold",text:p.name+" has reached "+seasonYellows+" yellow cards this season and will miss the next match.",kind:"warning",read:false,day:state.day});
         }
       }else{
         p.redCards=(Number(p.redCards)||0)+1;
         p.seasonStats.redCards=(Number(p.seasonStats.redCards)||0)+1;
         p.suspendedMatches=Math.max(Number(p.suspendedMatches)||0,1);
-        state.inbox.unshift({id:"suspension-red-"+p.id+"-"+Date.now(),title:"Suspension after red card",text:p.name+" is suspended for the next match after a red card.",kind:"warning",read:false,day:state.day});
+        if(p.clubId===state.userClubId)state.inbox.unshift({id:"suspension-red-"+p.id+"-"+Date.now(),title:"Suspension after red card",text:p.name+" is suspended for the next match after a red card.",kind:"warning",read:false,day:state.day});
       }
     });
     if(Number(fixture.awayGoals)===0){
@@ -852,6 +852,7 @@
       }
     });
     retirements.forEach(({player:p,clubId})=>{
+      if(clubId!==state.userClubId)return;
       const c=state.clubs.find(x=>x.id===clubId);
       state.inbox.unshift({id:"retirement-"+p.id+"-"+state.season,title:"Player retirement",text:p.name+" has retired at age "+p.age+(c?" from "+c.name:"")+".",read:false,kind:"info",day:state.day});
     });
