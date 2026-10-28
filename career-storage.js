@@ -86,6 +86,7 @@
   function createCareerStorage(host) {
     const env = host || root;
     let dbPromise = null;
+    let saveQueue = Promise.resolve();
     let lastStorageMode = "localStorage";
 
     function localStorageRef() {
@@ -207,7 +208,7 @@
       return { state: legacy, source: migrated ? "migrated-localStorage" : "localStorage", migrated: migrated };
     }
 
-    async function save(state, options) {
+    async function saveOnce(state, options) {
       if (!validCareer(state)) throw new TypeError("A valid career state is required to save.");
       const opts = options || {};
       ensureCareerIdentity(state);
@@ -277,6 +278,13 @@
       } finally {
         if (db) { try { db.close(); } catch (error) {} dbPromise = null; }
       }
+    }
+
+    function save(state, options) {
+      const task = function () { return saveOnce(state, options); };
+      const next = saveQueue.then(task, task);
+      saveQueue = next.catch(function () {});
+      return next;
     }
 
     async function pruneSnapshots(db, careerId) {
