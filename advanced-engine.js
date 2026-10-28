@@ -125,7 +125,7 @@
     const source=root.FM_WORLD_DATA;
     if(!source) throw new Error("FM_WORLD_DATA missing — load advanced-data.js first");
     const selectedNations=(options && options.nations && options.nations.length ? options.nations : ["England","Spain","Egypt"]).slice(0,5);
-    const clubs=source.clubs.map(c=>Object.assign({},c)).filter(c=>selectedNations.includes(c.country));
+    const clubs=source.clubs.map(c=>Object.assign({},c));
     const seedPlayers=source.players.map(p=>Object.assign({},p));
     clubs.forEach(c=>{c.strength=c.strength || 72; c.wageBudget=c.wageBudget || 1200000;});
     const players=[];
