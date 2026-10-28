@@ -481,7 +481,7 @@
     return state;
   }
   function currentClub(state) { return state.clubs.find(c=>c.id===state.userClubId); }
-  function squad(state,clubId) { return state.players.filter(p=>p.clubId===clubId); }
+  function squad(state,clubId) { return state.players.filter(p=>p.clubId===clubId&&!p.retired); }
   function selectedXI(state,clubId) {
     const list=squad(state,clubId).filter(p=>Number(p.injuredWeeks||0)<=0&&Number(p.suspendedMatches||0)<=0).slice();
     const plan=FORMATIONS[state.tactics.formation]||FORMATIONS["4-2-3-1"],out=[],used=new Set();
@@ -577,8 +577,8 @@
   }
   function simulateMatch(homeClub,awayClub,allPlayers,homeT,awayT) {
     homeT=homeT||defaultTactics();awayT=awayT||defaultTactics();
-    const hp=allPlayers.filter(p=>p.clubId===homeClub.id&&Number(p.injuredWeeks||0)===0&&Number(p.suspendedMatches||0)===0);
-    const ap=allPlayers.filter(p=>p.clubId===awayClub.id&&Number(p.injuredWeeks||0)===0&&Number(p.suspendedMatches||0)===0);
+    const hp=allPlayers.filter(p=>p.clubId===homeClub.id&&!p.retired&&Number(p.injuredWeeks||0)===0&&Number(p.suspendedMatches||0)===0);
+    const ap=allPlayers.filter(p=>p.clubId===awayClub.id&&!p.retired&&Number(p.injuredWeeks||0)===0&&Number(p.suspendedMatches||0)===0);
     const getXI=(list,t)=>{
       const plan=FORMATIONS[t.formation]||FORMATIONS["4-2-3-1"],used=new Set(),manual=Array.isArray(t.startingXI)?t.startingXI:[];
       const byId=new Map(list.map(p=>[p.id,p]));
