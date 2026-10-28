@@ -125,10 +125,25 @@ const xi = engine.selectedXI(state, state.userClubId);
 assert.equal(xi.length, 11, "first-team lineup should select 11 available players");
 assert.equal(xi.filter(p => p.assignedPosition === "GK").length, 1, "lineup needs one goalkeeper");
 const automaticXIIds = xi.map(p => p.id);
-const manualXIIds = automaticXIIds.slice(1).concat(automaticXIIds[0]);
+const manualXIIds = automaticXIIds.slice();
+[manualXIIds[1], manualXIIds[2]] = [manualXIIds[2], manualXIIds[1]];
 state.tactics.startingXI = manualXIIds;
 assert.deepEqual(engine.selectedXI(state, state.userClubId).map(p => p.id), manualXIIds,
-  "the manager's selected starting XI must override automatic selection without duplicates");
+  "manual selection should be respected when selected players remain position-compatible");
+const invalidManualXI = automaticXIIds.slice(1).concat(automaticXIIds[0]);
+state.tactics.startingXI = invalidManualXI;
+const guardedXI = engine.selectedXI(state, state.userClubId);
+assert.equal(guardedXI.length, 11, "a mismatched manual goalkeeper slot should be safely refilled from the squad");
+assert.equal(guardedXI.filter(p => p.assignedPosition === "GK").length, 1, "manual selection must retain exactly one goalkeeper slot");
+assert.ok(guardedXI.filter(p => p.assignedPosition === "GK").every(p => p.position === "GK"),
+  "a field player must never be selected as goalkeeper even when manual XI order is invalid");
+const managedClubForXI = state.clubs.find(c => c.id === state.userClubId);
+const opponentClubForXI = state.clubs.find(c => c.id !== state.userClubId && c.league === managedClubForXI.league);
+const guardedMatch = engine.simulateMatch(managedClubForXI, opponentClubForXI, state.players, state.tactics, engine.defaultTactics());
+const simulatedUserLineup = guardedMatch.lineups[state.userClubId] || [];
+assert.equal(new Set(simulatedUserLineup).size, simulatedUserLineup.length, "simulated lineup must not contain duplicates");
+assert.equal(simulatedUserLineup.filter(id => state.players.find(p => p.id === id)?.position === "GK").length, 1,
+  "match simulation must preserve one goalkeeper even with a malformed manual selection");
 state.tactics.startingXI = [];
 const poorShape = Object.assign({},engine.defaultTactics(),{positions:Object.fromEntries(xi.map(p=>[p.id,[.5,.02]]))});
 assert.ok(engine.strengthForXI(xi,poorShape,false)<engine.strengthForXI(xi,engine.defaultTactics(),false),
