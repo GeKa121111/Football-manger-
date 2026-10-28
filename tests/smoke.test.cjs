@@ -5,6 +5,13 @@ const path = require("node:path");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 
+const advancedSource = fs.readFileSync(path.join(__dirname, "..", "advanced-ui.js"), "utf8");
+assert.doesNotThrow(() => new Function(advancedSource), "advanced UI should remain valid JavaScript after localization updates");
+assert.ok(advancedSource.includes('id="fm-ui-language"'), "new careers should offer a language selector");
+assert.ok(advancedSource.includes('"Manager\'s Hub":"مركز الإدارة"'), "Arabic UI dictionary should include key navigation labels");
+assert.ok(advancedSource.includes("function localizeUi(rootNode)"), "advanced screens should apply interface translations");
+assert.ok(advancedSource.includes('state.settings.language=t.value==="ar"?"ar":"en"'), "interface language changes should persist in settings");
+
 function createElement() {
   return {
     textContent: "",
