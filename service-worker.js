@@ -1,4 +1,4 @@
-const CACHE_NAME = "touchline-manager-v15";
+const CACHE_NAME = "touchline-manager-v16";
 const CORE_ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./advanced.css", "./advanced-data.js", "./advanced-player-data.js", "./advanced-engine.js", "./advanced-ui.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", function (event) {
