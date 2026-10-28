@@ -1,0 +1,30 @@
+name: Validate Touchline Manager
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Syntax checks
+        run: |
+          node --check app.js
+          node --check advanced-data.js
+          node --check advanced-engine.js
+          node --check advanced-ui.js
+      - name: Regression tests
+        run: |
+          node tests/smoke.test.cjs
+          node tests/advanced.test.cjs
