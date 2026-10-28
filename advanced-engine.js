@@ -705,6 +705,9 @@
     fixture.played=true;fixture.homeGoals=result.homeGoals;fixture.awayGoals=result.awayGoals;fixture.stats=result.stats;fixture.events=result.events;fixture.manOfTheMatch=result.manOfTheMatch;
     const home=state.clubs.find(c=>c.id===fixture.homeId),away=state.clubs.find(c=>c.id===fixture.awayId);
     const lineupMap=result.lineups||{};
+    // Consume pre-existing bans before applying this match's new disciplinary events.
+    state.players.filter(p=>(p.clubId===fixture.homeId||p.clubId===fixture.awayId)&&Number(p.suspendedMatches||0)>0)
+      .forEach(p=>{p.suspendedMatches=Math.max(0,Math.floor(Number(p.suspendedMatches)||0)-1);});
     const appeared=new Set([...(lineupMap[fixture.homeId]||[]),...(lineupMap[fixture.awayId]||[])]);
     state.players.filter(p=>p.clubId===fixture.homeId||p.clubId===fixture.awayId).forEach(p=>{
       if(appeared.has(p.id)){
