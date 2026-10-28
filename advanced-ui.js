@@ -2,13 +2,14 @@
   "use strict";
   const E = window.FM_ENGINE;
   const DATA = window.FM_WORLD_DATA;
+  const Storage = window.FM_CAREER_STORAGE || null;
   if (!E || !DATA) { console.error("Advanced mode dependencies are missing."); return; }
   const SAVE_KEY = "touchline-advanced-save-v1";
 
   const LANGUAGE_KEY = "touchline-ui-language-v1";
   let preferredLanguage = "ar";
   try { preferredLanguage = localStorage.getItem(LANGUAGE_KEY) === "en" ? "en" : "ar"; } catch (e) {}
-  const AR_UI = {"ADVANCED FOOTBALL DIRECTOR":"مدير كرة القدم المتقدم","FOOTBALL DIRECTOR":"إدارة كرة القدم","Manager's Hub":"مركز الإدارة","Home / Hub":"الرئيسية / مركز الإدارة","First Team Squad":"الفريق الأول","Squad":"الفريق","Tactics board":"لوحة التكتيك","Tactics & Match Plan":"التكتيك وخطة المباراة","Training & dynamics":"التدريب وديناميكية الفريق","Training & Team Dynamics":"التدريب وديناميكية الفريق","Scouting agency":"قسم الكشافة","Player Search & Scouting":"البحث عن اللاعبين والكشافة","Transfers & contracts":"الانتقالات والعقود","Transfer Centre":"مركز الانتقالات","Board, finances & staff":"الإدارة والمالية والموظفون","Club Operations":"إدارة النادي","Competitions & calendar":"البطولات والجدول","Competitions & Calendar":"البطولات والجدول","Database & settings":"قاعدة البيانات والإعدادات","World Database & Settings":"قاعدة بيانات العالم والإعدادات","Match Day":"يوم المباراة","CLUB MANAGEMENT":"إدارة النادي","AUTO-SAVE ON":"الحفظ التلقائي مفعّل","Save career now":"احفظ المسيرة الآن","Save career":"حفظ المسيرة","Export save JSON":"تصدير ملف الحفظ JSON","Import save / player database":"استيراد المسيرة / قاعدة اللاعبين","Start a new career":"بدء مسيرة جديدة","Continue":"متابعة","Save career files":"ملفات الحفظ والمسيرة","Game settings":"إعدادات اللعبة","Currency":"العملة","Wage display":"عرض الرواتب","Interface language":"لغة الواجهة","Arabic direction · RTL":"العربية · من اليمين لليسار","English · LTR":"الإنجليزية · من اليسار لليمين","Match speed":"سرعة المباراة","Real-world data importer":"استيراد بيانات اللاعبين الحقيقية","Important data-source limitation":"تنبيه مهم بخصوص مصادر البيانات","One competition code":"رمز بطولة واحدة","Bulk competition codes":"رموز البطولات للاستيراد الجماعي","Season start year":"سنة بداية الموسم","football-data.org token":"رمز الوصول إلى football-data.org","Enter your own API token":"أدخل رمز API الخاص بك","Fetch one competition":"استيراد بطولة واحدة","Apply bundled real-player data to this career":"تطبيق بيانات اللاعبين المرفقة على المسيرة","Import current Premier League players (free)":"استيراد لاعبي الدوري الإنجليزي الحاليين (مجانًا)","Import real squads from all codes":"استيراد القوائم الحقيقية لكل البطولات","Database report":"تقرير قاعدة البيانات","World clubs":"أندية العالم","World players":"لاعبو العالم","Seed/import profiles":"ملفات اللاعبين الأولية والمستوردة","Save data is stored locally in this browser, with an IndexedDB backup where supported. Export JSON before clearing browser data.":"يتم حفظ بياناتك محليًا في المتصفح، مع نسخة احتياطية عبر IndexedDB عند توفرها. صدّر ملف JSON قبل مسح بيانات المتصفح.","The bundled seed is not a verified live 2026/27 squad feed.":"قوائم اللاعبين المرفقة ليست مصدرًا مباشرًا موثّقًا لموسم 2026/27.","This importer loads actual squad names, positions, shirt numbers, nationality, date of birth, contract expiry and market value where supplied.":"تستورد الأداة أسماء اللاعبين ومراكزهم وأرقام القمصان وجنسياتهم وتواريخ الميلاد ونهاية العقود والقيم السوقية عند توفرها.","Weekly wages and detailed 1–20 attributes may not be provided by the source, so they remain estimates/unknown.":"قد لا يوفر المصدر الرواتب الأسبوعية والسمات التفصيلية من 1 إلى 20، لذا تظل تقديرية أو غير معروفة.","One competition":"بطولة واحدة","Bulk import runs sequentially to respect free-plan rate limits; 9 codes can take about one minute.":"يتم الاستيراد الجماعي بالتتابع احترامًا لحدود الخطة المجانية؛ وقد تستغرق 9 رموز نحو دقيقة.","Available competitions and squad fields depend on your API plan.":"تعتمد البطولات وحقول قوائم اللاعبين المتاحة على خطة واجهة API لديك.","The bundled list is not a live roster source.":"القائمة المرفقة ليست مصدرًا مباشرًا لقوائم الأندية.","Choose JSON file":"اختيار ملف JSON","Import JSON data / save file":"استيراد بيانات JSON / ملف حفظ","Accepted data: { clubs:[...], players:[...] } or the native Touchline save JSON format.":"البيانات المقبولة: { clubs:[...], players:[...] } أو تنسيق حفظ Touchline بصيغة JSON.","Home":"المضيف","Overview":"نظرة عامة","First Team":"الفريق الأول","Team":"الفريق","Tactics":"التكتيك","Training":"التدريب","Scouting":"الكشافة","Transfers":"الانتقالات","Finances":"المالية","Competitions":"البطولات","Calendar":"الجدول","Settings":"الإعدادات","Search":"بحث","Search players":"ابحث عن لاعبين","Player search":"البحث عن اللاعبين","Filter players":"تصفية اللاعبين","All positions":"كل المراكز","Goalkeeper":"حارس المرمى","Defender":"مدافع","Midfielder":"لاعب وسط","Forward":"مهاجم","Age":"العمر","Position":"المركز","Nationality":"الجنسية","Value":"القيمة","Wage":"الراتب","Contract":"العقد","Contract expires":"انتهاء العقد","Overall":"التقييم العام","Potential":"الإمكانات","Fitness":"اللياقة","M morale":"معنويات الفريق","Morale":"المعنويات","Sharpness":"الجاهزية الفنية","Appearances":"المشاركات","Goals":"الأهداف","Assists":"التمريرات الحاسمة","Yellow cards":"البطاقات الصفراء","Red cards":"البطاقات الحمراء","Injuries":"الإصابات","Unavailable":"غير متاح","Not available":"غير متاح","Free Agent":"لاعب حر","Retired":"معتزل","Unknown Club":"نادي غير معروف","Generated slot":"لاعب مولّد","Generated slots":"لاعبون مولّدون","Unknown source":"مصدر غير معروف","Real · WC 2026 squad":"حقيقي · قائمة كأس العالم 2026","Real · current PL data":"حقيقي · بيانات الدوري الإنجليزي الحالية","Imported / seed":"مستورد / بيانات أولية","Save now":"حفظ الآن","Save":"حفظ","Export":"تصدير","Import":"استيراد","Cancel":"إلغاء","Close":"إغلاق","Back":"رجوع","Next":"التالي","Previous":"السابق","Confirm":"تأكيد","Delete":"حذف","Apply":"تطبيق","Reset":"إعادة ضبط","Edit":"تعديل","View":"عرض","Details":"التفاصيل","More":"المزيد","None":"لا يوجد","All":"الكل","Select":"اختيار","Select club":"اختيار النادي","Choose club":"اختار النادي","Club":"النادي","Manager":"المدير الفني","Manager name":"اسم المدير الفني","Reputation":"السمعة","Training focus":"تركيز التدريب","Formation":"خطة اللعب","Mentality":"العقلية","Passing":"التمرير","Tempo":"الإيقاع","Width":"عرض الملعب","Pressing":"الضغط","Defensive line":"خط الدفاع","Tackling":"التدخلات","Offside trap":"مصيدة التسلل","Starting XI":"التشكيل الأساسي","Bench":"دكة البدلاء","Substitutions":"التبديلات","Captain":"القائد","Vice-captain":"نائب القائد","Role":"الدور","Team instructions":"تعليمات الفريق","Match plan":"خطة المباراة","Prepare for match":"الاستعداد للمباراة","View match report":"عرض تقرير المباراة","No upcoming league fixture found.":"لم يتم العثور على مباراة دوري قادمة.","Match report":"تقرير المباراة","Match statistics":"إحصائيات المباراة","Possession":"الاستحواذ","Shots":"التسديدات","Shots on target":"التسديدات على المرمى","Pass accuracy":"دقة التمرير","Fouls":"الأخطاء","Offside":"التسلل","Corner kicks":"الركلات الركنية","Half-time":"الشوط الأول","Full-time":"نهاية المباراة","Match day":"يوم المباراة","Scheduled":"مجدولة","League table":"جدول الدوري","Standings":"الترتيب","Played":"لعب","Won":"فاز","Drawn":"تعادل","Lost":"خسر","Goal difference":"فارق الأهداف","Points":"النقاط","Top scorers":"الهدافون","Fixtures":"المباريات","Results":"النتائج","Upcoming matches":"المباريات القادمة","Transfer market":"سوق الانتقالات","Transfer budget":"ميزانية الانتقالات","Wage budget":"ميزانية الرواتب","Make offer":"تقديم عرض","Submit offer":"إرسال العرض","Transfer offer":"عرض انتقال","Contract renewal":"تجديد العقد","Negotiate":"تفاوض","Scout player":"كشاف اللاعب","Scouting assignment":"مهمة الكشافة","Search players and assign scouts to identify transfer targets.":"ابحث عن اللاعبين وعيّن الكشافين لاكتشاف أهداف الانتقالات.","Training sessions":"الحصص التدريبية","Individual training":"التدريب الفردي","Team training":"تدريب الفريق","Player development":"تطوير اللاعبين","Team dynamics":"ديناميكية الفريق","Team morale":"معنويات الفريق","Financial overview":"نظرة عامة مالية","Club finances":"مالية النادي","Income":"الإيرادات","Expenses":"المصروفات","Balance":"الرصيد","Weekly income":"الإيرادات الأسبوعية","Weekly expenses":"المصروفات الأسبوعية","Sponsorship":"الرعاية","Board expectations":"توقعات مجلس الإدارة","Staff":"الموظفون","Board":"مجلس الإدارة","Club reputation":"سمعة النادي","Domestic cup":"الكأس المحلية","Continental competitions":"البطولات القارية","Competition":"البطولة","Database size":"حجم قاعدة البيانات","Small · faster loading":"صغيرة · تحميل أسرع","Medium · balanced depth":"متوسطة · توازن في التفاصيل","Large · deeper world":"كبيرة · عالم أوسع","Start career":"ابدأ المسيرة","Start match":"بدء المباراة","Continue to next day":"الانتقال لليوم التالي","Advance day":"تقدّم يومًا","Advance to next match":"التقدم إلى المباراة التالية","News & inbox":"الأخبار والبريد","Inbox":"صندوق الوارد","Read message":"قراءة الرسالة","Mark all as read":"تحديد الكل كمقروء","No messages":"لا توجد رسائل","Loading...":"جارٍ التحميل...","Loading":"جارٍ التحميل","Pending":"قيد الانتظار","Completed":"مكتمل","Success":"تم بنجاح","Warning":"تحذير","Error":"خطأ","Information":"معلومات","Unknown":"غير معروف","Available":"متاح","Yes":"نعم","No":"لا","Weekly":"أسبوعي","Yearly":"سنوي","Daily":"يومي","Monthly":"شهري","Details and history":"التفاصيل والسجل","Club overview":"نظرة عامة على النادي","Squad overview":"نظرة عامة على الفريق","Your next fixture":"مباراتك القادمة","Next fixture":"المباراة القادمة","Season objectives":"أهداف الموسم","Season progress":"تقدم الموسم","League position":"مركز الدوري","Current form":"النتائج الأخيرة","Home team":"الفريق المضيف","Away team":"الفريق الضيف","Goals scored":"الأهداف المسجلة","Goals conceded":"الأهداف المستقبلة","Manager's profile":"ملف المدير الفني","Career history":"تاريخ المسيرة","Career summary":"ملخص المسيرة","Saved successfully.":"تم الحفظ بنجاح.","Career save imported.":"تم استيراد ملف المسيرة.","Import failed:":"فشل الاستيراد:","Import complete:":"اكتمل الاستيراد:","Starting XI updated.":"تم تحديث التشكيل الأساسي.","Could not read this JSON file.":"تعذرت قراءة ملف JSON.","Unable to create career.":"تعذر إنشاء المسيرة.","Save data is stored locally in this browser":"يتم تخزين بيانات الحفظ محليًا في هذا المتصفح","Tactics & XI":"التكتيك والتشكيل","All caught up. Reports and club news will appear here.":"لا توجد تحديثات جديدة. ستظهر التقارير وأخبار النادي هنا.","Your first result will be recorded here.":"سيتم تسجيل أول نتيجة لك هنا.","Full table & results →":"جدول الدوري والنتائج كاملة ←","Recent club activity":"أحدث أنشطة النادي","Quick actions":"إجراءات سريعة","Run training":"بدء التدريب","Review budgets":"مراجعة الميزانيات","Export career":"تصدير المسيرة","World database status":"حالة قاعدة بيانات العالم","Review data source →":"مراجعة مصدر البيانات ←","Seeded sample players":"لاعبون من قاعدة البيانات الأولية","estimated transfer budget":"ميزانية انتقالات تقديرية","Suspended":"موقوف","match(es)":"مباراة/مباريات","Sort by rating":"الترتيب حسب التقييم","Sort by age":"الترتيب حسب العمر","Sort by value":"الترتيب حسب القيمة","Squad numbers":"أرقام قمصان الفريق","First Team · Reserves · Academy slots are clearly labelled":"يتم توضيح لاعبي الفريق الأول والاحتياطي والأكاديمية","players registered":"لاعب مسجّل","25-man list":"قائمة الـ25 لاعبًا","Return to Match":"العودة إلى المباراة","Formation & mentality":"الخطة والعقلية","Team mentality":"عقلية الفريق","Pressing intensity":"قوة الضغط","Passing style":"أسلوب التمرير","Team style":"أسلوب الفريق","Final third":"الثلث الهجومي","Use the offside trap":"استخدام مصيدة التسلل","Interactive tactics board":"لوحة تكتيك تفاعلية","DRAG & DROP":"اسحب وأفلت","Auto select":"اختيار تلقائي","Training schedule":"جدول التدريب","THIS SESSION":"الحصة الحالية","Attributes, fitness and development update based on the session.":"تتغير السمات واللياقة والتطور وفقًا للحصة التدريبية.","Run training session":"تنفيذ الحصة التدريبية","INDIVIDUAL + TEAM":"فردي + جماعي","Mentoring groups":"مجموعات التوجيه","Senior mentor":"اللاعب الموجّه","Youth player":"لاعب شاب","Create mentoring group":"إنشاء مجموعة توجيه","Dressing room":"غرفة الملابس","/100 harmony":"/100 انسجام","Praise the squad":"الإشادة بالفريق","Calm down":"تهدئة الأجواء","No training sessions recorded yet.":"لم يتم تسجيل أي حصص تدريبية بعد.","Maximum age":"أقصى عمر","Maximum value":"أقصى قيمة","Minimum rating (1–20)":"أقل تقييم (1–20)","Apply filters":"تطبيق عوامل التصفية","SCOUTING FILTERS":"عوامل تصفية الكشافة","Scout assignments":"مهام الكشافة","Search region":"منطقة البحث","South America":"أمريكا الجنوبية","Youth wonderkids":"المواهب الشابة الواعدة","First-team players":"لاعبو الفريق الأول","Expiring contracts":"عقود قاربت على الانتهاء","Affordable signings":"صفقات مناسبة للميزانية","Assign available scout":"تعيين كشاف متاح","Scouting results":"نتائج الكشافة","MATCHED":"نتائج مطابقة","TRANSFER WINDOW":"فترة الانتقالات","Available players":"اللاعبون المتاحون","Wage/wk":"الراتب/أسبوع","SHORTLIST":"القائمة المختصرة","Contract and budget notes":"ملاحظات العقود والميزانية","Advanced player search →":"بحث متقدم عن اللاعبين ←","My squad contracts":"عقود لاعبي فريقي","No active installment deals.":"لا توجد صفقات نشطة بنظام الأقساط.","Budget allocation":"توزيع الميزانية","Wage budget used":"المستخدم من ميزانية الرواتب","Move funds to wage budget":"تحويل أموال إلى ميزانية الرواتب","Apply budget shift":"تطبيق تحويل الميزانية","Season income":"دخل الموسم","Season costs":"تكاليف الموسم","Estimated net":"صافي تقديري","FINANCE CONTROL":"التحكم المالي","Board requests":"طلبات مجلس الإدارة","Request more transfer funds":"طلب زيادة ميزانية الانتقالات","Increase wage budget":"زيادة ميزانية الرواتب","Upgrade training facilities":"تطوير مرافق التدريب","Upgrade youth academy":"تطوير أكاديمية الناشئين","BOARDROOM":"مجلس الإدارة","Board confidence":"ثقة مجلس الإدارة","Board expectation:":"توقع مجلس الإدارة:","Avoid a sustained wage deficit.":"تجنّب استمرار العجز في الرواتب.","Staff role":"دور الموظف","Assistant Manager":"مساعد المدير الفني","Hire staff member":"تعيين موظف","Cup winner":"بطل الكأس","Simulate":"محاكاة","round":"جولة","No domestic cup created.":"لم يتم إنشاء بطولة كأس محلية.","Simulate next continental round":"محاكاة الجولة القارية التالية","Continental competition needs a large database.":"تحتاج البطولة القارية إلى قاعدة بيانات كبيرة.","Fixture calendar":"تقويم المباريات","World Cup real-player snapshot":"لقطة قوائم لاعبي كأس العالم","LOCAL-FIRST":"حفظ محلي أولًا","API + JSON":"واجهة API وملفات JSON","PREFERENCES":"التفضيلات","CURRENT":"الحالي","LEAGUE":"الدوري","MATCH CENTRE":"مركز المباراة","LIVE":"مباشر","INDIVIDUAL TRAINING":"تدريب فردي","TEAM TRAINING":"تدريب جماعي","Full table":"جدول كامل","View report":"عرض التقرير","Open inbox":"فتح صندوق الوارد","Mark as read":"تحديد كمقروء","No active offers":"لا توجد عروض نشطة","Offer rejected":"تم رفض العرض","Offer accepted":"تم قبول العرض","Offer submitted":"تم إرسال العرض","Contract signed":"تم توقيع العقد","Contract expires soon":"العقد سينتهي قريبًا","Insufficient funds":"الأموال غير كافية","Transfer complete":"اكتملت الصفقة","Loan":"إعارة","Permanent transfer":"انتقال نهائي","Loan offer":"عرض إعارة","Transfer fee":"قيمة الانتقال","Monthly instalment":"قسط شهري","Installments":"الأقساط","Add to shortlist":"إضافة للقائمة المختصرة","Remove from shortlist":"إزالة من القائمة المختصرة","Training completed":"اكتمل التدريب","Training cancelled":"تم إلغاء التدريب","Player unavailable":"اللاعب غير متاح","Player is injured":"اللاعب مصاب","Suspension":"الإيقاف","League phase":"مرحلة الدوري","Continental league phase":"مرحلة الدوري القاري","Round":"الجولة","Date":"التاريخ","Away":"الضيف","Central Defender":"قلب دفاع","Ball Playing Defender":"مدافع يجيد بناء اللعب","Libero":"ليبرو","Wing Back":"ظهير جناح","Inverted Wing Back":"ظهير مقلوب","Full Back":"ظهير","Anchor Man":"ارتكاز دفاعي","Ball Winning Midfielder":"لاعب وسط قاطع للكرات","Deep Lying Playmaker":"صانع ألعاب متأخر","Box-to-Box":"لاعب وسط شامل","Advanced Playmaker":"صانع ألعاب متقدم","Shadow Striker":"مهاجم ظل","Winger":"جناح","Inside Forward":"جناح عكسي","Poacher":"قناص","Target Man":"مهاجم محطة","Pressing Forward":"مهاجم ضاغط","Complete Forward":"مهاجم متكامل","False 9":"مهاجم وهمي"}
+  const AR_UI = {"ADVANCED FOOTBALL DIRECTOR":"مدير كرة القدم المتقدم","FOOTBALL DIRECTOR":"إدارة كرة القدم","Manager's Hub":"مركز الإدارة","Home / Hub":"الرئيسية / مركز الإدارة","First Team Squad":"الفريق الأول","Squad":"الفريق","Tactics board":"لوحة التكتيك","Tactics & Match Plan":"التكتيك وخطة المباراة","Training & dynamics":"التدريب وديناميكية الفريق","Training & Team Dynamics":"التدريب وديناميكية الفريق","Scouting agency":"قسم الكشافة","Player Search & Scouting":"البحث عن اللاعبين والكشافة","Transfers & contracts":"الانتقالات والعقود","Transfer Centre":"مركز الانتقالات","Board, finances & staff":"الإدارة والمالية والموظفون","Club Operations":"إدارة النادي","Competitions & calendar":"البطولات والجدول","Competitions & Calendar":"البطولات والجدول","Database & settings":"قاعدة البيانات والإعدادات","World Database & Settings":"قاعدة بيانات العالم والإعدادات","Match Day":"يوم المباراة","CLUB MANAGEMENT":"إدارة النادي","AUTO-SAVE ON":"الحفظ التلقائي مفعّل","Save career now":"احفظ المسيرة الآن","Save career":"حفظ المسيرة","Save checkpoint":"حفظ نقطة استرداد","Recovery history":"سجل الاسترداد","Local save database":"قاعدة الحفظ المحلية","Last recovery checkpoint:":"آخر نقطة استرداد:","Season archives in current save:":"أرشيف المواسم في الحفظ الحالي:","Automatic recovery checkpoints are created weekly and at season rollover. Up to 28 recovery points are retained per career. Export JSON before clearing browser data.":"يتم إنشاء نقاط استرداد تلقائية أسبوعيًا وعند نهاية الموسم. يتم الاحتفاظ بحد أقصى 28 نقطة لكل مسيرة. صدّر ملف JSON قبل مسح بيانات المتصفح.","Loading your career…":"جارٍ تحميل المسيرة…","Loading recovery history…":"جارٍ تحميل سجل الاسترداد…","Career recovery and season archives":"استرداد المسيرة وأرشيف المواسم","Recovery checkpoints":"نقاط الاسترداد","Historical player statistics":"إحصائيات اللاعبين التاريخية","Manual checkpoint":"نقطة استرداد يدوية","Automatic checkpoint":"نقطة استرداد تلقائية","Restore":"استعادة","No recovery checkpoints are saved yet. Use “Save checkpoint” to create one.":"لا توجد نقاط استرداد بعد. استخدم «حفظ نقطة استرداد» لإنشاء واحدة.","Season archives will appear after the first completed season is saved.":"سيظهر أرشيف المواسم بعد حفظ أول موسم مكتمل.","Restoring a checkpoint first saves your current career so it remains recoverable.":"قبل الاستعادة، يتم حفظ المسيرة الحالية حتى تظل قابلة للاسترداد.","Recovery checkpoint restored successfully.":"تمت استعادة نقطة الاسترداد بنجاح.","Recovery checkpoint could not be found.":"تعذر العثور على نقطة الاسترداد.","Your previous browser save was migrated to the local database.":"تم نقل الحفظ السابق إلى قاعدة البيانات المحلية.","Export save JSON":"تصدير ملف الحفظ JSON","Import save / player database":"استيراد المسيرة / قاعدة اللاعبين","Start a new career":"بدء مسيرة جديدة","Continue":"متابعة","Save career files":"ملفات الحفظ والمسيرة","Game settings":"إعدادات اللعبة","Currency":"العملة","Wage display":"عرض الرواتب","Interface language":"لغة الواجهة","Arabic direction · RTL":"العربية · من اليمين لليسار","English · LTR":"الإنجليزية · من اليسار لليمين","Match speed":"سرعة المباراة","Real-world data importer":"استيراد بيانات اللاعبين الحقيقية","Important data-source limitation":"تنبيه مهم بخصوص مصادر البيانات","One competition code":"رمز بطولة واحدة","Bulk competition codes":"رموز البطولات للاستيراد الجماعي","Season start year":"سنة بداية الموسم","football-data.org token":"رمز الوصول إلى football-data.org","Enter your own API token":"أدخل رمز API الخاص بك","Fetch one competition":"استيراد بطولة واحدة","Apply bundled real-player data to this career":"تطبيق بيانات اللاعبين المرفقة على المسيرة","Import current Premier League players (free)":"استيراد لاعبي الدوري الإنجليزي الحاليين (مجانًا)","Import real squads from all codes":"استيراد القوائم الحقيقية لكل البطولات","Database report":"تقرير قاعدة البيانات","World clubs":"أندية العالم","World players":"لاعبو العالم","Seed/import profiles":"ملفات اللاعبين الأولية والمستوردة","Save data is stored locally in this browser, with an IndexedDB backup where supported. Export JSON before clearing browser data.":"يتم حفظ بياناتك محليًا في المتصفح، مع نسخة احتياطية عبر IndexedDB عند توفرها. صدّر ملف JSON قبل مسح بيانات المتصفح.","The bundled seed is not a verified live 2026/27 squad feed.":"قوائم اللاعبين المرفقة ليست مصدرًا مباشرًا موثّقًا لموسم 2026/27.","This importer loads actual squad names, positions, shirt numbers, nationality, date of birth, contract expiry and market value where supplied.":"تستورد الأداة أسماء اللاعبين ومراكزهم وأرقام القمصان وجنسياتهم وتواريخ الميلاد ونهاية العقود والقيم السوقية عند توفرها.","Weekly wages and detailed 1–20 attributes may not be provided by the source, so they remain estimates/unknown.":"قد لا يوفر المصدر الرواتب الأسبوعية والسمات التفصيلية من 1 إلى 20، لذا تظل تقديرية أو غير معروفة.","One competition":"بطولة واحدة","Bulk import runs sequentially to respect free-plan rate limits; 9 codes can take about one minute.":"يتم الاستيراد الجماعي بالتتابع احترامًا لحدود الخطة المجانية؛ وقد تستغرق 9 رموز نحو دقيقة.","Available competitions and squad fields depend on your API plan.":"تعتمد البطولات وحقول قوائم اللاعبين المتاحة على خطة واجهة API لديك.","The bundled list is not a live roster source.":"القائمة المرفقة ليست مصدرًا مباشرًا لقوائم الأندية.","Choose JSON file":"اختيار ملف JSON","Import JSON data / save file":"استيراد بيانات JSON / ملف حفظ","Accepted data: { clubs:[...], players:[...] } or the native Touchline save JSON format.":"البيانات المقبولة: { clubs:[...], players:[...] } أو تنسيق حفظ Touchline بصيغة JSON.","Home":"المضيف","Overview":"نظرة عامة","First Team":"الفريق الأول","Team":"الفريق","Tactics":"التكتيك","Training":"التدريب","Scouting":"الكشافة","Transfers":"الانتقالات","Finances":"المالية","Competitions":"البطولات","Calendar":"الجدول","Settings":"الإعدادات","Search":"بحث","Search players":"ابحث عن لاعبين","Player search":"البحث عن اللاعبين","Filter players":"تصفية اللاعبين","All positions":"كل المراكز","Goalkeeper":"حارس المرمى","Defender":"مدافع","Midfielder":"لاعب وسط","Forward":"مهاجم","Age":"العمر","Position":"المركز","Nationality":"الجنسية","Value":"القيمة","Wage":"الراتب","Contract":"العقد","Contract expires":"انتهاء العقد","Overall":"التقييم العام","Potential":"الإمكانات","Fitness":"اللياقة","M morale":"معنويات الفريق","Morale":"المعنويات","Sharpness":"الجاهزية الفنية","Appearances":"المشاركات","Goals":"الأهداف","Assists":"التمريرات الحاسمة","Yellow cards":"البطاقات الصفراء","Red cards":"البطاقات الحمراء","Injuries":"الإصابات","Unavailable":"غير متاح","Not available":"غير متاح","Free Agent":"لاعب حر","Retired":"معتزل","Unknown Club":"نادي غير معروف","Generated slot":"لاعب مولّد","Generated slots":"لاعبون مولّدون","Unknown source":"مصدر غير معروف","Real · WC 2026 squad":"حقيقي · قائمة كأس العالم 2026","Real · current PL data":"حقيقي · بيانات الدوري الإنجليزي الحالية","Imported / seed":"مستورد / بيانات أولية","Save now":"حفظ الآن","Save":"حفظ","Export":"تصدير","Import":"استيراد","Cancel":"إلغاء","Close":"إغلاق","Back":"رجوع","Next":"التالي","Previous":"السابق","Confirm":"تأكيد","Delete":"حذف","Apply":"تطبيق","Reset":"إعادة ضبط","Edit":"تعديل","View":"عرض","Details":"التفاصيل","More":"المزيد","None":"لا يوجد","All":"الكل","Select":"اختيار","Select club":"اختيار النادي","Choose club":"اختار النادي","Club":"النادي","Manager":"المدير الفني","Manager name":"اسم المدير الفني","Reputation":"السمعة","Training focus":"تركيز التدريب","Formation":"خطة اللعب","Mentality":"العقلية","Passing":"التمرير","Tempo":"الإيقاع","Width":"عرض الملعب","Pressing":"الضغط","Defensive line":"خط الدفاع","Tackling":"التدخلات","Offside trap":"مصيدة التسلل","Starting XI":"التشكيل الأساسي","Bench":"دكة البدلاء","Substitutions":"التبديلات","Captain":"القائد","Vice-captain":"نائب القائد","Role":"الدور","Team instructions":"تعليمات الفريق","Match plan":"خطة المباراة","Prepare for match":"الاستعداد للمباراة","View match report":"عرض تقرير المباراة","No upcoming league fixture found.":"لم يتم العثور على مباراة دوري قادمة.","Match report":"تقرير المباراة","Match statistics":"إحصائيات المباراة","Possession":"الاستحواذ","Shots":"التسديدات","Shots on target":"التسديدات على المرمى","Pass accuracy":"دقة التمرير","Fouls":"الأخطاء","Offside":"التسلل","Corner kicks":"الركلات الركنية","Half-time":"الشوط الأول","Full-time":"نهاية المباراة","Match day":"يوم المباراة","Scheduled":"مجدولة","League table":"جدول الدوري","Standings":"الترتيب","Played":"لعب","Won":"فاز","Drawn":"تعادل","Lost":"خسر","Goal difference":"فارق الأهداف","Points":"النقاط","Top scorers":"الهدافون","Fixtures":"المباريات","Results":"النتائج","Upcoming matches":"المباريات القادمة","Transfer market":"سوق الانتقالات","Transfer budget":"ميزانية الانتقالات","Wage budget":"ميزانية الرواتب","Make offer":"تقديم عرض","Submit offer":"إرسال العرض","Transfer offer":"عرض انتقال","Contract renewal":"تجديد العقد","Negotiate":"تفاوض","Scout player":"كشاف اللاعب","Scouting assignment":"مهمة الكشافة","Search players and assign scouts to identify transfer targets.":"ابحث عن اللاعبين وعيّن الكشافين لاكتشاف أهداف الانتقالات.","Training sessions":"الحصص التدريبية","Individual training":"التدريب الفردي","Team training":"تدريب الفريق","Player development":"تطوير اللاعبين","Team dynamics":"ديناميكية الفريق","Team morale":"معنويات الفريق","Financial overview":"نظرة عامة مالية","Club finances":"مالية النادي","Income":"الإيرادات","Expenses":"المصروفات","Balance":"الرصيد","Weekly income":"الإيرادات الأسبوعية","Weekly expenses":"المصروفات الأسبوعية","Sponsorship":"الرعاية","Board expectations":"توقعات مجلس الإدارة","Staff":"الموظفون","Board":"مجلس الإدارة","Club reputation":"سمعة النادي","Domestic cup":"الكأس المحلية","Continental competitions":"البطولات القارية","Competition":"البطولة","Database size":"حجم قاعدة البيانات","Small · faster loading":"صغيرة · تحميل أسرع","Medium · balanced depth":"متوسطة · توازن في التفاصيل","Large · deeper world":"كبيرة · عالم أوسع","Start career":"ابدأ المسيرة","Start match":"بدء المباراة","Continue to next day":"الانتقال لليوم التالي","Advance day":"تقدّم يومًا","Advance to next match":"التقدم إلى المباراة التالية","News & inbox":"الأخبار والبريد","Inbox":"صندوق الوارد","Read message":"قراءة الرسالة","Mark all as read":"تحديد الكل كمقروء","No messages":"لا توجد رسائل","Loading...":"جارٍ التحميل...","Loading":"جارٍ التحميل","Pending":"قيد الانتظار","Completed":"مكتمل","Success":"تم بنجاح","Warning":"تحذير","Error":"خطأ","Information":"معلومات","Unknown":"غير معروف","Available":"متاح","Yes":"نعم","No":"لا","Weekly":"أسبوعي","Yearly":"سنوي","Daily":"يومي","Monthly":"شهري","Details and history":"التفاصيل والسجل","Club overview":"نظرة عامة على النادي","Squad overview":"نظرة عامة على الفريق","Your next fixture":"مباراتك القادمة","Next fixture":"المباراة القادمة","Season objectives":"أهداف الموسم","Season progress":"تقدم الموسم","League position":"مركز الدوري","Current form":"النتائج الأخيرة","Home team":"الفريق المضيف","Away team":"الفريق الضيف","Goals scored":"الأهداف المسجلة","Goals conceded":"الأهداف المستقبلة","Manager's profile":"ملف المدير الفني","Career history":"تاريخ المسيرة","Career summary":"ملخص المسيرة","Saved successfully.":"تم الحفظ بنجاح.","Career save imported.":"تم استيراد ملف المسيرة.","Import failed:":"فشل الاستيراد:","Import complete:":"اكتمل الاستيراد:","Starting XI updated.":"تم تحديث التشكيل الأساسي.","Could not read this JSON file.":"تعذرت قراءة ملف JSON.","Unable to create career.":"تعذر إنشاء المسيرة.","Save data is stored locally in this browser":"يتم تخزين بيانات الحفظ محليًا في هذا المتصفح","Tactics & XI":"التكتيك والتشكيل","All caught up. Reports and club news will appear here.":"لا توجد تحديثات جديدة. ستظهر التقارير وأخبار النادي هنا.","Your first result will be recorded here.":"سيتم تسجيل أول نتيجة لك هنا.","Full table & results →":"جدول الدوري والنتائج كاملة ←","Recent club activity":"أحدث أنشطة النادي","Quick actions":"إجراءات سريعة","Run training":"بدء التدريب","Review budgets":"مراجعة الميزانيات","Export career":"تصدير المسيرة","World database status":"حالة قاعدة بيانات العالم","Review data source →":"مراجعة مصدر البيانات ←","Seeded sample players":"لاعبون من قاعدة البيانات الأولية","estimated transfer budget":"ميزانية انتقالات تقديرية","Suspended":"موقوف","match(es)":"مباراة/مباريات","Sort by rating":"الترتيب حسب التقييم","Sort by age":"الترتيب حسب العمر","Sort by value":"الترتيب حسب القيمة","Squad numbers":"أرقام قمصان الفريق","First Team · Reserves · Academy slots are clearly labelled":"يتم توضيح لاعبي الفريق الأول والاحتياطي والأكاديمية","players registered":"لاعب مسجّل","25-man list":"قائمة الـ25 لاعبًا","Return to Match":"العودة إلى المباراة","Formation & mentality":"الخطة والعقلية","Team mentality":"عقلية الفريق","Pressing intensity":"قوة الضغط","Passing style":"أسلوب التمرير","Team style":"أسلوب الفريق","Final third":"الثلث الهجومي","Use the offside trap":"استخدام مصيدة التسلل","Interactive tactics board":"لوحة تكتيك تفاعلية","DRAG & DROP":"اسحب وأفلت","Auto select":"اختيار تلقائي","Training schedule":"جدول التدريب","THIS SESSION":"الحصة الحالية","Attributes, fitness and development update based on the session.":"تتغير السمات واللياقة والتطور وفقًا للحصة التدريبية.","Run training session":"تنفيذ الحصة التدريبية","INDIVIDUAL + TEAM":"فردي + جماعي","Mentoring groups":"مجموعات التوجيه","Senior mentor":"اللاعب الموجّه","Youth player":"لاعب شاب","Create mentoring group":"إنشاء مجموعة توجيه","Dressing room":"غرفة الملابس","/100 harmony":"/100 انسجام","Praise the squad":"الإشادة بالفريق","Calm down":"تهدئة الأجواء","No training sessions recorded yet.":"لم يتم تسجيل أي حصص تدريبية بعد.","Maximum age":"أقصى عمر","Maximum value":"أقصى قيمة","Minimum rating (1–20)":"أقل تقييم (1–20)","Apply filters":"تطبيق عوامل التصفية","SCOUTING FILTERS":"عوامل تصفية الكشافة","Scout assignments":"مهام الكشافة","Search region":"منطقة البحث","South America":"أمريكا الجنوبية","Youth wonderkids":"المواهب الشابة الواعدة","First-team players":"لاعبو الفريق الأول","Expiring contracts":"عقود قاربت على الانتهاء","Affordable signings":"صفقات مناسبة للميزانية","Assign available scout":"تعيين كشاف متاح","Scouting results":"نتائج الكشافة","MATCHED":"نتائج مطابقة","TRANSFER WINDOW":"فترة الانتقالات","Available players":"اللاعبون المتاحون","Wage/wk":"الراتب/أسبوع","SHORTLIST":"القائمة المختصرة","Contract and budget notes":"ملاحظات العقود والميزانية","Advanced player search →":"بحث متقدم عن اللاعبين ←","My squad contracts":"عقود لاعبي فريقي","No active installment deals.":"لا توجد صفقات نشطة بنظام الأقساط.","Budget allocation":"توزيع الميزانية","Wage budget used":"المستخدم من ميزانية الرواتب","Move funds to wage budget":"تحويل أموال إلى ميزانية الرواتب","Apply budget shift":"تطبيق تحويل الميزانية","Season income":"دخل الموسم","Season costs":"تكاليف الموسم","Estimated net":"صافي تقديري","FINANCE CONTROL":"التحكم المالي","Board requests":"طلبات مجلس الإدارة","Request more transfer funds":"طلب زيادة ميزانية الانتقالات","Increase wage budget":"زيادة ميزانية الرواتب","Upgrade training facilities":"تطوير مرافق التدريب","Upgrade youth academy":"تطوير أكاديمية الناشئين","BOARDROOM":"مجلس الإدارة","Board confidence":"ثقة مجلس الإدارة","Board expectation:":"توقع مجلس الإدارة:","Avoid a sustained wage deficit.":"تجنّب استمرار العجز في الرواتب.","Staff role":"دور الموظف","Assistant Manager":"مساعد المدير الفني","Hire staff member":"تعيين موظف","Cup winner":"بطل الكأس","Simulate":"محاكاة","round":"جولة","No domestic cup created.":"لم يتم إنشاء بطولة كأس محلية.","Simulate next continental round":"محاكاة الجولة القارية التالية","Continental competition needs a large database.":"تحتاج البطولة القارية إلى قاعدة بيانات كبيرة.","Fixture calendar":"تقويم المباريات","World Cup real-player snapshot":"لقطة قوائم لاعبي كأس العالم","LOCAL-FIRST":"حفظ محلي أولًا","API + JSON":"واجهة API وملفات JSON","PREFERENCES":"التفضيلات","CURRENT":"الحالي","LEAGUE":"الدوري","MATCH CENTRE":"مركز المباراة","LIVE":"مباشر","INDIVIDUAL TRAINING":"تدريب فردي","TEAM TRAINING":"تدريب جماعي","Full table":"جدول كامل","View report":"عرض التقرير","Open inbox":"فتح صندوق الوارد","Mark as read":"تحديد كمقروء","No active offers":"لا توجد عروض نشطة","Offer rejected":"تم رفض العرض","Offer accepted":"تم قبول العرض","Offer submitted":"تم إرسال العرض","Contract signed":"تم توقيع العقد","Contract expires soon":"العقد سينتهي قريبًا","Insufficient funds":"الأموال غير كافية","Transfer complete":"اكتملت الصفقة","Loan":"إعارة","Permanent transfer":"انتقال نهائي","Loan offer":"عرض إعارة","Transfer fee":"قيمة الانتقال","Monthly instalment":"قسط شهري","Installments":"الأقساط","Add to shortlist":"إضافة للقائمة المختصرة","Remove from shortlist":"إزالة من القائمة المختصرة","Training completed":"اكتمل التدريب","Training cancelled":"تم إلغاء التدريب","Player unavailable":"اللاعب غير متاح","Player is injured":"اللاعب مصاب","Suspension":"الإيقاف","League phase":"مرحلة الدوري","Continental league phase":"مرحلة الدوري القاري","Round":"الجولة","Date":"التاريخ","Away":"الضيف","Central Defender":"قلب دفاع","Ball Playing Defender":"مدافع يجيد بناء اللعب","Libero":"ليبرو","Wing Back":"ظهير جناح","Inverted Wing Back":"ظهير مقلوب","Full Back":"ظهير","Anchor Man":"ارتكاز دفاعي","Ball Winning Midfielder":"لاعب وسط قاطع للكرات","Deep Lying Playmaker":"صانع ألعاب متأخر","Box-to-Box":"لاعب وسط شامل","Advanced Playmaker":"صانع ألعاب متقدم","Shadow Striker":"مهاجم ظل","Winger":"جناح","Inside Forward":"جناح عكسي","Poacher":"قناص","Target Man":"مهاجم محطة","Pressing Forward":"مهاجم ضاغط","Complete Forward":"مهاجم متكامل","False 9":"مهاجم وهمي"}
   const AR_UI_ENTRIES = Object.entries(AR_UI).sort((a,b)=>b[0].length-a[0].length);
   function translateUiText(value) {
     if (state?.settings?.language !== "ar") return value;
@@ -48,6 +49,9 @@
   }
 
   let state = null, view = "overview", modal = null, live = null, animationFrame = null, lastFrame = 0;
+  let simulationWorker = null, simulationWorkerReadyPromise = null, simulationWorkerResolveReady = null, simulationWorkerRejectReady = null;
+  let simulationWorkerError = null, simulationRequestId = 0, simulationBusy = false;
+  const pendingSimulationTasks = new Map();
   let search = "", marketFilters = {position:"all",age:40,value:300000000,attribute:"pace",minimum:10}, selectedNations = ["England","Egypt"];
   let setup = {mode:"career",challenge:"Relegation survival",managerName:"Alex Manager",managerNationality:"England",reputation:45,badge:"Tactician",primaryNation:"England",databaseSize:"medium",clubId:""};
   const $ = (sel, root=document) => root.querySelector(sel);
@@ -68,29 +72,164 @@
   const mySquad = () => state.players.filter(p=>p.clubId===state.userClubId).sort((a,b)=>b.overall-a.overall);
   const myFixture = () => state.fixtures.find(f=>f.id===state.matchPending) || state.fixtures.find(f=>!f.played&&(f.homeId===state.userClubId||f.awayId===state.userClubId));
   const currentStandings = () => E.recalcStandings(state,state.fixtures);
-  const generatedBadge = p => p.generated ? '<span class="fm-tag is-generated">Generated slot</span>' : p.worldCupSnapshot ? '<span class="fm-tag is-real">Real · WC 2026 squad</span>' : String(p.source||"").includes("Fantasy Premier League") ? '<span class="fm-tag is-real">Real · current PL data</span>' : p.realData ? '<span class="fm-tag is-real">Imported / seed</span>' : '<span class="fm-tag">Unknown source</span>';
+  const generatedBadge = p => p.youthProspect ? '<span class="fm-tag is-generated">Youth intake · '+Number(p.youthIntakeYear||0)+'</span>' : p.generated ? '<span class="fm-tag is-generated">Generated slot</span>' : p.worldCupSnapshot ? '<span class="fm-tag is-real">Real · WC 2026 squad</span>' : String(p.source||"").includes("Fantasy Premier League") ? '<span class="fm-tag is-real">Real · current PL data</span>' : p.realData ? '<span class="fm-tag is-real">Imported / seed</span>' : '<span class="fm-tag">Unknown source</span>';
   const ratingClass = n => Number(n)>=15?"good":Number(n)>=10?"mid":"low";
   const stars = (n, color) => '<span class="fm-stars" style="--star-color:'+color+'">'+("★".repeat(Math.max(1,Math.min(5,Math.round(Number(n||0)/20*5))))).padEnd(5,"☆")+'</span>';
   function toast(message, kind="info") {
     let box=$("#fm-toast"); if(!box){box=document.createElement("div");box.id="fm-toast";box.className="fm-toast";document.body.appendChild(box);}
     box.className="fm-toast visible "+kind;box.textContent=message;window.setTimeout(()=>box.classList.remove("visible"),2800);
   }
-  function save() {
-    if(!state)return;
+  function save(forceCheckpoint, reason) {
+    if(!state)return Promise.resolve({ok:false,storage:"none"});
+    if(Storage&&typeof Storage.save==="function"){
+      return Storage.save(state,{checkpoint:!!forceCheckpoint,reason:reason||null}).then(function(result){
+        if(result&&result.warning)console.warn("IndexedDB save used local fallback:",result.warning);
+        return result;
+      }).catch(function(error){
+        console.warn("Career storage failed; retaining the local fallback.",error);
+        try{
+          state.savedAt=new Date().toISOString();
+          localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+          return {ok:true,storage:"localStorage",warning:String(error&&error.message||error)};
+        }catch(localError){return {ok:false,storage:"none",warning:String(localError&&localError.message||localError)};}
+      });
+    }
     state.savedAt=new Date().toISOString();
-    const payload=JSON.stringify(state);
-    try{localStorage.setItem(SAVE_KEY,payload);}catch(err){toast("Local save is full. Export your career file.","warning");}
-    try{
-      if("indexedDB"in window){
-        const req=indexedDB.open("touchline-advanced-db",1);
-        req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains("careers"))req.result.createObjectStore("careers");};
-        req.onsuccess=()=>{try{const tx=req.result.transaction("careers","readwrite");tx.objectStore("careers").put(payload,"active");tx.oncomplete=()=>req.result.close();}catch(e){req.result.close();}};
-      }
-    }catch(err){ /* LocalStorage remains the fallback. */ }
+    try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));return Promise.resolve({ok:true,storage:"localStorage"});}
+    catch(error){toast("Local save is full. Export your career file.","warning");return Promise.resolve({ok:false,storage:"none"});}
   }
-  function load() {
-    try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return null;const s=JSON.parse(raw);if(s&&s.schemaVersion===1&&s.players&&s.clubs&&s.fixtures)return s;}catch(err){console.warn("Advanced career save could not be loaded.",err);}
-    return null;
+  function loadLegacySync() {
+    try{
+      const raw=localStorage.getItem(SAVE_KEY);
+      if(!raw)return null;
+      const saved=JSON.parse(raw);
+      return saved&&saved.schemaVersion===1&&saved.players&&saved.clubs&&saved.fixtures?saved:null;
+    }catch(error){console.warn("Legacy career save could not be loaded.",error);return null;}
+  }
+  async function loadSavedCareer() {
+    if(Storage&&typeof Storage.load==="function"){
+      try{
+        const result=await Storage.load();
+        return result&&result.state?result.state:null;
+      }catch(error){console.warn("IndexedDB load failed; checking the local fallback.",error);}
+    }
+    return loadLegacySync();
+  }
+  function failSimulationWorker(error) {
+    simulationWorkerError = error instanceof Error ? error : new Error(String(error || "Simulation worker unavailable."));
+    const worker = simulationWorker;
+    simulationWorker = null;
+    if (worker) {
+      worker.onmessage = null;
+      worker.onerror = null;
+      try { worker.terminate(); } catch (e) {}
+    }
+    if (simulationWorkerRejectReady) {
+      const reject = simulationWorkerRejectReady;
+      simulationWorkerRejectReady = null;
+      simulationWorkerResolveReady = null;
+      reject(simulationWorkerError);
+    }
+    pendingSimulationTasks.forEach(function (task) { task.reject(simulationWorkerError); });
+    pendingSimulationTasks.clear();
+  }
+  function getSimulationWorker() {
+    if (simulationWorkerError || typeof Worker === "undefined") return null;
+    if (simulationWorker) return simulationWorker;
+    try {
+      const worker = new Worker(new URL("simulation-worker.js", document.baseURI));
+      simulationWorker = worker;
+      simulationWorkerReadyPromise = new Promise(function (resolve, reject) {
+        simulationWorkerResolveReady = resolve;
+        simulationWorkerRejectReady = reject;
+      });
+      worker.onmessage = function (event) {
+        const message = event && event.data || {};
+        if (message.type === "ready") {
+          const resolve = simulationWorkerResolveReady;
+          simulationWorkerResolveReady = null;
+          simulationWorkerRejectReady = null;
+          if (resolve) resolve(true);
+          return;
+        }
+        if (message.type === "startup-error") {
+          failSimulationWorker(new Error(message.error || "Simulation worker failed to initialize."));
+          return;
+        }
+        if (message.type !== "task-result" || !message.id) return;
+        const pending = pendingSimulationTasks.get(message.id);
+        if (!pending) return;
+        pendingSimulationTasks.delete(message.id);
+        if (message.ok) pending.resolve(message);
+        else pending.reject(new Error(message.error || "Simulation task failed."));
+      };
+      worker.onerror = function (event) {
+        if (event && typeof event.preventDefault === "function") event.preventDefault();
+        failSimulationWorker(new Error(event && event.message || "Simulation worker crashed."));
+      };
+      return worker;
+    } catch (error) {
+      failSimulationWorker(error);
+      return null;
+    }
+  }
+  function adoptSimulationSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return;
+    Object.assign(state, snapshot);
+    if (state.world) {
+      state.world.players = state.players;
+      state.world.clubs = state.clubs;
+      const managedClub = state.clubs.find(function (item) { return item.id === state.userClubId; });
+      if (managedClub && state.world.calendar && state.world.calendar[managedClub.league]) {
+        state.world.calendar[managedClub.league] = state.fixtures;
+      }
+    }
+  }
+  async function executeSimulationTask(taskName, extra, fallback) {
+    const worker = getSimulationWorker();
+    if (!worker) return fallback();
+    try {
+      await simulationWorkerReadyPromise;
+      const id = "sim-" + (++simulationRequestId);
+      const response = await new Promise(function (resolve, reject) {
+        pendingSimulationTasks.set(id, { resolve: resolve, reject: reject });
+        try {
+          worker.postMessage(Object.assign({ id: id, task: taskName, state: state }, extra || {}));
+        } catch (error) {
+          pendingSimulationTasks.delete(id);
+          reject(error);
+        }
+      });
+      if (!response.ok) throw new Error(response.error || "Simulation worker reported a failure.");
+      adoptSimulationSnapshot(response.state);
+      return response.result;
+    } catch (error) {
+      // Worker tasks operate on a cloned snapshot, so synchronous recovery is safe.
+      failSimulationWorker(error);
+      if (typeof fallback === "function") return fallback();
+      throw error;
+    }
+  }
+  async function runBackgroundSimulation(taskName, fallback, label) {
+    if (simulationBusy) {
+      toast("A simulation task is already running.", "warning");
+      return;
+    }
+    simulationBusy = true;
+    toast(label || "Simulating in background…", "info");
+    render();
+    try {
+      const result = await executeSimulationTask(taskName, {}, fallback);
+      save();
+      render();
+      if (result && typeof result.message === "string") toast(result.message, result.ok === false ? "warning" : "success");
+      return result;
+    } catch (error) {
+      toast("Simulation failed: " + String(error && error.message || error), "warning");
+    } finally {
+      simulationBusy = false;
+      render();
+    }
   }
   function addInbox(title,text,kind="info") {
     state.inbox.unshift({id:"msg-"+Date.now()+"-"+Math.random().toString(36).slice(2,6),day:state.day,title:title,text:text,kind:kind,read:false});
@@ -111,12 +250,26 @@
     const btn=document.createElement("button");btn.id="open-advanced-manager";btn.className="fm-launcher";btn.type="button";btn.textContent="Advanced Career";btn.addEventListener("click",open);
     host.appendChild(btn);
   }
-  function open() {
-    makeOverlay().classList.add("is-open");
-    state=load();
+  let openGeneration=0;
+  async function open() {
+    const generation=++openGeneration;
+    const overlay=makeOverlay();
+    overlay.classList.add("is-open");
+    overlay.innerHTML='<div class="fm-loading-screen"><div class="fm-mark">TM</div><b>Loading your career…</b><small>Checking local database and legacy save</small></div>';
     view="overview";modal=null;
+    let loadResult={state:null,source:"empty",migrated:false};
+    try{
+      if(Storage&&typeof Storage.load==="function")loadResult=await Storage.load();
+      else loadResult={state:loadLegacySync(),source:"localStorage",migrated:false};
+    }catch(error){
+      console.warn("Career database load failed; using the local fallback.",error);
+      loadResult={state:loadLegacySync(),source:"localStorage",migrated:false};
+    }
+    if(generation!==openGeneration||!overlay.classList.contains("is-open"))return;
+    state=loadResult&&loadResult.state||null;
     if(!state){renderSetup();return;}
     repairState();
+    if(loadResult.migrated)toast("Your previous browser save was migrated to the local database.","success");
     if(!state.bundledRealDataImported&&E.mergeBundledRealPlayers){
       try{
         const migration=E.mergeBundledRealPlayers(state);
@@ -127,8 +280,9 @@
     if(!state.fplImportedAt)runFPLImport(true);
   }
   function close() {
+    openGeneration++;
     stopMatch();const root=$("#advanced-root");if(root)root.classList.remove("is-open");
-    if(state)save();
+    if(state)save(false,"close");
   }
   function repairState() {
     state.players=state.players.map(p=>E.normalizePlayer(p,p.clubId));
@@ -140,8 +294,12 @@
     state.settings=Object.assign({currency:"GBP",wageDisplay:"weekly",language:preferredLanguage,speed:1,highlightMode:"key"},state.settings||{});
     state.world.clubs=state.clubs;state.world.players=state.players;
   }
-  function openNewCareer(skipConfirm) {
-    if(!skipConfirm&&load()&&typeof window.confirm==="function"&&!window.confirm("إنشاء مسيرة جديدة هيستبدل المسيرة المتقدمة المحفوظة على الجهاز. هل تريد المتابعة؟"))return false;
+  async function openNewCareer(skipConfirm) {
+    if(!skipConfirm){
+      const existing=await loadSavedCareer();
+      if(existing&&typeof window.confirm==="function"&&!window.confirm("إنشاء مسيرة جديدة هيستبدل المسيرة المتقدمة المحفوظة على الجهاز. هل تريد المتابعة؟"))return false;
+    }
+    openGeneration++;
     stopMatch();
     state=null;view="overview";modal=null;live=null;
     selectedNations=["England","Egypt"];
@@ -312,7 +470,10 @@
     return panel(esc(state.domesticCup?.name||"Domestic Cup"),cupBody,"KNOCKOUT") + panel(esc(myClub().league)+" table",'<div class="fm-table-wrap"><table class="fm-table"><thead><tr><th>#</th><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th><th>Form</th></tr></thead><tbody>'+rows+'</tbody></table></div>',"LEAGUE")+ '<div class="fm-two-col">'+panel("Fixture calendar",'<div class="fm-table-wrap"><table class="fm-table"><thead><tr><th>Date</th><th>Home</th><th>Score</th><th>Away</th><th>Round</th></tr></thead><tbody>'+fixtures+'</tbody></table></div>')+panel("Continental league phase",uclBody,"36-TEAM FORMAT")+panel("Top scorers",topScorers)+'</div>';
   }
   function renderSettings() {
-    return '<div class="fm-two-col"><div>'+panel("Save and career files",'<div class="fm-settings-actions"><button class="fm-btn fm-btn-primary" data-action="save-now">Save career</button><button class="fm-btn fm-btn-secondary" data-action="export-save">Export save JSON</button><button class="fm-btn fm-btn-secondary" data-action="load-file">Import save / player database</button><button class="fm-btn fm-btn-ghost" data-action="new-career">Start a new career</button></div><p class="fm-help">Save data is stored locally in this browser, with an IndexedDB backup where supported. Export JSON before clearing browser data.</p>',"LOCAL-FIRST")+panel("Game settings",'<div class="fm-control-row"><label>Currency</label><select class="fm-select" data-setting="currency">'+["GBP","EUR","USD","EGP","SAR"].map(x=>'<option '+(state.settings.currency===x?"selected":"")+'>'+x+'</option>').join("")+'</select></div><div class="fm-control-row"><label>Wage display</label><select class="fm-select" data-setting="wageDisplay"><option value="weekly" '+(state.settings.wageDisplay==="weekly"?"selected":"")+'>Weekly</option><option value="yearly" '+(state.settings.wageDisplay==="yearly"?"selected":"")+'>Yearly</option></select></div><div class="fm-control-row"><label>Interface language</label><select class="fm-select" data-setting="language"><option value="en" '+(state.settings.language==="en"?"selected":"")+'>English · LTR</option><option value="ar" '+(state.settings.language==="ar"?"selected":"")+'>Arabic direction · RTL</option></select></div><div class="fm-control-row"><label>Match speed</label><select class="fm-select" data-setting="speed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></div>',"PREFERENCES")+'</div><div>'+panel("Real-world data importer",'<div class="fm-data-warning"><b>Important data-source limitation</b><p>The bundled seed is not a verified live 2026/27 squad feed. This importer loads actual squad names, positions, shirt numbers, nationality, date of birth, contract expiry and market value where supplied. Weekly wages and detailed 1–20 attributes may not be provided by the source, so they remain estimates/unknown. For a club with imported real squad players, generated placeholders are removed from that club roster.</p></div><div class="fm-control-row"><label>One competition code</label><input class="fm-input" id="fm-api-code" value="PL" maxlength="8"></div><div class="fm-control-row"><label>Bulk competition codes</label><input class="fm-input" id="fm-api-codes" value="PL, ELC, BL1, PD, SA, FL1, DED, PPL, BSA"></div><div class="fm-control-row"><label>Season start year</label><input class="fm-input" id="fm-api-season" type="number" min="2015" max="2035" value="2026"></div><div class="fm-control-row"><label>football-data.org token</label><input class="fm-input" id="fm-api-token" type="password" autocomplete="off" placeholder="Enter your own API token"></div><button class="fm-btn fm-btn-secondary" data-action="import-api">Fetch one competition</button><button class="fm-btn fm-btn-secondary" data-action="merge-bundled-player-data">Apply bundled real-player data to this career</button><button class="fm-btn fm-btn-primary" data-action="import-fpl">Import current Premier League players (free)</button><button class="fm-btn fm-btn-primary" data-action="import-api-batch">Import real squads from all codes</button><p class="fm-help">Bulk import runs sequentially to respect free-plan rate limits; 9 codes can take about one minute. Available competitions and squad fields depend on your API plan. The bundled list is not a live roster source.</p><div class="fm-divider"></div><label class="fm-input-label">Import JSON data / save file</label><button class="fm-btn fm-btn-secondary" data-action="load-file">Choose JSON file</button><p class="fm-help">Accepted data: { clubs:[...], players:[...] } or the native Touchline save JSON format. Team name, league, colors, venue, player name, age, nationality, position and shirt number are supported. Include value and wage fields in your own source if you need them imported.</p><input type="file" id="fm-import-file" accept=".json,application/json" hidden>',"API + JSON")+panel("Database report",'<div class="fm-database-metrics"><div><span>World clubs</span><b>'+state.clubs.length+'</b></div><div><span>World players</span><b>'+state.players.length+'</b></div><div><span>Seed/import profiles</span><b>'+state.players.filter(p=>!p.generated).length+'</b></div><div><span>World Cup real-player snapshot</span><b>'+state.players.filter(p=>p.worldCupSnapshot).length+'</b></div><div><span>Live PL / API real-squad clubs</span><b>'+(state.realSquadClubIds||[]).length+'</b></div><div><span>Generated academy slots</span><b>'+state.players.filter(p=>p.generated).length+'</b></div></div><p class="fm-muted">'+esc(state.world.sourceSeason||"User-imported world")+'</p><ul class="fm-notes">'+(state.world.notes||[]).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>',"PROVENANCE")+'</div></div>';
+    const persistence=Storage&&Storage.status?Storage.status():{indexedDBAvailable:false,mode:"localStorage",databaseVersion:0};
+    const checkpointDay=state.storageMeta&&state.storageMeta.lastCheckpointDay||"Not created yet";
+    const archivedCount=Array.isArray(state.seasonArchives)?state.seasonArchives.length:0;
+    return '<div class="fm-two-col"><div>'+panel("Save and career files",'<div class="fm-settings-actions"><button class="fm-btn fm-btn-primary" data-action="save-now">Save checkpoint</button><button class="fm-btn fm-btn-secondary" data-action="save-history">Recovery history</button><button class="fm-btn fm-btn-secondary" data-action="export-save">Export save JSON</button><button class="fm-btn fm-btn-secondary" data-action="load-file">Import save / player database</button><button class="fm-btn fm-btn-ghost" data-action="new-career">Start a new career</button></div><div class="fm-data-note"><b>Local save database</b><span>'+(persistence.indexedDBAvailable?"IndexedDB v"+persistence.databaseVersion+" · primary save":"LocalStorage fallback · IndexedDB unavailable")+'</span><span>Last recovery checkpoint: '+esc(checkpointDay)+'</span><span>Season archives in current save: '+archivedCount+'</span></div><p class="fm-help">Automatic recovery checkpoints are created weekly and at season rollover. Up to 28 recovery points are retained per career. Export JSON before clearing browser data.</p>',"LOCAL-FIRST")+panel("Game settings",'<div class="fm-control-row"><label>Currency</label><select class="fm-select" data-setting="currency">'+["GBP","EUR","USD","EGP","SAR"].map(x=>'<option '+(state.settings.currency===x?"selected":"")+'>'+x+'</option>').join("")+'</select></div><div class="fm-control-row"><label>Wage display</label><select class="fm-select" data-setting="wageDisplay"><option value="weekly" '+(state.settings.wageDisplay==="weekly"?"selected":"")+'>Weekly</option><option value="yearly" '+(state.settings.wageDisplay==="yearly"?"selected":"")+'>Yearly</option></select></div><div class="fm-control-row"><label>Interface language</label><select class="fm-select" data-setting="language"><option value="en" '+(state.settings.language==="en"?"selected":"")+'>English · LTR</option><option value="ar" '+(state.settings.language==="ar"?"selected":"")+'>Arabic direction · RTL</option></select></div><div class="fm-control-row"><label>Match speed</label><select class="fm-select" data-setting="speed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></div>',"PREFERENCES")+'</div><div>'+panel("Real-world data importer",'<div class="fm-data-warning"><b>Important data-source limitation</b><p>The bundled seed is not a verified live 2026/27 squad feed. This importer loads actual squad names, positions, shirt numbers, nationality, date of birth, contract expiry and market value where supplied. Weekly wages and detailed 1–20 attributes may not be provided by the source, so they remain estimates/unknown. For a club with imported real squad players, generated placeholders are removed from that club roster.</p></div><div class="fm-control-row"><label>One competition code</label><input class="fm-input" id="fm-api-code" value="PL" maxlength="8"></div><div class="fm-control-row"><label>Bulk competition codes</label><input class="fm-input" id="fm-api-codes" value="PL, ELC, BL1, PD, SA, FL1, DED, PPL, BSA"></div><div class="fm-control-row"><label>Season start year</label><input class="fm-input" id="fm-api-season" type="number" min="2015" max="2035" value="2026"></div><div class="fm-control-row"><label>football-data.org token</label><input class="fm-input" id="fm-api-token" type="password" autocomplete="off" placeholder="Enter your own API token"></div><button class="fm-btn fm-btn-secondary" data-action="import-api">Fetch one competition</button><button class="fm-btn fm-btn-secondary" data-action="merge-bundled-player-data">Apply bundled real-player data to this career</button><button class="fm-btn fm-btn-primary" data-action="import-fpl">Import current Premier League players (free)</button><button class="fm-btn fm-btn-primary" data-action="import-api-batch">Import real squads from all codes</button><p class="fm-help">Bulk import runs sequentially to respect free-plan rate limits; 9 codes can take about one minute. Available competitions and squad fields depend on your API plan. The bundled list is not a live roster source.</p><div class="fm-divider"></div><label class="fm-input-label">Import JSON data / save file</label><button class="fm-btn fm-btn-secondary" data-action="load-file">Choose JSON file</button><p class="fm-help">Accepted data: { clubs:[...], players:[...] } or the native Touchline save JSON format. Team name, league, colors, venue, player name, age, nationality, position and shirt number are supported. Include value and wage fields in your own source if you need them imported.</p><input type="file" id="fm-import-file" accept=".json,application/json" hidden>',"API + JSON")+panel("Database report",'<div class="fm-database-metrics"><div><span>World clubs</span><b>'+state.clubs.length+'</b></div><div><span>World players</span><b>'+state.players.length+'</b></div><div><span>Seed/import profiles</span><b>'+state.players.filter(p=>!p.generated).length+'</b></div><div><span>World Cup real-player snapshot</span><b>'+state.players.filter(p=>p.worldCupSnapshot).length+'</b></div><div><span>Live PL / API real-squad clubs</span><b>'+(state.realSquadClubIds||[]).length+'</b></div><div><span>Generated academy slots</span><b>'+state.players.filter(p=>p.generated).length+'</b></div></div><p class="fm-muted">'+esc(state.world.sourceSeason||"User-imported world")+'</p><ul class="fm-notes">'+(state.world.notes||[]).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>',"PROVENANCE")+'</div></div>';
   }
   function renderMatch() {
     const f=live?live.fixture:nextFixture();if(!f)return panel("No match scheduled",'<button class="fm-btn fm-btn-primary" data-action="continue">Continue career</button>');
@@ -429,19 +590,37 @@
     const feed=$(".fm-commentary-list",root);if(feed)feed.innerHTML=live.commentary.slice(-7).map(e=>'<div class="fm-commentary-row '+esc(e.type||"")+'"><b>'+Math.floor(e.minute||0)+'′</b><span>'+esc(e.text)+'</span></div>').join("");
     const latest=$(".fm-commentary-feed",root);if(latest)latest.textContent=live.latest;
     const stat=$("#fm-match-live-stats",root);if(stat)stat.innerHTML=renderLiveStats(matchStatsAtMinute(live.minute));
-    const controls=$(".fm-live-controls",root);if(controls){const btn=$('[data-action="resume-match"], [data-action="pause-match"], [data-action="second-half"], [data-action="finish-match"]',controls);if(btn){if(live.finished){btn.dataset.action="finish-match";btn.textContent="Complete match";}else if(live.halfTime&&!live.halfDone){btn.dataset.action="second-half";btn.textContent="Start second half";}else if(live.paused){btn.dataset.action="resume-match";btn.textContent="Resume";}else{btn.dataset.action="pause-match";btn.textContent="Pause";}}}
+    const controls=$(".fm-live-controls",root);if(controls){const btn=$('[data-action="resume-match"], [data-action="pause-match"], [data-action="second-half"], [data-action="finish-match"]',controls);if(btn){if(live.finished){btn.dataset.action="finish-match";btn.textContent=simulationBusy?"Processing…":"Complete match";btn.disabled=simulationBusy;}else if(live.halfTime&&!live.halfDone){btn.disabled=false;btn.dataset.action="second-half";btn.textContent="Start second half";}else if(live.paused){btn.disabled=false;btn.dataset.action="resume-match";btn.textContent="Resume";}else{btn.disabled=false;btn.dataset.action="pause-match";btn.textContent="Pause";}}}
     if(live.finished){const banners=$$(".fm-fulltime-banner",root);if(!banners.length){view="match";render();}}
   }
-  function finishLiveMatch() {
-    if(!live||!live.finished)return;
-    const fixture=live.fixture;E.applyResult(state,fixture,live.result);
-    state.matchPending=null;
-    const rounds=[...new Set(state.fixtures.map(f=>f.round))].sort((a,b)=>a-b);
-    const current=rounds.find(r=>state.fixtures.some(f=>f.round===r&&!f.played));
-    if(current&&state.fixtures.some(f=>f.round===current&&f.date<=state.day&& !f.played))E.simulateRound(state,current);
-    state.currentRound=Math.max(state.currentRound||0,fixture.round);
-    if(state.fixtures.every(f=>f.played))E.finishSeason(state);
-    stopMatch();live=null;view="overview";save();render();toast("Match result and league table saved.","success");
+  async function finishLiveMatch() {
+    if(!live||!live.finished||simulationBusy)return;
+    simulationBusy=true;
+    const finishedLive=live;
+    try {
+      const fixture=finishedLive.fixture;
+      E.applyResult(state,fixture,finishedLive.result);
+      state.matchPending=null;
+      const rounds=[...new Set(state.fixtures.map(f=>f.round))].sort((a,b)=>a-b);
+      const current=rounds.find(r=>state.fixtures.some(f=>f.round===r&&!f.played));
+      if(current&&state.fixtures.some(f=>f.round===current&&f.date<=state.day&&!f.played)) {
+        toast("Full-time saved. Remaining fixtures are being simulated off the main thread…","info");
+        render();
+        await executeSimulationTask("simulate-round",{round:current},()=>E.simulateRound(state,current));
+      }
+      state.currentRound=Math.max(state.currentRound||0,fixture.round);
+      if(state.fixtures.every(f=>f.played)) {
+        toast("Season rollover is being processed in the background…","info");
+        render();
+        await executeSimulationTask("finish-season",{},()=>E.finishSeason(state));
+      }
+      stopMatch();live=null;view="overview";save();render();toast("Match result and league table saved.","success");
+    } catch(error) {
+      toast("Could not finish the match: "+String(error&&error.message||error),"warning");
+    } finally {
+      simulationBusy=false;
+      render();
+    }
   }
   function drawPitch(canvas, isTactics) {
     if(!canvas)return;
@@ -515,12 +694,67 @@
     }
   }
   function drawLivePitch() { const canvas=$("#fm-live-canvas");if(canvas&&live)drawPitch(canvas,false); }
+  async function openSaveHistory() {
+    if(!state)return;
+    if(Storage&&typeof Storage.ensureCareerIdentity==="function")Storage.ensureCareerIdentity(state);
+    modal={type:"save-history",loading:true,snapshots:[],seasons:[]};
+    renderModal();
+    if(!Storage||typeof Storage.listSnapshots!=="function"){
+      modal.loading=false;
+      modal.error="IndexedDB recovery history is unavailable in this browser.";
+      renderModal();
+      return;
+    }
+    try{
+      const results=await Promise.all([
+        Storage.listSnapshots(state.careerId),
+        typeof Storage.listSeasons==="function"?Storage.listSeasons(state.careerId):Promise.resolve([])
+      ]);
+      if(!modal||modal.type!=="save-history")return;
+      modal.snapshots=results[0]||[];
+      modal.seasons=results[1]||[];
+      modal.loading=false;
+      renderModal();
+    }catch(error){
+      if(!modal||modal.type!=="save-history")return;
+      modal.loading=false;
+      modal.error=String(error&&error.message||error);
+      renderModal();
+    }
+  }
+  async function restoreSaveSnapshot(snapshotId) {
+    if(!Storage||typeof Storage.restoreSnapshot!=="function")return;
+    if(typeof window.confirm==="function"&&!window.confirm("Restore this recovery checkpoint? Your current state will first be saved as a new checkpoint."))return;
+    try{
+      await save(true,"before-restore");
+      const restored=await Storage.restoreSnapshot(snapshotId);
+      if(!restored){toast("Recovery checkpoint could not be found.","warning");return;}
+      state=restored;
+      repairState();
+      modal=null;live=null;view="overview";
+      await save(true,"restored");
+      render();
+      toast("Recovery checkpoint restored successfully.","success");
+    }catch(error){
+      toast("Could not restore this checkpoint: "+String(error&&error.message||error),"warning");
+    }
+  }
   function renderModal() {
     const host=$("#fm-modal-root");if(!host||!modal)return;
-    if(modal.type==="profile") {
+    if(modal.type==="save-history") {
+      const snapshots=modal.snapshots||[];
+      const snapshotRows=snapshots.map(snapshot=>'<article class="fm-inbox-row"><span class="fm-inbox-icon '+(snapshot.kind==="manual"?"success":"info")+'">'+(snapshot.kind==="manual"?"✓":"↻")+'</span><span><b>'+esc(snapshot.clubName||snapshot.label||"Career checkpoint")+'</b><small>'+esc(snapshot.day||"")+' · '+esc(snapshot.kind==="manual"?"Manual checkpoint":"Automatic checkpoint")+' · '+esc(snapshot.savedAt||"")+'</small></span><button class="fm-mini-btn" data-action="restore-save-snapshot" data-snapshot="'+esc(snapshot.id)+'">Restore</button></article>').join("")||'<div class="fm-empty">No recovery checkpoints are saved yet. Use “Save checkpoint” to create one.</div>';
+      const seasonRows=(modal.seasons||[]).map(record=>{
+        const scorers=(record.players||[]).slice().sort((a,b)=>(Number(b.stats&&b.stats.goals)||0)-(Number(a.stats&&a.stats.goals)||0)).slice(0,5);
+        const rows=scorers.map(player=>'<tr><td>'+esc(player.name)+'</td><td>'+(Number(player.stats&&player.stats.appearances)||0)+'</td><td>'+(Number(player.stats&&player.stats.goals)||0)+'</td><td>'+(Number(player.stats&&player.stats.assists)||0)+'</td><td>'+((Number(player.stats&&player.stats.averageRating)||0).toFixed(2))+'</td></tr>').join("");
+        return '<details class="fm-season-archive"><summary><b>'+esc(record.seasonLabel||record.season)+'</b><span>'+esc(record.clubName||"Club")+'</span><span>'+(record.playerCount||0)+' player records</span><span>'+(record.finalPosition?"Final position "+record.finalPosition:"")+'</span></summary><div class="fm-table-wrap"><table class="fm-table"><thead><tr><th>Player</th><th>Apps</th><th>Goals</th><th>Assists</th><th>Avg rating</th></tr></thead><tbody>'+rows+'</tbody></table></div></details>';
+      }).join("")||'<div class="fm-empty">Season archives will appear after the first completed season is saved.</div>';
+      const note=modal.loading?'<div class="fm-loading-screen compact"><b>Loading recovery history…</b></div>':modal.error?'<div class="fm-data-warning"><b>History unavailable</b><p>'+esc(modal.error)+'</p></div>':'';
+      host.innerHTML=modalShell("Career recovery and season archives",note+'<h3>Recovery checkpoints</h3><p class="fm-help">Restoring a checkpoint first saves your current career so it remains recoverable.</p><div class="fm-modal-inbox">'+snapshotRows+'</div><h3>Historical player statistics</h3>'+seasonRows,'<button class="fm-btn fm-btn-ghost" data-action="close-modal">Close</button><button class="fm-btn fm-btn-secondary" data-action="save-now">Save checkpoint now</button>');
+    } else if(modal.type==="profile") {
       const p=player(modal.playerId);if(!p){modal=null;return;}
       const attr=p.attributes||E.baseAttributes(p),groups=[["Technical",["crossing","dribbling","heading","passing","shooting","setPieces","tackling","technique"]],["Mental",["aggression","creativity","decisions","leadership","movement","positioning","teamwork"]],["Physical",["aerial","pace","stamina","strength"]],["Goalkeeping",["goalkeeping"]]];
-      host.innerHTML=modalShell(esc(p.name),'<div class="fm-profile-head"><span class="fm-profile-avatar" style="--club-primary:'+club(p.clubId).primary+'">'+esc(p.position)+'</span><div><h2>'+esc(p.name)+'</h2><p>'+esc(playerClubLabel(p))+' · '+esc(p.nationality)+' · '+p.age+' years'+(p.nationalTeam?' · '+esc(p.nationalTeam)+' international':'')+'</p><div class="fm-profile-rating"><b>'+p.overall+'</b><span>CA '+stars(p.overall,"#f5c542")+'</span><span>PA '+stars(p.potential,"#68728c")+'</span></div>'+generatedBadge(p)+'</div></div><div class="fm-profile-summary"><div><small>Market value '+(p.valueEstimated? '(est.)':'')+'</small><b>'+playerValueLabel(p)+'</b></div><div><small>Weekly wage '+(p.wageEstimated||p.wageKnown!==true?'(est.)':'')+'</small><b>'+playerWageLabel(p)+'</b></div><div><small>Contract</small><b>'+p.contractYears+' years</b></div><div><small>Condition</small><b>'+p.fitness+'%</b></div>'+(p.fantasyPrice!=null?'<div><small>FPL price · not market value</small><b>£'+Number(p.fantasyPrice).toFixed(1)+'m</b></div>':'')+'</div>'+groups.map(g=>'<section class="fm-attribute-group"><h3>'+g[0]+'</h3><div class="fm-attribute-grid">'+g[1].map(k=>'<div class="fm-attribute '+ratingClass(attr[k]||1)+'"><span>'+esc(E.ATTR_LABELS[k])+'</span><b>'+(attr[k]||1)+'</b></div>').join("")+'</div></section>').join("")+'<div class="fm-profile-career"><b>Career record</b><span>Apps '+(p.appearances||0)+' · Goals '+(p.goals||0)+' · Assists '+(p.assists||0)+' · Clean sheets '+(p.cleanSheets||0)+' · Avg rating '+(p.averageRating?Number(p.averageRating).toFixed(2):'—')+' · Cards '+(p.yellowCards||0)+'Y / '+(p.redCards||0)+'R</span></div><div class="fm-profile-career"><b>Season '+esc(state.season)+' record</b><span>Apps '+(p.seasonStats?.appearances||0)+' · Goals '+(p.seasonStats?.goals||0)+' · Assists '+(p.seasonStats?.assists||0)+' · Clean sheets '+(p.seasonStats?.cleanSheets||0)+' · Avg rating '+(p.seasonStats?.averageRating?Number(p.seasonStats.averageRating).toFixed(2):'—')+' · Cards '+(p.seasonStats?.yellowCards||0)+'Y / '+(p.seasonStats?.redCards||0)+'R</span></div><div class="fm-profile-career"><b>Recent form</b><span>'+(p.form||[]).slice(-5).map(x=>Number(x).toFixed(1)).join(" / ")+'</span></div>','<button class="fm-btn fm-btn-ghost" data-action="close-modal">Close</button><button class="fm-btn fm-btn-secondary" data-action="renew" data-player="'+p.id+'">Offer renewal</button>'+ (p.clubId===state.userClubId?'<button class="fm-btn fm-btn-primary" data-action="sell" data-player="'+p.id+'">Sell player</button>':'<button class="fm-btn fm-btn-primary" data-action="negotiate" data-player="'+p.id+'">Negotiate transfer</button>'));
+      host.innerHTML=modalShell(esc(p.name),'<div class="fm-profile-head"><span class="fm-profile-avatar" style="--club-primary:'+club(p.clubId).primary+'">'+esc(p.position)+'</span><div><h2>'+esc(p.name)+'</h2><p>'+esc(playerClubLabel(p))+' · '+esc(p.nationality)+' · '+p.age+' years'+(p.nationalTeam?' · '+esc(p.nationalTeam)+' international':'')+'</p><div class="fm-profile-rating"><b>'+p.overall+'</b><span>CA '+Number(p.CA||Math.round(p.overall*2))+'/200 '+stars(p.overall,"#f5c542")+'</span><span>PA '+Number(p.PA||Math.round(p.potential*2))+'/200 '+stars(p.potential,"#68728c")+'</span></div>'+generatedBadge(p)+'</div></div><div class="fm-profile-summary"><div><small>Market value '+(p.valueEstimated? '(est.)':'')+'</small><b>'+playerValueLabel(p)+'</b></div><div><small>Weekly wage '+(p.wageEstimated||p.wageKnown!==true?'(est.)':'')+'</small><b>'+playerWageLabel(p)+'</b></div><div><small>Contract</small><b>'+p.contractYears+' years</b></div><div><small>Condition</small><b>'+p.fitness+'%</b></div>'+(p.fantasyPrice!=null?'<div><small>FPL price · not market value</small><b>£'+Number(p.fantasyPrice).toFixed(1)+'m</b></div>':'')+'</div>'+groups.map(g=>'<section class="fm-attribute-group"><h3>'+g[0]+'</h3><div class="fm-attribute-grid">'+g[1].map(k=>'<div class="fm-attribute '+ratingClass(attr[k]||1)+'"><span>'+esc(E.ATTR_LABELS[k])+'</span><b>'+(attr[k]||1)+'</b></div>').join("")+'</div></section>').join("")+'<div class="fm-profile-career"><b>Career record</b><span>Apps '+(p.appearances||0)+' · Goals '+(p.goals||0)+' · Assists '+(p.assists||0)+' · Clean sheets '+(p.cleanSheets||0)+' · Avg rating '+(p.averageRating?Number(p.averageRating).toFixed(2):'—')+' · Cards '+(p.yellowCards||0)+'Y / '+(p.redCards||0)+'R</span></div><div class="fm-profile-career"><b>Season '+esc(state.season)+' record</b><span>Apps '+(p.seasonStats?.appearances||0)+' · Goals '+(p.seasonStats?.goals||0)+' · Assists '+(p.seasonStats?.assists||0)+' · Clean sheets '+(p.seasonStats?.cleanSheets||0)+' · Avg rating '+(p.seasonStats?.averageRating?Number(p.seasonStats.averageRating).toFixed(2):'—')+' · Cards '+(p.seasonStats?.yellowCards||0)+'Y / '+(p.seasonStats?.redCards||0)+'R</span></div><div class="fm-profile-career"><b>Recent form</b><span>'+(p.form||[]).slice(-5).map(x=>Number(x).toFixed(1)).join(" / ")+'</span></div>','<button class="fm-btn fm-btn-ghost" data-action="close-modal">Close</button><button class="fm-btn fm-btn-secondary" data-action="renew" data-player="'+p.id+'">Offer renewal</button>'+ (p.clubId===state.userClubId?'<button class="fm-btn fm-btn-primary" data-action="sell" data-player="'+p.id+'">Sell player</button>':'<button class="fm-btn fm-btn-primary" data-action="negotiate" data-player="'+p.id+'">Negotiate transfer</button>'));
     } else if(modal.type==="negotiate") {
       const p=player(modal.playerId);if(!p)return;
       host.innerHTML=modalShell("Transfer & contract proposal",'<div class="fm-negotiation-target"><b>'+esc(p.name)+'</b><span>'+esc(playerClubLabel(p))+' · '+esc(p.position)+' · OVR '+p.overall+'</span><span>Estimated fee '+money(p.value)+' · Requested wage '+money(p.wage)+'/wk</span></div><div class="fm-form-grid"><label>'+(p.clubId?"Transfer fee":"Free-agent fee")+'<input id="fm-offer-fee" type="number" min="0" value="'+(p.clubId?Math.round(p.value*1.02):0)+'"></label><label>Upfront fee<input id="fm-offer-upfront" type="number" min="0" value="'+(p.clubId?Math.round(p.value*0.75):0)+'"></label><label>Installments<select id="fm-offer-months"><option value="0">No installments</option><option value="12">12 months</option><option value="24">24 months</option></select></label><label>Weekly wage<input id="fm-offer-wage" type="number" min="0" value="'+Math.max(p.wage,state.finances.wageBudget*0.1)+'"></label><label>Contract length<select id="fm-offer-years"><option>2</option><option>3</option><option selected>4</option><option>5</option></select></label><label>Appearance bonus<input id="fm-offer-appearance" type="number" min="0" value="0"></label><label>Goal bonus<input id="fm-offer-goal" type="number" min="0" value="0"></label><label>Sell-on clause %<input id="fm-offer-sellon" type="number" min="0" max="50" value="0"></label><label>Signing bonus<input id="fm-offer-signing-bonus" type="number" min="0" value="0"></label></div><p class="fm-help">The engine validates transfer-window rules, upfront cash, payroll headroom and seller/player acceptance. Add-on terms are recorded as part of the proposal note; cash/installment obligations affect the budget.</p>','<button class="fm-btn fm-btn-ghost" data-action="close-modal">Cancel</button><button class="fm-btn fm-btn-primary" data-action="confirm-negotiate" data-player="'+p.id+'">Submit offer</button>');
@@ -545,6 +779,7 @@
     const nav=event.target.closest("[data-view]");if(nav){view=nav.dataset.view;render();return;}
     const action=event.target.closest("[data-action]");if(!action)return;
     const a=action.dataset.action;
+    if(simulationBusy&&!["close","close-modal","shade-close","profile"].includes(a)){toast("A background simulation is running. Please wait for it to finish before changing the career.","warning");return;}
     if(a==="close"){event.stopPropagation();close();return;}
     if(a==="close-modal"||a==="shade-close"){if(a==="shade-close"&&event.target!==action)return;modal=null;const host=$("#fm-modal-root");if(host)host.innerHTML="";return;}
     if(a==="profile"){showModal("profile",action.dataset.player);return;}
@@ -556,8 +791,8 @@
     if(a==="sell"){showModal("sell",action.dataset.player);return;}
     if(a==="continue"){advanceDay();return;}
     if(a==="open-match"){const f=state.fixtures.find(x=>x.id===action.dataset.fixture)||nextFixture();if(!f)return;state.matchPending=f.id;startMatch(f);view="match";render();return;}
-    if(a==="simulate-cup-round"){const res=E.simulateDomesticCupRound(state);save();render();toast(res.message,res.ok?"success":"warning");return;}
-    if(a==="simulate-continental-round"){const res=E.simulateContinentalRound(state);save();render();toast(res.message,res.ok?"success":"warning");return;}
+    if(a==="simulate-cup-round"){runBackgroundSimulation("simulate-domestic-cup-round",()=>E.simulateDomesticCupRound(state),"Simulating the cup round in a background worker…");return;}
+    if(a==="simulate-continental-round"){runBackgroundSimulation("simulate-continental-round",()=>E.simulateContinentalRound(state),"Simulating the continental round in a background worker…");return;}
     if(a==="open-tactics"){if(live&&!live.finished){live.wasRunningBeforeTactics=!!(live.started&&!live.paused);live.tacticsOpenedAt=live.minute;if(live.started){live.paused=true;stopMatch();}view="tactics";render();}return;}
     if(a==="return-to-match"){if(live){refreshRemainingSimulation();view="match";const resume=!!live.wasRunningBeforeTactics;live.wasRunningBeforeTactics=false;render();if(resume&&!live.finished&&!live.halfTime){live.paused=false;lastFrame=0;animateMatch();}}return;}
     if(a==="start-live-match"){beginMatch();render();return;}
@@ -582,10 +817,12 @@
     if(a==="open-inbox-item"){const msg=state.inbox.find(x=>x.id===action.dataset.message);if(msg){msg.read=true;showModal("inbox");save();}return;}
     if(a==="mark-read"){const msg=state.inbox.find(x=>x.id===action.dataset.message);if(msg)msg.read=true;save();showModal("inbox");return;}
     if(a==="mark-all-read"){state.inbox.forEach(x=>x.read=true);save();showModal("inbox");return;}
-    if(a==="save-now"){save();toast("Career saved to this browser.","success");return;}
-    if(a==="export-save"){save();download("touchline-career-"+state.day+".json",E.exportData(state));toast("Career JSON exported.","success");return;}
+    if(a==="save-now"){save(true,"manual").then(result=>{const persisted=!!(result&&result.ok),indexed=!!(result&&result.storage==="indexedDB");toast(!persisted?"Career save failed; export a JSON backup.":indexed?"Career saved with a recovery checkpoint.":"Career saved to browser storage; recovery history requires IndexedDB.",persisted?"success":"warning");});return;}
+    if(a==="save-history"){openSaveHistory();return;}
+    if(a==="restore-save-snapshot"){restoreSaveSnapshot(action.dataset.snapshot);return;}
+    if(a==="export-save"){const payload=E.exportData(state);save(true,"export").then(result=>{download("touchline-career-"+state.day+".json",payload);toast(result&&result.ok?"Career JSON exported; a recovery checkpoint was saved.":"Career JSON exported. Keep this file as a backup.",result&&result.ok?"success":"warning");});return;}
     if(a==="load-file"){const input=$("#fm-import-file");if(input)input.click();else{modal=null;renderSetup();}return;}
-    if(a==="new-career"){if(confirm("Start a new career? Export the current save first if you need it.")){close();state=null;open();}return;}
+    if(a==="new-career"){if(confirm("Start a new career? Export the current save first if you need it.")){openNewCareer(true);}return;}
     if(a==="confirm-negotiate"){confirmNegotiation(action.dataset.player);return;}
     if(a==="confirm-renew"){const id=action.dataset.player;const res=E.offerRenewal(state,id,{wage:$("#fm-renew-wage").value,years:$("#fm-renew-years").value,releaseClause:$("#fm-renew-clause").value,signingBonus:$("#fm-renew-bonus").value});if(res.ok){modal=null;save();render();toast(res.message,"success");}else toast(res.message,"warning");return;}
     if(a==="confirm-sale"){const id=action.dataset.player;const res=E.sellPlayer(state,id,Number($("#fm-sale-fee").value));if(res.ok){modal=null;save();render();toast(res.message,"success");}else toast(res.message,"warning");return;}
@@ -635,15 +872,28 @@
     if(kind==="youth"){state.finances.balance-=cost;state.board.youthAcademy=(state.board.youthAcademy||1)+1;addInbox("Youth academy upgraded","Youth academy investment approved.");}
     save();render();toast("Board request processed.","success");
   }
-  function advanceDay() {
-    if(!state)return;
+  async function advanceDay() {
+    if(!state||simulationBusy)return;
     if(live&&!live.finished){toast("Finish or pause the current match before advancing the calendar.","warning");return;}
     const out=E.continueDay(state);
     if(out.match){state.matchPending=out.fixture.id;view="match";startMatch(out.fixture);save();render();toast("Match day: "+club(out.fixture.homeId).name+" vs "+club(out.fixture.awayId).name,"success");return;}
-    if(state.seasonDays>0&&state.seasonDays%365===0){E.finishSeason(state);addInbox("Season rollover","New season "+state.season+" has started.");}
+    if(state.seasonDays>0&&state.seasonDays%365===0){
+      simulationBusy=true;
+      toast("Season rollover is being processed in a background worker…","info");
+      render();
+      try {
+        await executeSimulationTask("finish-season",{},()=>E.finishSeason(state));
+        addInbox("Season rollover","New season "+state.season+" has started.");
+      } catch(error) {
+        toast("Season rollover failed: "+String(error&&error.message||error),"warning");
+      } finally {
+        simulationBusy=false;
+      }
+    }
     save();render();
   }
   function handleChange(event) {
+    if(simulationBusy){toast("A background simulation is running. Please wait before changing settings.","warning");return;}
     const t=event.target,field=t.dataset.field,setting=t.dataset.setting;
     if(setting){if(setting==="speed")state.settings.speed=Number(t.value);else if(setting==="language"){state.settings.language=t.value==="ar"?"ar":"en";preferredLanguage=state.settings.language;try{localStorage.setItem(LANGUAGE_KEY,preferredLanguage);}catch(e){}}else state.settings[setting]=t.value;save();render();return;}
     if(field==="formation"||field==="mentality"||field==="width"||field==="tempo"||field==="passing"||field==="finalThird"||field==="line"||field==="pressing"||field==="tackling"||field==="offsideTrap"||field==="style"){

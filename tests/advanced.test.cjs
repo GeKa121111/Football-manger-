@@ -1,9 +1,11 @@
 const assert = require("node:assert/strict");
+const vm = require("node:vm");
 const fs = require("node:fs");
 const path = require("node:path");
 const data = require("../advanced-data.js");
 const worldCup = require("../advanced-player-data.js");
 const engine = require("../advanced-engine.js");
+const careerStorage = require("../career-storage.js");
 
 assert.equal(global.FM_WORLD_DATA.clubs.length, 222, "expanded database should include 222 club seeds across 27 football markets");
 assert.equal(worldCup.playerCount, 1248, "registered 2026 World Cup snapshot should contain 1248 players");
@@ -15,9 +17,13 @@ const advancedCss = fs.readFileSync(path.join(__dirname, "..", "advanced.css"), 
 const mainCss = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 const advancedUiSource = fs.readFileSync(path.join(__dirname, "..", "advanced-ui.js"), "utf8");
+const simulationWorkerSource = fs.readFileSync(path.join(__dirname, "..", "simulation-worker.js"), "utf8");
 assert.ok(pageHtml.includes('src="advanced-player-data.js"'), "the app shell must load the real-player dataset");
-assert.ok(deploymentWorkflow.includes("advanced-player-data.js") && deploymentWorkflow.includes("dist/"),
-  "the Pages build must copy the real-player dataset into the deploy artifact");
+assert.ok(pageHtml.includes('src="career-storage.js"'), "the app shell must load the local career storage module");
+assert.ok(pageHtml.indexOf('src="career-storage.js"') < pageHtml.indexOf('src="advanced-ui.js"'),
+  "IndexedDB storage must be available before the advanced UI starts");
+assert.ok(deploymentWorkflow.includes("advanced-player-data.js") && deploymentWorkflow.includes("career-storage.js") && deploymentWorkflow.includes("dist/"),
+  "the Pages build must copy the real-player dataset and career storage module into the deploy artifact");
 assert.ok(serviceWorker.includes('"./advanced-player-data.js"'), "the offline cache must include the real-player dataset");
 assert.ok(advancedCss.includes("@media (max-width: 480px)") && advancedCss.includes("position: fixed; top: auto; bottom: 0"),
   "advanced manager mobile CSS must provide a small-screen breakpoint and persistent bottom navigation");
@@ -25,7 +31,56 @@ assert.ok(advancedCss.includes("env(safe-area-inset-bottom)") && advancedCss.inc
   "advanced manager mobile controls must respect device safe areas and touch target sizing");
 assert.ok(mainCss.includes("@media (max-width: 420px)") && mainCss.includes("overscroll-behavior-x: contain"),
   "main shell mobile styles must handle narrow screens and horizontal table scrolling");
-assert.ok(serviceWorker.includes('touchline-manager-v14'), "hardened player normalization requires a fresh offline cache version");
+assert.ok(serviceWorker.includes('touchline-manager-v19'), "IndexedDB persistence requires a fresh offline cache version");
+assert.ok(serviceWorker.includes('"./simulation-worker.js"'), "offline cache should include the simulation worker");
+assert.ok(serviceWorker.includes('"./career-storage.js"'), "offline cache should include the career storage module");
+assert.doesNotThrow(() => new Function(simulationWorkerSource), "simulation worker source should be valid JavaScript");
+assert.ok(simulationWorkerSource.includes('scope.importScripts("advanced-data.js", "advanced-player-data.js", "advanced-engine.js")'),
+  "the worker should initialize the same data and engine dependencies as the main thread");
+for (const task of ["simulate-round", "simulate-domestic-cup-round", "simulate-continental-round", "finish-season"]) {
+  assert.ok(simulationWorkerSource.includes('case "' + task + '"'), "worker must support task " + task);
+}
+assert.ok(advancedUiSource.includes('new Worker(new URL("simulation-worker.js", document.baseURI))'),
+  "advanced UI should create a relative-path worker compatible with GitHub Pages subpaths");
+assert.ok(advancedUiSource.includes("function executeSimulationTask(taskName, extra, fallback)"),
+  "worker tasks should have a promise-based main-thread bridge with fallback support");
+assert.ok(advancedUiSource.includes('runBackgroundSimulation("simulate-domestic-cup-round"') &&
+  advancedUiSource.includes('runBackgroundSimulation("simulate-continental-round"'),
+  "cup and continental rounds should run through the worker bridge");
+
+const workerMessages = [];
+let workerMessageHandler = null;
+const importedWorkerScripts = [];
+const workerScope = {
+  FM_ENGINE: engine,
+  importScripts: function () { importedWorkerScripts.push(...Array.from(arguments)); },
+  postMessage: function (message) { workerMessages.push(message); },
+  addEventListener: function (name, handler) { if (name === "message") workerMessageHandler = handler; }
+};
+vm.runInNewContext(simulationWorkerSource, { self: workerScope }, { filename: "simulation-worker.js" });
+assert.deepEqual(importedWorkerScripts, ["advanced-data.js", "advanced-player-data.js", "advanced-engine.js"],
+  "worker should import exactly the data and simulation engine dependencies");
+assert.equal(workerMessages[0].type, "ready", "worker should announce readiness after initializing its engine");
+assert.equal(typeof workerMessageHandler, "function", "worker should register a message handler");
+const workerCareer = engine.newCareer({
+  mode:"career",managerName:"Worker integration test",primaryNation:"England",
+  nations:["England"],databaseSize:"small",clubId:"liv"
+});
+const workerRound = workerCareer.fixtures.find(f => !f.played).round;
+workerMessageHandler({ data:{id:"worker-round-test",task:"simulate-round",state:workerCareer,round:workerRound} });
+const workerResponse = workerMessages.find(message => message.type === "task-result" && message.id === "worker-round-test");
+assert.ok(workerResponse && workerResponse.ok, "worker should return successful league-round results");
+assert.ok(workerResponse.result && Array.isArray(workerResponse.result),
+  "league-round result should include recalculated standings");
+assert.ok(workerResponse.state.fixtures.filter(f => f.round === workerRound).every(f => f.played),
+  "worker should return the updated played fixtures in its career snapshot");
+const invalidWorkerMessageCount = workerMessages.length;
+workerMessageHandler({ data:{id:"worker-invalid-test",task:"not-a-task",state:workerCareer} });
+const invalidWorkerResponse = workerMessages.slice(invalidWorkerMessageCount)
+  .find(message => message.type === "task-result" && message.id === "worker-invalid-test");
+assert.ok(invalidWorkerResponse && !invalidWorkerResponse.ok && /Unsupported simulation task/.test(invalidWorkerResponse.error),
+  "worker should report an explicit error for unknown tasks");
+
 assert.ok(mainCss.includes(".topbar-right {") && mainCss.includes("flex-wrap: nowrap"),
   "main mobile header must keep its controls in a predictable bounded row");
 assert.ok(mainCss.includes(".nav-list {") && mainCss.includes("overflow-x: auto") && mainCss.includes("flex-direction: row"),
@@ -693,3 +748,218 @@ assert.equal(ageingSeason.target.attributes.shooting, 9, "ageing should reduce a
 assert.equal(ageingSeason.target.overall, engine.playerOverall(ageingSeason.target),
   "ageing decline should be reflected in position-weighted overall");
 console.log("Season rollover development tests passed.");
+
+ 
+// CA/PA and hidden attributes are stable estimates, explicitly marked as such.
+assert.equal(data.players.length > 0, true, "seeded player data should remain available");
+for (const player of data.players) {
+  assert.ok(Number.isInteger(player.CA) && player.CA >= 1 && player.CA <= 200,
+    "seeded players should have CA on the 1-200 scale: " + player.id);
+  assert.ok(Number.isInteger(player.PA) && player.PA >= player.CA && player.PA <= 200,
+    "seeded players should have PA >= CA on the 1-200 scale: " + player.id);
+  assert.equal(player.abilityEstimated, true, "derived seed abilities should be labelled as estimates");
+  for (const key of ["professionalism", "ambition", "consistency", "pressure", "durability"]) {
+    assert.ok(Number.isInteger(player.hiddenAttributes[key]) && player.hiddenAttributes[key] >= 1 && player.hiddenAttributes[key] <= 20,
+      "hidden attribute should be in the 1-20 range: " + player.id + " / " + key);
+  }
+}
+assert.ok(worldCup.players.every(player =>
+  Number.isInteger(player.CA) && player.CA >= 1 && player.CA <= 200 &&
+  Number.isInteger(player.PA) && player.PA >= player.CA && player.PA <= 200 &&
+  player.hiddenAttributes && player.abilityEstimated === true
+), "all registered snapshot players should receive estimated CA/PA and hidden attributes");
+assert.equal(data.clubs.length, 222, "youth recruitment metadata must preserve all club seeds");
+for (const club of data.clubs) {
+  for (const key of ["youthRecruitment", "juniorCoaching", "youthFacilities"]) {
+    assert.ok(Number.isInteger(club[key]) && club[key] >= 1 && club[key] <= 20,
+      "club youth infrastructure should stay on a 1-20 scale: " + club.id + " / " + key);
+  }
+}
+
+const youthSystem = data.youthSystem;
+assert.ok(youthSystem && typeof youthSystem.previewIntake === "function" &&
+  typeof youthSystem.announceIntake === "function", "the world dataset should expose the two-stage youth intake API");
+const previewA = youthSystem.previewIntake("liv", 2027);
+const previewB = youthSystem.previewIntake("liv", 2027);
+assert.deepEqual(previewA, previewB, "the same club and intake year should reproduce the same December preview");
+assert.equal(previewA.previewDate, "2026-12-15");
+assert.equal(previewA.targetAnnouncementDate, "2027-03-31");
+assert.equal(previewA.count, 16, "each youth intake preview should include exactly 16 prospects");
+assert.equal(new Set(previewA.players.map(player => player.id)).size, 16, "preview IDs must be unique within an intake");
+assert.ok(previewA.players.every(player =>
+  player.previewOnly === true && player.age >= 15 && player.age <= 17 &&
+  player.expectedCA >= 1 && player.expectedCA <= 200 &&
+  player.expectedPA >= player.expectedCA && player.expectedPA <= 200 &&
+  !Object.prototype.hasOwnProperty.call(player, "CA") &&
+  !Object.prototype.hasOwnProperty.call(player, "PA")
+), "December preview should show estimates without exposing actual announced CA/PA");
+
+const announcementA = youthSystem.announceIntake(previewA);
+const announcementB = youthSystem.announceIntake(previewB);
+assert.deepEqual(announcementA, announcementB, "the same preview should reproduce the same March youth announcement");
+assert.equal(announcementA.announcedOn, "2027-03-31");
+assert.equal(announcementA.count, 16);
+assert.equal(new Set(announcementA.players.map(player => player.id)).size, 16);
+for (const player of announcementA.players) {
+  assert.equal(player.generated, true, "intake players must be marked as generated");
+  assert.equal(player.realData, false, "fictional intake players must not be mistaken for real players");
+  assert.ok(Number.isInteger(player.CA) && player.CA >= 1 && player.CA <= 200);
+  assert.ok(Number.isInteger(player.PA) && player.PA >= player.CA && player.PA <= 200);
+  assert.ok(player.potential >= player.overall, "display potential must not fall below current ability");
+  assert.ok(player.hiddenAttributes && ["professionalism", "ambition", "consistency", "pressure", "durability"]
+    .every(key => Number.isInteger(player.hiddenAttributes[key]) && player.hiddenAttributes[key] >= 1 && player.hiddenAttributes[key] <= 20));
+  assert.equal(player.youthIntakeYear, 2027);
+  assert.equal(player.youthIntakeClubId, "liv");
+}
+assert.throws(() => youthSystem.previewIntake("liv", "not-a-year"), /intakeYear/);
+assert.throws(() => youthSystem.announceIntake({type:"invalid"}), /youth-intake-preview/);
+const previousTestlandRating = youthSystem.getNationYouthRating("Testland");
+youthSystem.setNationYouthRating("Testland", 12);
+assert.equal(youthSystem.getNationYouthRating("Testland"), 12, "nation youth rating should be adjustable at runtime");
+youthSystem.setNationYouthRating("Testland", previousTestlandRating);
+console.log("CA/PA and deterministic youth intake tests passed.");
+
+ 
+// Career-calendar integration: December creates a preview, March adds players once,
+// and a JSON save retains the intake calendar and the youth player records.
+const youthCareer = engine.newCareer({
+  mode:"career",managerName:"Youth Intake Calendar Test",primaryNation:"England",
+  nations:["England"],databaseSize:"small",clubId:"liv"
+});
+assert.deepEqual(youthCareer.youthIntake,{version:1,previews:{},announcedYears:[],history:[]},
+  "new careers should initialize persistent youth intake state");
+for(const player of youthCareer.players){
+  assert.ok(Number.isInteger(player.CA)&&player.CA>=1&&player.CA<=200,
+    "normalized career players need current ability");
+  assert.ok(Number.isInteger(player.PA)&&player.PA>=player.CA&&player.PA<=200,
+    "normalized career players need potential ability not below CA");
+  assert.ok(player.hiddenAttributes&&["professionalism","ambition","consistency","pressure","durability"]
+    .every(key=>Number.isInteger(player.hiddenAttributes[key])&&player.hiddenAttributes[key]>=1&&player.hiddenAttributes[key]<=20),
+    "normalized career players need all hidden attributes");
+}
+const careerPlayerCountBeforeIntake=youthCareer.players.length;
+youthCareer.day="2026-12-14";
+const previewTick=engine.continueDay(youthCareer);
+assert.equal(youthCareer.day,"2026-12-15");
+assert.equal(previewTick.youthEvent.type,"preview","daily tick should trigger the December preview");
+assert.equal(youthCareer.youthIntake.previews["2027"].players.length,16);
+assert.equal(youthCareer.players.length,careerPlayerCountBeforeIntake,
+  "preview should not prematurely add youth players to the squad");
+assert.ok(youthCareer.inbox.some(message=>message.id==="youth-preview-liv-2027"),
+  "preview should notify the manager through the career inbox");
+
+youthCareer.day="2027-03-30";
+const intakeTick=engine.continueDay(youthCareer);
+assert.equal(youthCareer.day,"2027-03-31");
+assert.equal(intakeTick.youthEvent.type,"announcement","daily tick should announce the intake at the configured date");
+assert.equal(intakeTick.youthEvent.created,16);
+assert.equal(youthCareer.youthIntake.announcedYears.includes(2027),true);
+const intakePlayers=youthCareer.players.filter(player=>player.youthIntakeYear===2027&&player.youthProspect);
+assert.equal(intakePlayers.length,16,"announced youth should be persisted in the career player pool");
+assert.ok(intakePlayers.every(player=>player.clubId==="liv"&&player.registered===false&&player.generated&&player.realData===false),
+  "intake players should start at the user's club as unregistered fictional youth");
+assert.ok(intakePlayers.every(player=>player.CA>=1&&player.CA<=200&&player.PA>=player.CA&&player.PA<=200),
+  "normalized intake records should retain valid CA/PA");
+assert.ok(youthCareer.inbox.some(message=>message.id==="youth-announcement-liv-2027"),
+  "announcement should notify the manager");
+
+const repeatedCount=youthCareer.players.length;
+youthCareer.day="2027-03-30";
+const repeatedIntakeTick=engine.continueDay(youthCareer);
+assert.equal(repeatedIntakeTick.youthEvent.type,"announcement-existing",
+  "replaying the announcement date must not create a second intake");
+assert.equal(youthCareer.players.length,repeatedCount,"the same intake year must never duplicate youth players");
+
+const careerSave=JSON.parse(engine.exportData(youthCareer));
+assert.equal(careerSave.state.youthIntake.announcedYears.includes(2027),true,
+  "save exports must retain announced intake years");
+assert.equal(careerSave.state.players.filter(player=>player.youthIntakeYear===2027).length,16,
+  "save exports must retain generated prospect records");
+assert.equal(careerSave.state.players.find(player=>player.youthIntakeYear===2027).hiddenAttributes.professionalism,
+  intakePlayers[0].hiddenAttributes.professionalism,
+  "save exports must preserve hidden attributes");
+console.log("Career calendar youth intake integration tests passed.");
+
+const archiveCareer=engine.newCareer({
+  mode:"career",managerName:"Season Archive Test",primaryNation:"England",
+  nations:["England"],databaseSize:"small",clubId:"liv"
+});
+const archiveSeason=archiveCareer.season;
+const archivePlayer=archiveCareer.players.find(player=>player.clubId===archiveCareer.userClubId);
+if(archivePlayer){
+  archivePlayer.seasonStats={appearances:25,goals:13,assists:5,yellowCards:2,redCards:0,cleanSheets:0,averageRating:7.25,lastMatchRating:8};
+}
+engine.finishSeason(archiveCareer);
+const archivedSeason=archiveCareer.seasonArchives.find(item=>item.season===archiveSeason);
+assert.ok(archivedSeason,"finishing a season should archive the manager's club squad");
+assert.equal(archivedSeason.clubId,"liv");
+assert.ok(archivedSeason.players.length>0);
+if(archivePlayer){
+  const archivedPlayer=archivedSeason.players.find(player=>player.id===archivePlayer.id);
+  assert.equal(archivedPlayer.stats.goals,13);
+  assert.equal(archivedPlayer.stats.appearances,25);
+}
+assert.ok(archiveCareer.seasonArchives.length<=40,"the in-save seasonal archive must remain bounded");
+console.log("Season archive snapshot tests passed.");
+
+
+ 
+// IndexedDB storage helpers, seasonal archives and localStorage migration fallback.
+assert.equal(careerStorage.DB_VERSION, 2, "the new storage schema should upgrade the existing v1 database");
+assert.equal(careerStorage.MAX_SNAPSHOTS, 28, "recovery checkpoint retention should remain bounded");
+assert.equal(careerStorage.validCareer(youthCareer), true);
+assert.equal(careerStorage.parseCareer(JSON.stringify(youthCareer)).userClubId, youthCareer.userClubId);
+assert.equal(careerStorage.parseCareer("{broken json"), null);
+assert.equal(careerStorage.dayDistance("2027-08-01", "2027-08-08"), 7);
+assert.equal(careerStorage.dayDistance("invalid", "2027-08-08"), Infinity);
+
+const storageFixture = {
+  schemaVersion:1,manager:{name:"Storage Test Manager"},userClubId:"storage-club",
+  clubs:[{id:"storage-club",name:"Storage United"}],players:[],fixtures:[],
+  day:"2028-01-03",season:2027,seasonNumber:2
+};
+const storagePayload=JSON.stringify(storageFixture);
+const storageSnapshot=careerStorage.buildSnapshot(storageFixture,storagePayload,false);
+assert.ok(storageSnapshot.id.includes("auto:2028-01-03"));
+assert.equal(storageSnapshot.careerId,undefined,"snapshot metadata should not invent a career ID before identity is assigned");
+storageFixture.careerId="test-career-id";
+const identifiedSnapshot=careerStorage.buildSnapshot(storageFixture,storagePayload,true);
+assert.ok(identifiedSnapshot.id.startsWith("test-career-id:manual:"));
+const seasonRecord=careerStorage.buildSeasonRecord(storageFixture,{
+  season:2027,clubId:"storage-club",clubName:"Storage United",champion:"storage-club",
+  finalPosition:1,players:[{id:"p1",name:"Test Player",stats:{appearances:24,goals:12,assists:4,averageRating:7.1}}]
+});
+assert.equal(seasonRecord.id,"test-career-id:season:2027");
+assert.equal(seasonRecord.playerCount,1);
+assert.equal(seasonRecord.players[0].stats.goals,12);
+
+(async function testLocalStorageFallbackAndMigration(){
+  const values=new Map();
+  const fakeLocalStorage={
+    getItem:key=>values.has(key)?values.get(key):null,
+    setItem:(key,value)=>{values.set(key,String(value));},
+    removeItem:key=>values.delete(key)
+  };
+  const fakeEnvironment={localStorage:fakeLocalStorage,indexedDB:null};
+  const fallbackStorage=careerStorage.createCareerStorage(fakeEnvironment);
+  const legacy=Object.assign({},storageFixture);
+  delete legacy.careerId;
+  fakeLocalStorage.setItem("touchline-advanced-save-v1",JSON.stringify(legacy));
+  const loaded=await fallbackStorage.load();
+  assert.equal(loaded.state.userClubId,"storage-club","legacy fallback should load the existing career");
+  assert.ok(loaded.state.careerId,"legacy saves should receive a persistent career identity");
+  assert.equal(loaded.migrated,false,"the module should not claim IndexedDB migration when IndexedDB is unavailable");
+  const fallbackResult=await fallbackStorage.save(loaded.state,{checkpoint:true,reason:"test"});
+  assert.equal(fallbackResult.storage,"localStorage");
+  assert.equal(fallbackResult.checkpoint,true);
+  const persisted=JSON.parse(fakeLocalStorage.getItem("touchline-advanced-save-v1"));
+  assert.equal(persisted.careerId,loaded.state.careerId);
+  assert.equal(persisted.storageMeta.lastCheckpointDay,"2028-01-03");
+  assert.equal(fallbackStorage.status().indexedDBAvailable,false);
+  console.log("Career storage fallback and migration tests passed.");
+})().catch(error=>{
+  console.error(error);
+  process.exitCode=1;
+});
+
+

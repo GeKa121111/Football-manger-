@@ -1,6 +1,45 @@
 /* Curated demo seed. Refresh squad membership, values and wages with the import tools before treating it as a current-season database. */
 (function (root) {
   "use strict";
+  function youthHash(value) {
+    const s=String(value||"");let h=2166136261;
+    for(let i=0;i<s.length;i++)h=Math.imul(h^s.charCodeAt(i),16777619);
+    return h>>>0;
+  }
+  function youthClamp(value,min,max){return Math.max(min,Math.min(max,Math.round(Number(value)||0)));}
+  function hiddenAttributeEstimate(seed,age){
+    const value=function(key){return youthHash(String(seed)+"|hidden|"+key);};
+    return {
+      professionalism:youthClamp(5+(value("professionalism")%15)+(age>=27?1:0),1,20),
+      ambition:youthClamp(5+(value("ambition")%15)+(age<23?1:0),1,20),
+      consistency:youthClamp(4+(value("consistency")%16),1,20),
+      pressure:youthClamp(4+(value("pressure")%16),1,20),
+      durability:youthClamp(4+(value("durability")%16),1,20)
+    };
+  }
+  function youthRandom(seed){
+    let state=youthHash(seed)||0x6d2b79f5;
+    return function(){state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
+  }
+  function youthInteger(rng,min,max){return min+Math.floor(rng()*(max-min+1));}
+  function youthRating(value,fallback){const n=Number(value);return youthClamp(Number.isFinite(n)?n:fallback,1,20);}
+  const YOUTH_FIRST_NAMES=[
+    "Alex","Amir","Adam","Aidan","André","Bilal","Daniel","Elias","Emil","Felix","Gabriel","Hassan",
+    "Ibrahim","Ismail","Jamal","Jonas","Karim","Leo","Luca","Malik","Marco","Mateo","Mikael","Nabil",
+    "Noah","Omar","Rayan","Samir","Theo","Youssef","Zayn","Ziad"
+  ];
+  const YOUTH_LAST_NAMES=[
+    "Adams","Bennett","Costa","Diallo","Elmasry","Fischer","Garcia","Haddad","Ibrahim","Jensen","Khalil",
+    "Kovac","Laurent","Mansour","Marin","Nasser","Novak","Okafor","Petrov","Rahman","Rossi","Santos",
+    "Sato","Silva","Smith","Tanaka","Traore","Williams","Yilmaz","Young","Zidan","Zimmermann"
+  ];
+  const NATION_YOUTH_RATINGS={
+    "England":16,"Spain":17,"Italy":14,"Germany":16,"France":18,"Egypt":10,"Saudi Arabia":10,
+    "Portugal":15,"Netherlands":16,"Belgium":15,"Turkey":12,"Greece":11,"Austria":13,"Switzerland":14,
+    "Denmark":14,"Norway":13,"Sweden":14,"Brazil":18,"Argentina":18,"United States":13,"Mexico":13,
+    "Japan":14,"South Korea":12,"Australia":12,"Morocco":14,"South Africa":11,"United Arab Emirates":8
+  };
+
   const clubs = [
     ["liv","Liverpool","ENG","England","Premier League","Anfield","#C8102E","#F6EB61",61000,145000000],
     ["mci","Manchester City","ENG","England","Premier League","Etihad Stadium","#6CABDD","#1C2C5B",53400,180000000],
@@ -226,7 +265,18 @@
     ["ksa-jeddah","Jeddah Club","KSA","Saudi Arabia","Saudi First Division","King Abdullah Sports City","#D71920","#FFFFFF",10000,5050000,2,48],
     ["ksa-orobah","Al-Orobah FC","KSA","Saudi Arabia","Saudi First Division","Al-Orobah Stadium","#FDE100","#000000",10000,4875000,2,48]
   ].map(function (c) {
-    return { id:c[0],name:c[1],code:c[2],country:c[3],nation:c[3],league:c[4],stadium:c[5],primary:c[6],secondary:c[7],capacity:c[8],transferBudget:c[9],wageBudget:Math.round(c[9]*0.004),tier:Number(c[10]||1),strength:Number(c[11]||72),seeded:true };
+    const tier=Number(c[10]||1);
+    const strength=Number(c[11]||72);
+    const seed=youthHash(c[0]);
+    return {
+      id:c[0],name:c[1],code:c[2],country:c[3],nation:c[3],league:c[4],stadium:c[5],
+      primary:c[6],secondary:c[7],capacity:c[8],transferBudget:c[9],wageBudget:Math.round(c[9]*0.004),
+      tier:tier,strength:strength,seeded:true,
+      reputation:youthClamp(strength*0.78+(tier===1?12:0),1,100),
+      youthRecruitment:youthClamp(3+(strength-45)*0.28+(tier===1?5:0)+(seed%4),1,20),
+      juniorCoaching:youthClamp(3+(strength-45)*0.24+(tier===1?5:0)+((seed>>>5)%4),1,20),
+      youthFacilities:youthClamp(3+(strength-45)*0.23+(tier===1?4:0)+((seed>>>9)%4),1,20)
+    };
   });
   const stars = [
     ["salah","Mohamed Salah","liv","RW","Egypt",34,11,88,89,78,82,67,85,84,65000000,400000],
@@ -268,7 +318,156 @@
     ["mitrovic","Aleksandar Mitrović","hil","ST","Serbia",32,9,82,88,65,74,64,70,79,18000000,250000],
     ["mahrez","Riyad Mahrez","ahl","RW","Algeria",35,7,80,82,80,87,40,69,75,10000000,180000]
   ].map(function (p) {
-    return { id:p[0],name:p[1],clubId:p[2],position:p[3],nationality:p[4],age:p[5],shirt:p[6],overall:p[7],finishing:p[8],pace:p[9],technique:p[10],defending:p[11],stamina:p[12],creativity:p[13],leadership:Math.max(30,Math.min(95,Math.round((p[7]+p[11]+p[13])/3))),value:p[14],wage:p[15],realData:true,source:"seeded demo snapshot",potential:Math.min(99,p[7]+(p[5]<23?8:p[5]<27?4:1)),contractYears:2,fitness:94,morale:75,form:[6.8,7.1,7.0,7.4,6.9],goals:0,assists:0,injuredWeeks:0 };
+    const potential=Math.min(99,p[7]+(p[5]<23?8:p[5]<27?4:1));
+    return {
+      id:p[0],name:p[1],clubId:p[2],position:p[3],nationality:p[4],age:p[5],shirt:p[6],overall:p[7],
+      CA:youthClamp(p[7]*2,1,200),PA:youthClamp(Math.max(p[7]*2,potential*2),1,200),
+      hiddenAttributes:hiddenAttributeEstimate(p[0],p[5]),abilityEstimated:true,
+      finishing:p[8],pace:p[9],technique:p[10],defending:p[11],stamina:p[12],creativity:p[13],
+      leadership:Math.max(30,Math.min(95,Math.round((p[7]+p[11]+p[13])/3))),value:p[14],wage:p[15],
+      realData:true,source:"seeded demo snapshot",potential:potential,contractYears:2,fitness:94,morale:75,
+      form:[6.8,7.1,7.0,7.4,6.9],goals:0,assists:0,injuredWeeks:0
+    };
   });
   root.FM_WORLD_DATA = { dataSeason:"Expanded club seed for 2026 — divisions and player squads require season verification", clubs:clubs, players:stars, nations:["England","Spain","Italy","Germany","France","Egypt","Saudi Arabia","Portugal","Netherlands","Belgium","Turkey","Greece","Austria","Switzerland","Denmark","Norway","Sweden","Brazil","Argentina","United States","Mexico","Japan","South Korea","Australia","Morocco","South Africa","United Arab Emirates"], databaseNotes:["The built-in list is expanded to 222 club seeds across multiple league divisions but is not a complete licensed/current database.","Most clubs do not have a full real player squad embedded; their missing slots are generated. Imported player values and wages are source-dependent.","Generated academy slots are explicitly marked and should not be mistaken for real-world players."] };
+
+  // Deterministic two-stage youth intake generator. The intake year is the
+  // calendar year when the youth players are announced; previews run the prior December.
+  function createYouthSystem(world){
+    const nationRatings=Object.assign({},world.nationYouthRatings||NATION_YOUTH_RATINGS);
+    function resolveClub(clubOrId){
+      if(clubOrId&&typeof clubOrId==="object"&&clubOrId.id)return clubOrId;
+      const key=String(clubOrId||"");
+      const found=(world.clubs||[]).find(function(c){return c.id===key||c.name.toLowerCase()===key.toLowerCase();});
+      if(!found)throw new Error("Unknown club for youth intake: "+key);
+      return found;
+    }
+    function ratingsFor(club,options){
+      const opts=options||{};
+      const country=String(opts.country||club.country||club.nation||"England");
+      const strength=Number(club.strength)||58;
+      const reputation=youthClamp(club.reputation==null?strength*0.85:club.reputation,1,100);
+      const defaultRecruitment=youthRating(club.youthRecruitment,youthClamp(3+(strength-45)*0.28+(Number(club.tier)===1?5:0),1,20));
+      const defaultCoaching=youthRating(club.juniorCoaching,youthClamp(3+(strength-45)*0.24+(Number(club.tier)===1?5:0),1,20));
+      const defaultFacilities=youthRating(club.youthFacilities,youthClamp(3+(strength-45)*0.23+(Number(club.tier)===1?4:0),1,20));
+      return {
+        country:country,nationYouthRating:youthRating(opts.nationYouthRating,nationRatings[country]||10),
+        youthRecruitment:youthRating(opts.youthRecruitment,defaultRecruitment),
+        juniorCoaching:youthRating(opts.juniorCoaching,defaultCoaching),
+        youthFacilities:youthRating(opts.youthFacilities,defaultFacilities),
+        reputation:reputation,strength:youthClamp(strength,1,100)
+      };
+    }
+    function makeBlueprint(club,year,index,ratings){
+      const id="newgen-"+club.id+"-"+year+"-"+String(index).padStart(2,"0");
+      const seed=club.id+"|"+year+"|"+index;
+      const names=youthRandom(seed+"|name");
+      const age=youthInteger(youthRandom(seed+"|age"),15,17);
+      const positionChoices=["GK","CB","CB","RB","LB","DM","CM","CM","AM","RW","LW","ST"];
+      const position=positionChoices[youthInteger(youthRandom(seed+"|position"),0,positionChoices.length-1)];
+      const firstName=YOUTH_FIRST_NAMES[youthInteger(names,0,YOUTH_FIRST_NAMES.length-1)];
+      const lastName=YOUTH_LAST_NAMES[youthInteger(names,0,YOUTH_LAST_NAMES.length-1)];
+      const expectedCaRoll=youthInteger(youthRandom(seed+"|preview-ca"),-7,7);
+      const expectedPaRoll=youthInteger(youthRandom(seed+"|preview-pa"),-18,18);
+      const actualCaRoll=youthInteger(youthRandom(seed+"|actual-ca"),-10,10);
+      const actualPaRoll=youthInteger(youthRandom(seed+"|actual-pa"),-15,15);
+      const caBase=44+ratings.juniorCoaching*1.2+ratings.youthFacilities*0.6+ratings.strength*0.22;
+      const paBase=ratings.nationYouthRating*4.2+ratings.youthRecruitment*1.25+ratings.juniorCoaching*1.05+ratings.youthFacilities*0.9+ratings.reputation*0.25;
+      const expectedCA=youthClamp(caBase+expectedCaRoll,40,120);
+      const expectedPA=youthClamp(Math.max(expectedCA+5,paBase+expectedPaRoll),40,200);
+      const CA=youthClamp(caBase+actualCaRoll,30,125);
+      const PA=youthClamp(Math.max(CA+5,paBase+actualPaRoll),40,200);
+      const month=youthInteger(youthRandom(seed+"|dob-month"),1,12);
+      const day=youthInteger(youthRandom(seed+"|dob-day"),1,28);
+      const birthYear=year-age-(month>3?1:0);
+      return {
+        id:id,intakeIndex:index,name:firstName+" "+lastName,position:position,age:age,
+        expectedCA:expectedCA,expectedPA:expectedPA,CA:CA,PA:Math.max(CA,PA),
+        dateOfBirth:String(birthYear)+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0")
+      };
+    }
+    function qualityLabel(pa){
+      return pa>=175?"Elite":pa>=155?"High Potential":pa>=135?"Promising":pa>=110?"Developmental":"Raw Prospect";
+    }
+    function previewIntake(clubOrId,intakeYear,options){
+      const club=resolveClub(clubOrId);
+      const year=Number(intakeYear);
+      if(!Number.isInteger(year)||year<1900||year>2200)throw new RangeError("intakeYear must be a valid calendar year");
+      const ratings=ratingsFor(club,options);
+      const players=[];
+      for(let i=1;i<=16;i++){
+        const p=makeBlueprint(club,year,i,ratings);
+        players.push({
+          id:p.id,intakeIndex:p.intakeIndex,name:p.name,clubId:club.id,clubName:club.name,
+          nationality:ratings.country,position:p.position,age:p.age,dateOfBirth:p.dateOfBirth,previewOnly:true,
+          expectedCA:p.expectedCA,expectedPA:p.expectedPA,
+          expectedCARange:{min:Math.max(30,p.expectedCA-8),max:Math.min(125,p.expectedCA+8)},
+          expectedPARange:{min:Math.max(p.expectedCA+5,p.expectedPA-15),max:Math.min(200,p.expectedPA+15)},
+          expectedQuality:qualityLabel(p.expectedPA)
+        });
+      }
+      return {
+        type:"youth-intake-preview",clubId:club.id,clubName:club.name,intakeYear:year,
+        previewDate:String(year-1)+"-12-15",targetAnnouncementDate:String(year)+"-03-31",
+        count:players.length,ratings:ratings,players:players
+      };
+    }
+    function announceIntake(preview,options){
+      if(!preview||preview.type!=="youth-intake-preview"||!Array.isArray(preview.players))
+        throw new TypeError("announceIntake expects a youth-intake-preview object");
+      const club=resolveClub(preview.clubId);
+      const year=Number(preview.intakeYear);
+      const ratings=Object.assign({},preview.ratings||ratingsFor(club,options));
+      const players=preview.players.map(function(prospect){
+        const seed=String(club.id)+"|"+year+"|"+Number(prospect.intakeIndex);
+        const caRoll=youthInteger(youthRandom(seed+"|actual-ca"),-10,10);
+        const paRoll=youthInteger(youthRandom(seed+"|actual-pa"),-15,15);
+        const caBase=44+Number(ratings.juniorCoaching)*1.2+Number(ratings.youthFacilities)*0.6+Number(ratings.strength)*0.22;
+        const paBase=Number(ratings.nationYouthRating)*4.2+Number(ratings.youthRecruitment)*1.25+Number(ratings.juniorCoaching)*1.05+Number(ratings.youthFacilities)*0.9+Number(ratings.reputation)*0.25;
+        const CA=youthClamp(caBase+caRoll,30,125);
+        const PA=youthClamp(Math.max(CA+5,paBase+paRoll),CA,200);
+        const overall=youthClamp(CA/2,20,99);
+        const potential=youthClamp(Math.max(overall,PA/2),overall,99);
+        const age=Number(prospect.age)||16;
+        const dob=prospect.dateOfBirth;
+        const value=Math.round(Math.max(25000,overall*overall*250));
+        const wage=Math.round(Math.max(250,overall*18));
+        return {
+          id:prospect.id,name:prospect.name,clubId:club.id,position:prospect.position,
+          nationality:prospect.nationality||club.country||"Unknown",country:prospect.nationality||club.country||"Unknown",
+          age:age,dateOfBirth:dob,dob:dob,shirt:0,overall:overall,potential:potential,CA:CA,PA:PA,
+          hiddenAttributes:hiddenAttributeEstimate(prospect.id,age),abilityEstimated:true,
+          value:value,wage:wage,valueEstimated:true,wageKnown:false,wageEstimated:true,
+          contractYears:3,fitness:90,morale:72,form:[6.5,6.7,6.8,6.9,7.0],
+          goals:0,assists:0,appearances:0,injuredWeeks:0,realData:false,generated:true,
+          source:"Procedurally generated youth intake — fictional player",
+          youthIntakeYear:year,youthIntakeClubId:club.id,youthIntakeQuality:qualityLabel(PA)
+        };
+      });
+      return {
+        type:"youth-intake-announcement",clubId:club.id,clubName:club.name,intakeYear:year,
+        announcedOn:String(year)+"-03-31",previewDate:preview.previewDate,
+        count:players.length,players:players
+      };
+    }
+    function setNationYouthRating(country,rating){
+      const key=String(country||"").trim();
+      if(!key)throw new TypeError("country is required");
+      nationRatings[key]=youthRating(rating,10);
+      if(world.nationYouthRatings)world.nationYouthRatings[key]=nationRatings[key];
+      return nationRatings[key];
+    }
+    function getNationYouthRating(country){return nationRatings[String(country||"").trim()]||10;}
+    return {
+      previewIntake:previewIntake,createPreview:previewIntake,
+      announceIntake:announceIntake,announce:announceIntake,
+      getNationYouthRating:getNationYouthRating,setNationYouthRating:setNationYouthRating,
+      getNationRatings:function(){return Object.assign({},nationRatings);}
+    };
+  }
+
+  root.FM_WORLD_DATA.nationYouthRatings=Object.assign({},NATION_YOUTH_RATINGS);
+  root.FM_WORLD_DATA.youthSystem=createYouthSystem(root.FM_WORLD_DATA);
+  root.FM_YOUTH_SYSTEM=root.FM_WORLD_DATA.youthSystem;
+  if(typeof module!=="undefined"&&module.exports)module.exports=root.FM_WORLD_DATA;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -45,6 +45,116 @@
     Object.keys(weights).forEach(k=>{num+=(Number(attr[k])||10)*weights[k];den+=weights[k];});
     return clamp(Math.round(num/den*5),20,99);
   }
+
+  function normalizedHiddenAttributes(value,id,age){
+    const existing=value&&typeof value==="object"&&!Array.isArray(value)?value:{};
+    const seed=String(id||"unknown-player");
+    const score=key=>stableHash(seed+"|hidden|"+key);
+    const defaults={
+      professionalism:clamp(5+(score("professionalism")%15)+(age>=27?1:0),1,20),
+      ambition:clamp(5+(score("ambition")%15)+(age<23?1:0),1,20),
+      consistency:clamp(4+(score("consistency")%16),1,20),
+      pressure:clamp(4+(score("pressure")%16),1,20),
+      durability:clamp(4+(score("durability")%16),1,20)
+    };
+    Object.keys(defaults).forEach(key=>{defaults[key]=clamp(finiteNumber(existing[key],defaults[key]),1,20);});
+    return defaults;
+  }
+  function syncAbilityRatings(player){
+    player.CA=clamp(Math.round((Number(player.overall)||50)*2),1,200);
+    player.PA=clamp(Math.max(player.CA,finiteNumber(player.PA,0),Math.round((Number(player.potential)||player.overall)*2)),player.CA,200);
+    return player;
+  }
+  function developmentChance(player,base){
+    const hidden=player.hiddenAttributes||{};
+    const personality=(finiteNumber(hidden.professionalism,10)-10)*0.004
+      +(finiteNumber(hidden.ambition,10)-10)*0.003;
+    return Math.max(0.001,Math.min(0.95,base+personality));
+  }
+  function ensureYouthIntakeState(state){
+    if(!state.youthIntake||typeof state.youthIntake!=="object"||Array.isArray(state.youthIntake)){
+      state.youthIntake={version:1,previews:{},announcedYears:[],history:[]};
+    }
+    const youth=state.youthIntake;
+    youth.version=1;
+    youth.previews=youth.previews&&typeof youth.previews==="object"&&!Array.isArray(youth.previews)?youth.previews:{};
+    youth.announcedYears=Array.isArray(youth.announcedYears)?youth.announcedYears:[];
+    youth.history=Array.isArray(youth.history)?youth.history:[];
+    return youth;
+  }
+  function addCareerInbox(state,item){
+    state.inbox=Array.isArray(state.inbox)?state.inbox:[];
+    if(state.inbox.some(message=>message&&message.id===item.id))return;
+    state.inbox.unshift(Object.assign({read:false,kind:"info",day:state.day},item));
+    state.inbox=state.inbox.slice(0,100);
+  }
+  function processYouthIntakeCalendar(state,date){
+    const youth=ensureYouthIntakeState(state);
+    const month=date.getUTCMonth()+1,day=date.getUTCDate();
+    const system=root.FM_YOUTH_SYSTEM||(root.FM_WORLD_DATA&&root.FM_WORLD_DATA.youthSystem);
+    if(!system||typeof system.previewIntake!=="function"||typeof system.announceIntake!=="function")
+      return {type:null,created:0};
+    const club=state.clubs.find(item=>item.id===state.userClubId);
+    if(!club)return {type:null,created:0};
+    if(month===12&&day===15){
+      const intakeYear=date.getUTCFullYear()+1,key=String(intakeYear);
+      if(!youth.previews[key]){
+        const preview=system.previewIntake(club,intakeYear,{country:state.nation||club.country});
+        youth.previews[key]=preview;
+        youth.lastPreviewYear=intakeYear;
+        addCareerInbox(state,{
+          id:"youth-preview-"+club.id+"-"+intakeYear,
+          title:"Youth intake preview",
+          text:"A preview of 16 academy prospects for "+intakeYear+" is ready. Expected quality reflects youth recruitment, coaching, facilities, club reputation and national youth rating.",
+          kind:"info",day:state.day
+        });
+        return {type:"preview",year:intakeYear,created:0,preview:preview};
+      }
+      return {type:"preview-existing",year:intakeYear,created:0,preview:youth.previews[key]};
+    }
+    if(month===3&&day===31){
+      const intakeYear=date.getUTCFullYear(),key=String(intakeYear);
+      if(youth.announcedYears.includes(intakeYear))
+        return {type:"announcement-existing",year:intakeYear,created:0};
+      const preview=youth.previews[key]||system.previewIntake(club,intakeYear,{country:state.nation||club.country});
+      const announcement=system.announceIntake(preview);
+      const knownIds=new Set(state.players.map(player=>String(player.id)));
+      const created=[];
+      announcement.players.forEach(raw=>{
+        if(knownIds.has(String(raw.id)))return;
+        const prospect=normalizePlayer(Object.assign({},raw,{
+          youthProspect:true,registered:false,status:"Youth Prospect",role:"Youth Prospect"
+        }),club.id);
+        prospect.registered=false;
+        prospect.status="Youth Prospect";
+        prospect.youthProspect=true;
+        prospect.youthIntakeYear=intakeYear;
+        prospect.youthIntakeClubId=club.id;
+        state.players.push(prospect);
+        knownIds.add(String(prospect.id));
+        created.push(prospect);
+      });
+      youth.announcedYears.push(intakeYear);
+      youth.announcedYears=[...new Set(youth.announcedYears)].sort((a,b)=>a-b);
+      youth.lastAnnouncementYear=intakeYear;
+      youth.history.unshift({
+        intakeYear:intakeYear,clubId:club.id,clubName:club.name,previewDate:preview.previewDate,
+        announcedOn:announcement.announcedOn,count:created.length,
+        prospectIds:announcement.players.map(player=>player.id)
+      });
+      youth.history=youth.history.slice(0,100);
+      state.world.players=state.players;
+      state.generatedCount=state.players.filter(player=>player.generated).length;
+      addCareerInbox(state,{
+        id:"youth-announcement-"+club.id+"-"+intakeYear,
+        title:"Youth intake announced",
+        text:created.length+" academy prospects joined "+club.name+". Review their potential, hidden attributes and development plans in the squad.",
+        kind:"success",day:state.day
+      });
+      return {type:"announcement",year:intakeYear,created:created.length,players:created,announcement:announcement};
+    }
+    return {type:null,created:0};
+  }
   function normalizePlayer(p, fallbackClub) {
     p = p && typeof p === "object" && !Array.isArray(p) ? p : {};
     const position = ["GK","RB","CB","LB","DM","CM","AM","RW","LW","ST"].includes(p.position || p.pos) ? (p.position || p.pos) : "CM";
@@ -80,6 +190,11 @@
       dateOfBirth:p.dateOfBirth||p.dob||null,nationalTeam:p.nationalTeam||null,
       sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
       worldCupSnapshot:!!p.worldCupSnapshot,retired:!!p.retired,
+      CA:clamp(finiteNumber(p.CA,rawOverall*2),1,200),PA:clamp(finiteNumber(p.PA,potentialInput*2),1,200),
+      hiddenAttributes:p.hiddenAttributes&&typeof p.hiddenAttributes==="object"&&!Array.isArray(p.hiddenAttributes)?p.hiddenAttributes:null,
+      abilityEstimated:p.abilityEstimated===true,youthProspect:!!p.youthProspect,
+      youthIntakeYear:p.youthIntakeYear==null?null:finiteNumber(p.youthIntakeYear,0),
+      youthIntakeClubId:p.youthIntakeClubId||null,youthIntakeQuality:p.youthIntakeQuality||null,
       suspendedMatches:clamp(Math.floor(finiteNumber(p.suspendedMatches,0)),0,52),
       fantasyPrice:p.fantasyPrice==null?null:finiteNumber(p.fantasyPrice,0),fantasyPriceCurrency:p.fantasyPriceCurrency||null,
       fplStatus:p.fplStatus||null,minutes:Math.max(0,finiteNumber(p.minutes,0)),
@@ -94,6 +209,10 @@
     if (player.position !== "GK") player.attributes.goalkeeping = 1;
     player.overall = playerOverall(player);
     player.potential = Math.max(player.overall,player.potential);
+    player.hiddenAttributes=normalizedHiddenAttributes(player.hiddenAttributes,player.id,player.age);
+    player.abilityEstimated=p.abilityEstimated===false?false:
+      (p.abilityEstimated===true||p.CA==null||p.PA==null||!p.hiddenAttributes);
+    syncAbilityRatings(player);
     return player;
   }
   function clubStrength(players) {
@@ -485,7 +604,8 @@
       board:{confidence:68,expectation:"Finish in the top half",objectives:["Maintain positive finances","Develop young talent"],lastReview:null},
       morale:76,harmony:72,trainingFocus:"Balanced",lastTrainingDay:null,week:0,matchPending:null,careerHistory:[],inbox:[{id:"welcome",day:"2026-07-01",title:"Welcome to the club",text:"Review your squad, set your tactical identity, and prepare for the first league fixture.",read:false,kind:"info"}],
       staff:[{id:"asst",type:"Assistant Manager",name:"Assistant Coach",rating:3,salary:3000},{id:"physio",type:"Physio",name:"Club Physio",rating:2,salary:1800},{id:"scout",type:"Scout",name:"Regional Scout",rating:2,salary:1600}],
-      transfers:[],sponsorships:[],trainingLog:[],challenge:options.mode==="challenge"?(options.challenge||"Relegation survival"):null,achievements:[],settings:{currency:"GBP",wageDisplay:"weekly",language:"en",speed:1,highlightMode:"key",databaseSource:world.sourceSeason},generatedCount:world.players.filter(p=>p.generated).length
+      transfers:[],sponsorships:[],trainingLog:[],challenge:options.mode==="challenge"?(options.challenge||"Relegation survival"):null,achievements:[],settings:{currency:"GBP",wageDisplay:"weekly",language:"en",speed:1,highlightMode:"key",databaseSource:world.sourceSeason},generatedCount:world.players.filter(p=>p.generated).length,
+      youthIntake:{version:1,previews:{},announcedYears:[],history:[]}
     };
     clubPlayers.slice().sort((a,b)=>b.overall-a.overall).forEach((p,i)=>{p.registered=i<25;});
     const startingXI=clubPlayers.slice().sort((a,b)=>b.overall-a.overall).slice(0,11);
@@ -696,7 +816,7 @@
       p.fitness=clamp(p.fitness-rand(2,6),0,100);
       let key= focus==="Attacking"?"shooting":focus==="Defending"?"tackling":focus==="Technical"?"technique":focus==="Passing"?"passing":focus==="Fitness"?"stamina":"teamwork";
       const canDevelop=p.age<24&&p.overall<p.potential;
-      const bumpChance = canDevelop ? 0.12 : (p.age < 30 ? 0.025 : 0.005);
+      const bumpChance = canDevelop ? developmentChance(p,0.12) : developmentChance(p,p.age<30?0.025:0.005);
       if(Math.random()<bumpChance&&att[key]<20){
         att[key]++;gains++;
         // Overall follows the position-weighted attributes instead of receiving random, disconnected +1s.
@@ -704,6 +824,7 @@
           const recalculated=playerOverall(p);
           if(recalculated>p.overall)p.overall=Math.min(Number(p.potential)||99,recalculated);
         }
+        syncAbilityRatings(p);
       }
     });
     state.lastTrainingDay=state.day;state.trainingLog.unshift({day:state.day,focus:focus,gains:gains,players:players.length});
@@ -722,9 +843,10 @@
       });
       state.transfers=state.transfers.filter(t=>t.type!=="installments"||t.remaining>0);
     }
+    const youthEvent=processYouthIntakeCalendar(state,dt);
     const todays=state.fixtures.find(f=>!f.played&&f.date===state.day&&(f.homeId===state.userClubId||f.awayId===state.userClubId));
-    if(todays){state.matchPending=todays.id;return {match:true,fixture:todays};}
-    return {match:false};
+    if(todays){state.matchPending=todays.id;return {match:true,fixture:todays,youthEvent:youthEvent};}
+    return {match:false,youthEvent:youthEvent};
   }
   function applyResult(state, fixture, result) {
     fixture.played=true;fixture.homeGoals=result.homeGoals;fixture.awayGoals=result.awayGoals;fixture.stats=result.stats;fixture.events=result.events;fixture.manOfTheMatch=result.manOfTheMatch;
@@ -808,8 +930,27 @@
   }
   function finishSeason(state) {
     const standings=recalcStandings(state,state.fixtures);
+    const winningClubId=standings[0]?.clubId||null;
+    state.seasonArchives=Array.isArray(state.seasonArchives)?state.seasonArchives:[];
+    if(!state.seasonArchives.some(archive=>Number(archive.season)===Number(state.season))){
+      const managedClub=state.clubs.find(c=>c.id===state.userClubId);
+      const managedPlayers=state.players.filter(p=>p.clubId===state.userClubId&&!p.retired).map(p=>({
+        id:p.id,name:p.name,clubId:p.clubId,position:p.position,age:p.age,
+        CA:clamp(finiteNumber(p.CA,(Number(p.overall)||50)*2),1,200),
+        PA:clamp(Math.max(finiteNumber(p.CA,(Number(p.overall)||50)*2),finiteNumber(p.PA,(Number(p.potential)||50)*2)),1,200),
+        overall:p.overall,potential:p.potential,value:p.value,
+        stats:Object.assign({},p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0})
+      }));
+      state.seasonArchives.unshift({
+        season:Number(state.season),seasonNumber:Number(state.seasonNumber)||1,
+        clubId:state.userClubId,clubName:managedClub?.name||String(state.userClubId||"Club"),
+        champion:winningClubId,finalPosition:standings.findIndex(row=>row.clubId===state.userClubId)+1,
+        players:managedPlayers
+      });
+      state.seasonArchives=state.seasonArchives.slice(0,40);
+    }
     state.inbox.unshift({id:"season-"+state.seasonNumber,title:"Season review complete",text:(standings[0]?.name||"Winner")+" finished top of the league. Career season "+state.seasonNumber+" complete.",read:false,kind:"success",day:state.day});
-    state.careerHistory.push({type:"season",season:state.season,champion:standings[0]?.clubId||null,table:standings});
+    state.careerHistory.push({type:"season",season:state.season,champion:winningClubId,table:standings});
     state.players.forEach(p=>{
       p.seasonStats=p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
       p.seasonHistory=p.seasonHistory||[];
@@ -853,7 +994,7 @@
         p.attributes[k]=clamp((p.attributes[k]||10)-1,1,20);
         p.overall=Math.max(35,Math.min(p.overall,playerOverall(p)));
       }
-      if(!p.retired&&p.age<24&&p.overall<p.potential&&Math.random()<.18){
+      if(!p.retired&&p.age<24&&p.overall<p.potential&&Math.random()<developmentChance(p,0.18)){
         const developmentKeys=p.position==="GK"?["goalkeeping","positioning","decisions","passing"]:
           p.position==="ST"?["shooting","movement","pace","technique","heading"]:
           ["passing","technique","decisions","stamina","dribbling","tackling","positioning"];
@@ -863,6 +1004,7 @@
         const recalculated=playerOverall(p);
         if(recalculated>p.overall)p.overall=Math.min(Number(p.potential)||99,recalculated);
       }
+      syncAbilityRatings(p);
     });
     retirements.forEach(({player:p,clubId})=>{
       if(clubId!==state.userClubId)return;
