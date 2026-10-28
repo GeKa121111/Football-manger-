@@ -892,7 +892,7 @@
         p.form=(p.form||[]).concat([rating]).slice(-5);
         p.appearances=(p.appearances||0)+1;p.lastMatchRating=rating;
         const previous=Number(p.averageRating)||0;p.averageRating=Number(((previous*(p.appearances-1)+rating)/p.appearances).toFixed(2));
-        p.seasonStats=p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
+        p.seasonStats=p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0,xg:0,xa:0,keyPasses:0};
         const seasonApps=Number(p.seasonStats.appearances)||0,seasonAverage=Number(p.seasonStats.averageRating)||0;
         p.seasonStats.appearances=seasonApps+1;p.seasonStats.lastMatchRating=rating;
         p.seasonStats.averageRating=Number(((seasonAverage*seasonApps+rating)/(seasonApps+1)).toFixed(2));
@@ -901,8 +901,21 @@
       }
     });
     result.events.filter(e=>e.type==="goal").forEach(e=>{
-      const p=state.players.find(p=>p.id===e.playerId);if(p){p.goals=(p.goals||0)+1;p.seasonStats=p.seasonStats||{goals:0};p.seasonStats.goals=(Number(p.seasonStats.goals)||0)+1;}
-      const assist=state.players.find(p=>p.id===e.assistId);if(assist){assist.assists=(assist.assists||0)+1;assist.seasonStats=assist.seasonStats||{assists:0};assist.seasonStats.assists=(Number(assist.seasonStats.assists)||0)+1;}
+      const p=state.players.find(p=>String(p.id)===String(e.playerId));if(p){p.goals=(p.goals||0)+1;p.seasonStats=p.seasonStats||{goals:0,xg:0,xa:0,keyPasses:0};p.seasonStats.goals=(Number(p.seasonStats.goals)||0)+1;}
+      const assist=state.players.find(p=>String(p.id)===String(e.assistId));if(assist){assist.assists=(assist.assists||0)+1;assist.seasonStats=assist.seasonStats||{assists:0,xg:0,xa:0,keyPasses:0};assist.seasonStats.assists=(Number(assist.seasonStats.assists)||0)+1;}
+    });
+    result.events.filter(e=>typeof e.xg==="number"&&Number.isFinite(e.xg)).forEach(e=>{
+      const shooter=state.players.find(p=>String(p.id)===String(e.playerId));
+      if(shooter){
+        shooter.seasonStats=shooter.seasonStats||{appearances:0,goals:0,assists:0,xg:0,xa:0,keyPasses:0};
+        shooter.seasonStats.xg=Number(((Number(shooter.seasonStats.xg)||0)+e.xg).toFixed(3));
+      }
+      const passer=e.assistId&&Number(e.xa)>0?state.players.find(p=>String(p.id)===String(e.assistId)):null;
+      if(passer){
+        passer.seasonStats=passer.seasonStats||{appearances:0,goals:0,assists:0,xg:0,xa:0,keyPasses:0};
+        passer.seasonStats.xa=Number(((Number(passer.seasonStats.xa)||0)+Number(e.xa)).toFixed(3));
+        passer.seasonStats.keyPasses=(Number(passer.seasonStats.keyPasses)||0)+1;
+      }
     });
     result.events.filter(e=>e.type==="injury").forEach(e=>{
       const p=state.players.find(p=>p.id===e.playerId);
@@ -939,7 +952,9 @@
     }
     if(fixture.homeId===state.userClubId||fixture.awayId===state.userClubId){
       const userGoals=fixture.homeId===state.userClubId?result.homeGoals:result.awayGoals,oppGoals=fixture.homeId===state.userClubId?result.awayGoals:result.homeGoals;
-      state.careerHistory.unshift({day:state.day,home:home.name,away:away.name,score:result.homeGoals+"–"+result.awayGoals,goalsFor:userGoals,goalsAgainst:oppGoals});
+      const userSide=fixture.homeId===state.userClubId?0:1,matchStats=result.stats||{};
+      const userMetric=key=>Array.isArray(matchStats[key])&&Number.isFinite(Number(matchStats[key][userSide]))?Number(matchStats[key][userSide]):null;
+      state.careerHistory.unshift({fixtureId:fixture.id,competition:fixture.competition||"League",day:state.day,home:home.name,away:away.name,score:result.homeGoals+"–"+result.awayGoals,goalsFor:userGoals,goalsAgainst:oppGoals,stats:{xg:userMetric("xg"),xa:userMetric("xa"),shots:userMetric("shots"),shotsOnTarget:userMetric("shotsOnTarget"),keyPasses:userMetric("keyPasses")}});
       if(userGoals>oppGoals){state.morale=clamp(state.morale+4,0,100);state.board.confidence=clamp(state.board.confidence+3,0,100);}
       else if(userGoals<oppGoals){state.morale=clamp(state.morale-5,0,100);state.board.confidence=clamp(state.board.confidence-4,0,100);}
       else state.morale=clamp(state.morale+1,0,100);
@@ -968,7 +983,7 @@
         CA:clamp(finiteNumber(p.CA,(Number(p.overall)||50)*2),1,200),
         PA:clamp(Math.max(finiteNumber(p.CA,(Number(p.overall)||50)*2),finiteNumber(p.PA,(Number(p.potential)||50)*2)),1,200),
         overall:p.overall,potential:p.potential,value:p.value,
-        stats:Object.assign({},p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0})
+        stats:Object.assign({},p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0,xg:0,xa:0,keyPasses:0})
       }));
       state.seasonArchives.unshift({
         season:Number(state.season),seasonNumber:Number(state.seasonNumber)||1,
@@ -981,11 +996,11 @@
     state.inbox.unshift({id:"season-"+state.seasonNumber,title:"Season review complete",text:(standings[0]?.name||"Winner")+" finished top of the league. Career season "+state.seasonNumber+" complete.",read:false,kind:"success",day:state.day});
     state.careerHistory.push({type:"season",season:state.season,champion:winningClubId,table:standings});
     state.players.forEach(p=>{
-      p.seasonStats=p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
+      p.seasonStats=p.seasonStats||{appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0,xg:0,xa:0,keyPasses:0};
       p.seasonHistory=p.seasonHistory||[];
       p.seasonHistory.unshift({season:state.season,stats:Object.assign({},p.seasonStats)});
       p.seasonHistory=p.seasonHistory.slice(0,20);
-      p.seasonStats={appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
+      p.seasonStats={appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0,xg:0,xa:0,keyPasses:0};
     });
     const retirements=[],expiredUserContracts=[];
     state.players.forEach(p=>{
