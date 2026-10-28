@@ -1060,7 +1060,13 @@
       if (window.FM_ADVANCED && typeof window.FM_ADVANCED.openNewCareer === "function") {
         window.FM_ADVANCED.openNewCareer();
       } else {
-        toast("وضع المسيرة المتقدمة لسه بيحمّل. حدّث الصفحة وجرب تاني.", "warning");
+        // Graceful fallback if the advanced module is blocked or fails to load.
+        state = makeInitialState();
+        updateClubStrengths();
+        removeStartScreen();
+        saveGame(false);
+        render();
+        toast("بدأت مسيرة محلية مبسطة؛ حمّل الصفحة مجددًا لخيارات الأندية المتقدمة.", "warning");
       }
       return;
     }
@@ -1113,7 +1119,8 @@
 
   function removeStartScreen() {
     const screen = document.getElementById("tm-start-screen");
-    if (screen) screen.remove();
+    if (screen && typeof screen.remove === "function") screen.remove();
+    else if (screen && screen.parentNode && typeof screen.parentNode.removeChild === "function") screen.parentNode.removeChild(screen);
   }
 
   function renderStartScreen(saved) {
