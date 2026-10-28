@@ -69,6 +69,7 @@
       dateOfBirth:p.dateOfBirth||p.dob||null,nationalTeam:p.nationalTeam||null,
       sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
       worldCupSnapshot:!!p.worldCupSnapshot,retired:!!p.retired,
+      suspendedMatches:Math.max(0,Math.floor(Number(p.suspendedMatches)||0)),
       fantasyPrice:p.fantasyPrice==null?null:Number(p.fantasyPrice),fantasyPriceCurrency:p.fantasyPriceCurrency||null,
       fplStatus:p.fplStatus||null,minutes:Number(p.minutes||0),
       seasonHistory:Array.isArray(p.seasonHistory)?p.seasonHistory.slice(-20):[]
