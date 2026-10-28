@@ -33,7 +33,7 @@ function createElement() {
   };
 }
 
-function boot(storage) {
+function boot(storage, autoLaunch = true) {
   const documentListeners = {};
   const elements = new Map();
   const document = {
@@ -70,7 +70,7 @@ function boot(storage) {
     Promise
   };
   vm.runInNewContext(source, context, { filename: "app.js" });
-  return {
+  const game = {
     document,
     elements,
     storage,
@@ -94,10 +94,15 @@ function boot(storage) {
       return elements.get("tm-start-screen")?.innerHTML || "";
     }
   };
+  if (autoLaunch) {
+    if (storage["touchline-manager-save-v1"]) game.click("resume-classic-career");
+    else game.click("start-new-career");
+  }
+  return game;
 }
 
 const storage = {};
-let game = boot(storage);
+let game = boot(storage, false);
 assert.ok(game.startScreenHtml().includes("إنشاء مسيرة جديدة"), "fresh installs should open the career start menu before the dashboard");
 assert.ok(game.startScreenHtml().includes("اختيار النادي وملف المدير"), "the start menu should advertise manager profile and club setup");
 assert.equal(storage["touchline-manager-save-v1"], undefined, "a new user should not receive an unchosen default career save");
