@@ -68,7 +68,7 @@
   const mySquad = () => state.players.filter(p=>p.clubId===state.userClubId).sort((a,b)=>b.overall-a.overall);
   const myFixture = () => state.fixtures.find(f=>f.id===state.matchPending) || state.fixtures.find(f=>!f.played&&(f.homeId===state.userClubId||f.awayId===state.userClubId));
   const currentStandings = () => E.recalcStandings(state,state.fixtures);
-  const generatedBadge = p => p.generated ? '<span class="fm-tag is-generated">Generated slot</span>' : p.worldCupSnapshot ? '<span class="fm-tag is-real">Real · WC 2026 squad</span>' : String(p.source||"").includes("Fantasy Premier League") ? '<span class="fm-tag is-real">Real · current PL data</span>' : p.realData ? '<span class="fm-tag is-real">Imported / seed</span>' : '<span class="fm-tag">Unknown source</span>';
+  const generatedBadge = p => p.youthProspect ? '<span class="fm-tag is-generated">Youth intake · '+Number(p.youthIntakeYear||0)+'</span>' : p.generated ? '<span class="fm-tag is-generated">Generated slot</span>' : p.worldCupSnapshot ? '<span class="fm-tag is-real">Real · WC 2026 squad</span>' : String(p.source||"").includes("Fantasy Premier League") ? '<span class="fm-tag is-real">Real · current PL data</span>' : p.realData ? '<span class="fm-tag is-real">Imported / seed</span>' : '<span class="fm-tag">Unknown source</span>';
   const ratingClass = n => Number(n)>=15?"good":Number(n)>=10?"mid":"low";
   const stars = (n, color) => '<span class="fm-stars" style="--star-color:'+color+'">'+("★".repeat(Math.max(1,Math.min(5,Math.round(Number(n||0)/20*5))))).padEnd(5,"☆")+'</span>';
   function toast(message, kind="info") {
