@@ -2,6 +2,7 @@
   "use strict";
   const E = window.FM_ENGINE;
   const DATA = window.FM_WORLD_DATA;
+  const Storage = window.FM_CAREER_STORAGE || null;
   if (!E || !DATA) { console.error("Advanced mode dependencies are missing."); return; }
   const SAVE_KEY = "touchline-advanced-save-v1";
 
@@ -78,22 +79,41 @@
     let box=$("#fm-toast"); if(!box){box=document.createElement("div");box.id="fm-toast";box.className="fm-toast";document.body.appendChild(box);}
     box.className="fm-toast visible "+kind;box.textContent=message;window.setTimeout(()=>box.classList.remove("visible"),2800);
   }
-  function save() {
-    if(!state)return;
+  function save(forceCheckpoint, reason) {
+    if(!state)return Promise.resolve({ok:false,storage:"none"});
+    if(Storage&&typeof Storage.save==="function"){
+      return Storage.save(state,{checkpoint:!!forceCheckpoint,reason:reason||null}).then(function(result){
+        if(result&&result.warning)console.warn("IndexedDB save used local fallback:",result.warning);
+        return result;
+      }).catch(function(error){
+        console.warn("Career storage failed; retaining the local fallback.",error);
+        try{
+          state.savedAt=new Date().toISOString();
+          localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+          return {ok:true,storage:"localStorage",warning:String(error&&error.message||error)};
+        }catch(localError){return {ok:false,storage:"none",warning:String(localError&&localError.message||localError)};}
+      });
+    }
     state.savedAt=new Date().toISOString();
-    const payload=JSON.stringify(state);
-    try{localStorage.setItem(SAVE_KEY,payload);}catch(err){toast("Local save is full. Export your career file.","warning");}
-    try{
-      if("indexedDB"in window){
-        const req=indexedDB.open("touchline-advanced-db",1);
-        req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains("careers"))req.result.createObjectStore("careers");};
-        req.onsuccess=()=>{try{const tx=req.result.transaction("careers","readwrite");tx.objectStore("careers").put(payload,"active");tx.oncomplete=()=>req.result.close();}catch(e){req.result.close();}};
-      }
-    }catch(err){ /* LocalStorage remains the fallback. */ }
+    try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));return Promise.resolve({ok:true,storage:"localStorage"});}
+    catch(error){toast("Local save is full. Export your career file.","warning");return Promise.resolve({ok:false,storage:"none"});}
   }
-  function load() {
-    try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return null;const s=JSON.parse(raw);if(s&&s.schemaVersion===1&&s.players&&s.clubs&&s.fixtures)return s;}catch(err){console.warn("Advanced career save could not be loaded.",err);}
-    return null;
+  function loadLegacySync() {
+    try{
+      const raw=localStorage.getItem(SAVE_KEY);
+      if(!raw)return null;
+      const saved=JSON.parse(raw);
+      return saved&&saved.schemaVersion===1&&saved.players&&saved.clubs&&saved.fixtures?saved:null;
+    }catch(error){console.warn("Legacy career save could not be loaded.",error);return null;}
+  }
+  async function loadSavedCareer() {
+    if(Storage&&typeof Storage.load==="function"){
+      try{
+        const result=await Storage.load();
+        return result&&result.state?result.state:null;
+      }catch(error){console.warn("IndexedDB load failed; checking the local fallback.",error);}
+    }
+    return loadLegacySync();
   }
   function failSimulationWorker(error) {
     simulationWorkerError = error instanceof Error ? error : new Error(String(error || "Simulation worker unavailable."));
@@ -230,12 +250,26 @@
     const btn=document.createElement("button");btn.id="open-advanced-manager";btn.className="fm-launcher";btn.type="button";btn.textContent="Advanced Career";btn.addEventListener("click",open);
     host.appendChild(btn);
   }
-  function open() {
-    makeOverlay().classList.add("is-open");
-    state=load();
+  let openGeneration=0;
+  async function open() {
+    const generation=++openGeneration;
+    const overlay=makeOverlay();
+    overlay.classList.add("is-open");
+    overlay.innerHTML='<div class="fm-loading-screen"><div class="fm-mark">TM</div><b>Loading your career…</b><small>Checking local database and legacy save</small></div>';
     view="overview";modal=null;
+    let loadResult={state:null,source:"empty",migrated:false};
+    try{
+      if(Storage&&typeof Storage.load==="function")loadResult=await Storage.load();
+      else loadResult={state:loadLegacySync(),source:"localStorage",migrated:false};
+    }catch(error){
+      console.warn("Career database load failed; using the local fallback.",error);
+      loadResult={state:loadLegacySync(),source:"localStorage",migrated:false};
+    }
+    if(generation!==openGeneration||!overlay.classList.contains("is-open"))return;
+    state=loadResult&&loadResult.state||null;
     if(!state){renderSetup();return;}
     repairState();
+    if(loadResult.migrated)toast("Your previous browser save was migrated to the local database.","success");
     if(!state.bundledRealDataImported&&E.mergeBundledRealPlayers){
       try{
         const migration=E.mergeBundledRealPlayers(state);
@@ -246,8 +280,9 @@
     if(!state.fplImportedAt)runFPLImport(true);
   }
   function close() {
+    openGeneration++;
     stopMatch();const root=$("#advanced-root");if(root)root.classList.remove("is-open");
-    if(state)save();
+    if(state)save(false,"close");
   }
   function repairState() {
     state.players=state.players.map(p=>E.normalizePlayer(p,p.clubId));
@@ -259,8 +294,12 @@
     state.settings=Object.assign({currency:"GBP",wageDisplay:"weekly",language:preferredLanguage,speed:1,highlightMode:"key"},state.settings||{});
     state.world.clubs=state.clubs;state.world.players=state.players;
   }
-  function openNewCareer(skipConfirm) {
-    if(!skipConfirm&&load()&&typeof window.confirm==="function"&&!window.confirm("إنشاء مسيرة جديدة هيستبدل المسيرة المتقدمة المحفوظة على الجهاز. هل تريد المتابعة؟"))return false;
+  async function openNewCareer(skipConfirm) {
+    if(!skipConfirm){
+      const existing=await loadSavedCareer();
+      if(existing&&typeof window.confirm==="function"&&!window.confirm("إنشاء مسيرة جديدة هيستبدل المسيرة المتقدمة المحفوظة على الجهاز. هل تريد المتابعة؟"))return false;
+    }
+    openGeneration++;
     stopMatch();
     state=null;view="overview";modal=null;live=null;
     selectedNations=["England","Egypt"];
@@ -720,8 +759,8 @@
     if(a==="open-inbox-item"){const msg=state.inbox.find(x=>x.id===action.dataset.message);if(msg){msg.read=true;showModal("inbox");save();}return;}
     if(a==="mark-read"){const msg=state.inbox.find(x=>x.id===action.dataset.message);if(msg)msg.read=true;save();showModal("inbox");return;}
     if(a==="mark-all-read"){state.inbox.forEach(x=>x.read=true);save();showModal("inbox");return;}
-    if(a==="save-now"){save();toast("Career saved to this browser.","success");return;}
-    if(a==="export-save"){save();download("touchline-career-"+state.day+".json",E.exportData(state));toast("Career JSON exported.","success");return;}
+    if(a==="save-now"){save(true,"manual").then(result=>toast(result&&result.ok?"Career saved with a recovery checkpoint.":"Career save failed; export a JSON backup.",result&&result.ok?"success":"warning"));return;}
+    if(a==="export-save"){const payload=E.exportData(state);save(true,"export").then(result=>{download("touchline-career-"+state.day+".json",payload);toast(result&&result.ok?"Career JSON exported; a recovery checkpoint was saved.":"Career JSON exported. Keep this file as a backup.",result&&result.ok?"success":"warning");});return;}
     if(a==="load-file"){const input=$("#fm-import-file");if(input)input.click();else{modal=null;renderSetup();}return;}
     if(a==="new-career"){if(confirm("Start a new career? Export the current save first if you need it.")){close();state=null;open();}return;}
     if(a==="confirm-negotiate"){confirmNegotiation(action.dataset.player);return;}
