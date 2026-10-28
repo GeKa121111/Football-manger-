@@ -340,3 +340,31 @@
   #advanced-root .fm-panel-head, #advanced-root .fm-panel-body { padding-left: 9px; padding-right: 9px; }
   #advanced-root .fm-stat-card > span { font-size: 9px; }
 }
+
+/* Arabic manager profile setup: preserve RTL field alignment while keeping the brand mark LTR. */
+#advanced-root .fm-setup-shell,
+#advanced-root .fm-setup-copy,
+#advanced-root .fm-setup-form,
+#advanced-root .fm-setup-form .fm-field,
+#advanced-root .fm-data-warning,
+#advanced-root .fm-club-preview { direction: rtl; text-align: right; }
+#advanced-root .fm-setup-brand { direction: ltr; }
+#advanced-root .fm-setup-brand .fm-icon-btn { margin-left: 0; margin-right: auto; }
+#advanced-root .fm-field > input,
+#advanced-root .fm-field > select { text-align: right; }
+#advanced-root .fm-nations label { direction: rtl; justify-content: flex-start; }
+#advanced-root .fm-setup-actions { direction: rtl; }
+#advanced-root .fm-setup-copy h1 { line-height: 1.3; letter-spacing: 0; }
+@media(max-width:760px) {
+  #advanced-root .fm-setup-bg { padding: max(10px, env(safe-area-inset-top)) 8px calc(10px + env(safe-area-inset-bottom)); }
+  #advanced-root .fm-setup-shell { padding: 16px 13px 18px; }
+  #advanced-root .fm-setup-copy { padding: 21px 0 15px; }
+  #advanced-root .fm-setup-copy h1 { font-size: clamp(24px, 7vw, 30px); }
+  #advanced-root .fm-mode-pick { grid-template-columns: 1fr; }
+  #advanced-root .fm-mode-pick span { min-height: 0; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+  #advanced-root .fm-nations { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #advanced-root .fm-setup-actions { flex-direction: column-reverse; align-items: stretch; }
+  #advanced-root .fm-setup-actions .fm-btn { width: 100%; }
+  #advanced-root .fm-club-preview { align-items: flex-start; flex-wrap: wrap; }
+  #advanced-root .fm-predicted { white-space: normal; }
+}
