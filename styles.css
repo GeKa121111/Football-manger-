@@ -428,3 +428,100 @@ button, a, input, select { -webkit-tap-highlight-color: transparent; }
   .nav-item { flex-basis: 64px; min-height: 56px; font-size: 8px; }
   .page-content { padding-left: 7px; padding-right: 7px; }
 }
+
+/* Career start screen: a dedicated mobile-first front door before entering a save. */
+.tm-start-screen {
+  position: fixed; inset: 0; z-index: 99990; isolation: isolate;
+  width: 100%; height: 100%; height: 100dvh; overflow-x: hidden; overflow-y: auto;
+  direction: rtl; color: #edf4f0; background:
+    radial-gradient(ellipse at 15% 0%, rgba(164,243,109,.13), transparent 35%),
+    radial-gradient(ellipse at 100% 65%, rgba(53,113,79,.16), transparent 42%),
+    #091310; font-family: "Cairo", system-ui, sans-serif;
+  -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
+}
+.tm-start-screen * { box-sizing: border-box; }
+.tm-start-pitch { position: absolute; inset: 0; z-index: -1; overflow: hidden; opacity: .18; pointer-events: none; }
+.tm-start-pitch::before {
+  content: ""; position: absolute; width: 90%; height: 48%; top: 17%; right: 5%;
+  border: 1px solid #a4f36d; border-radius: 14px;
+  background: linear-gradient(90deg, transparent 49.8%, #a4f36d 49.8%, #a4f36d 50.2%, transparent 50.2%);
+}
+.tm-start-pitch::after {
+  content: ""; position: absolute; width: 28%; aspect-ratio: 1; top: 26%; right: 36%;
+  border: 1px solid #a4f36d; border-radius: 50%;
+}
+.tm-start-pitch span {
+  position: absolute; width: 40%; height: 20%; top: 31%; right: 30%;
+  border: 1px solid #a4f36d; border-radius: 50%;
+}
+.tm-start-content {
+  position: relative; width: min(100%, 650px); min-height: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; justify-content: center; gap: 0;
+  padding: clamp(22px, 4vh, 48px) clamp(18px, 5vw, 34px);
+  padding-top: max(22px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+.tm-start-brand { display: flex; align-items: center; gap: 12px; direction: ltr; }
+.tm-start-mark {
+  flex: 0 0 45px; width: 45px; height: 45px; display: grid; place-items: center;
+  border-radius: 14px; background: var(--green); color: #102016;
+  font-size: 15px; font-weight: 1000; letter-spacing: -1px; transform: skew(-4deg);
+  box-shadow: 0 8px 30px rgba(164,243,109,.16);
+}
+.tm-start-brand > div { display: flex; flex-direction: column; gap: 3px; }
+.tm-start-brand b { font-size: 13px; letter-spacing: 1.7px; }
+.tm-start-brand small { color: #91a59c; font-size: 10px; letter-spacing: 0; direction: rtl; text-align: left; }
+.tm-start-hero { margin: clamp(24px, 5vh, 54px) 0 22px; }
+.tm-start-eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--green); font-size: 11px; font-weight: 800; }
+.tm-start-eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--green); border-radius: 2px; }
+.tm-start-hero h1 { margin: 10px 0 12px; font-size: clamp(31px, 7.5vw, 51px); line-height: 1.22; letter-spacing: -.8px; font-weight: 900; }
+.tm-start-hero h1 em { color: var(--green); font-style: normal; }
+.tm-start-hero p { max-width: 440px; margin: 0; color: #a5b6ad; font-size: 13px; line-height: 1.9; }
+.tm-start-panel {
+  padding: 15px; border: 1px solid rgba(139,173,151,.22); border-radius: 18px;
+  background: rgba(15,29,23,.9); box-shadow: 0 24px 70px rgba(0,0,0,.24);
+  backdrop-filter: blur(14px);
+}
+.tm-start-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.tm-start-panel-heading > span { font-size: 15px; font-weight: 900; }
+.tm-start-panel-heading small { color: #82978a; font-size: 9px; }
+.tm-start-resume, .tm-start-new {
+  width: 100%; min-width: 0; min-height: 62px; margin-top: 8px; padding: 11px 12px;
+  display: flex; align-items: center; gap: 11px; text-align: right; direction: rtl;
+  border-radius: 12px; border: 1px solid #2b4135; background: #14251d; color: #edf4f0;
+  cursor: pointer; touch-action: manipulation; transition: border-color .15s, transform .15s, background .15s;
+}
+.tm-start-resume:hover, .tm-start-resume:focus-visible { border-color: #62875e; background: #1a3023; }
+.tm-start-button-icon {
+  width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center;
+  border-radius: 10px; background: #253d2d; color: var(--green); font-size: 20px;
+}
+.tm-start-resume > span:nth-child(2), .tm-start-new > span { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
+.tm-start-resume b, .tm-start-new b { font-size: 12px; line-height: 1.5; }
+.tm-start-resume small { color: #91a59c; font-size: 10px; overflow-wrap: anywhere; }
+.tm-start-resume > strong, .tm-start-new > strong { color: var(--green); flex: 0 0 auto; font-size: 20px; }
+.tm-start-new {
+  min-height: 74px; margin-top: 11px; padding: 13px 14px;
+  border-color: #a4f36d; color: #101a13; background: var(--green);
+  box-shadow: 0 9px 25px rgba(164,243,109,.12);
+}
+.tm-start-new:hover, .tm-start-new:focus-visible { background: #c1ff9c; transform: translateY(-1px); }
+.tm-start-new small { font-size: 8px; line-height: 1.3; font-weight: 900; letter-spacing: 1.6px; opacity: .68; direction: ltr; text-align: right; }
+.tm-start-new b { font-size: 15px; }
+.tm-start-new em { font-size: 10px; font-style: normal; opacity: .72; }
+.tm-start-new > strong { color: #19301d; font-size: 24px; }
+.tm-start-footnote { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 13px; color: #82978a; font-size: 10px; }
+.tm-start-live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; box-shadow: 0 0 0 4px rgba(164,243,109,.09); }
+.tm-start-version { margin-top: 20px; color: #50655a; direction: ltr; text-align: center; font-size: 8px; letter-spacing: 1.2px; }
+.tm-start-version span { color: var(--green); padding: 0 6px; }
+@media (max-width: 420px) {
+  .tm-start-content { padding-left: 14px; padding-right: 14px; }
+  .tm-start-hero { margin-top: 28px; margin-bottom: 18px; }
+  .tm-start-hero h1 { font-size: clamp(29px, 9vw, 39px); }
+  .tm-start-hero p { font-size: 12px; }
+  .tm-start-panel { padding: 12px; border-radius: 15px; }
+  .tm-start-panel-heading > span { font-size: 14px; }
+  .tm-start-panel-heading small { font-size: 8px; }
+  .tm-start-resume { min-height: 58px; padding: 9px; }
+  .tm-start-new { min-height: 70px; }
+}
