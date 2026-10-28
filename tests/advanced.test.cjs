@@ -8,6 +8,10 @@ assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Erling Haaland"), "
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.name === "Al Ahly"), "Egyptian clubs should be represented");
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.name === "Al Hilal"), "Saudi clubs should be represented");
 
+assert.equal(engine.normalizeKitColor("red"), "#D71920", "named imported kit colours should map to displayable hex colours");
+assert.ok(Number.isInteger(engine.contractYearsFromUntil("2030-06")), "contract expiry should convert to remaining contract years");
+assert.ok(engine.contractYearsFromUntil("2030-06") >= 0 && engine.contractYearsFromUntil("2030-06") <= 8, "contract years should be clamped to a supported range");
+
 const state = engine.newCareer({
   mode: "career",
   managerName: "Test Manager",
@@ -98,6 +102,13 @@ const exported = JSON.parse(engine.exportData(state));
 assert.equal(exported.format, "touchline-advanced-save", "export should use the documented native save envelope");
 assert.equal(exported.version, 1, "save envelope should carry a version");
 const importState = engine.newCareer({ primaryNation: "Egypt", nations: ["Egypt"], clubId: "ahly" });
+const ahlyBeforeImport = importState.clubs.find(c => c.id === "ahly");
+const priorBudget = ahlyBeforeImport.transferBudget;
+engine.normalizeImportedWorld({source:"kit-only import",clubs:[{id:"provider-ahly",name:"Al Ahly",country:"Egypt",league:"Egyptian Premier League",clubColors:"Red / White"}],players:[]},importState);
+assert.equal(ahlyBeforeImport.transferBudget, priorBudget, "imports without budget data must preserve seeded budget instead of zeroing it");
+assert.equal(ahlyBeforeImport.primary, "#D71920", "provider kit colour names should be converted to valid colours");
+assert.equal(ahlyBeforeImport.secondary, "#FFFFFF", "secondary kit colour should be imported from provider colour string");
+
 const importResult = engine.normalizeImportedWorld({
   source: "test fixture",
   clubs: [{id:"test-club-1",name:"Test Import Club",country:"Egypt",league:"Test League",stadium:"Test Ground",primary:"#123456",secondary:"#ffffff"}],
