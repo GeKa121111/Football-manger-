@@ -100,6 +100,8 @@ let state = game.savedState();
 assert.equal(state.clubs.length, 12, "initial world should contain 12 clubs");
 assert.equal(state.players.length, 240, "initial world should contain 20 players per club");
 assert.equal(new Set(state.players.map((player) => player.id)).size, 240, "player IDs should be unique");
+assert.ok(state.players.filter((player) => player.position === "GK").every((player) => Number.isFinite(player.goalkeeping) && player.goalkeeping >= 35 && player.goalkeeping <= 98), "goalkeepers should have a valid goalkeeping attribute");
+assert.ok(state.players.filter((player) => player.position !== "GK").every((player) => player.goalkeeping === 0), "outfield players must not have goalkeeper skill");
 assert.equal(state.fixtures.length, 132, "double round-robin schedule should contain 132 fixtures");
 assert.equal(Math.max(...state.fixtures.map((fixture) => fixture.round)), 22, "a 12-club season should have 22 rounds");
 const firstLegFixtures = state.fixtures.filter((fixture) => fixture.round <= 11);
@@ -126,6 +128,34 @@ for (const [view, expectedText] of expectedViews) {
   game.clickView(view);
   assert.ok(game.elements.get("view-root").innerHTML.includes(expectedText), "view should render: " + view);
 }
+
+// With ten unavailable outfield slots, the dashboard should still render without a null-lineup crash.
+const injuryStorage = {};
+let injuryGame = boot(injuryStorage);
+const injuryState = injuryGame.savedState();
+const injuredClubPlayers = injuryState.players.filter((player) => player.clubId === injuryState.userClubId);
+injuredClubPlayers.forEach((player, index) => {
+  if (index >= 10) player.injuredWeeks = 2;
+});
+injuryStorage["touchline-manager-save-v1"] = JSON.stringify(injuryState);
+injuryGame = boot(injuryStorage);
+injuryGame.clickView("overview");
+assert.ok(injuryGame.elements.get("view-root").innerHTML.includes("صباح الخير، مدير النادي"), "dashboard should remain usable with an incomplete fit XI");
+
+// A team without an available goalkeeper must show an empty GK slot rather than a field player in goal.
+const goalkeeperStorage = {};
+let goalkeeperGame = boot(goalkeeperStorage);
+const goalkeeperState = goalkeeperGame.savedState();
+goalkeeperState.players.filter((player) => player.clubId === goalkeeperState.userClubId && player.position === "GK")
+  .forEach((player) => { player.injuredWeeks = 3; });
+goalkeeperStorage["touchline-manager-save-v1"] = JSON.stringify(goalkeeperState);
+goalkeeperGame = boot(goalkeeperStorage);
+goalkeeperGame.clickView("tactics");
+assert.ok(goalkeeperGame.elements.get("view-root").innerHTML.includes('title="مركز فارغ">--</div>'), "a missing goalkeeper should leave the goalkeeper slot empty");
+assert.ok(!goalkeeperGame.elements.get("view-root").innerHTML.includes('title="مركز فارغ">GK</div>'), "goalkeeper unavailability should not cause a field player to be selected as goalkeeper");
+
+game = boot(storage);
+state = game.savedState();
 
 game = boot(storage);
 state = game.savedState();
@@ -203,6 +233,7 @@ assert.ok(game.elements.get("modal-root").innerHTML.includes("الأهداف ا�
 const legacySave = game.savedState();
 const retainedResult = legacySave.fixtures.find((fixture) => fixture.played);
 legacySave.version = 1;
+legacySave.players.forEach((player) => { delete player.goalkeeping; });
 legacySave.fixtures = legacySave.fixtures.filter((fixture) => fixture.round <= 11);
 storage["touchline-manager-save-v1"] = JSON.stringify(legacySave);
 game = boot(storage);
@@ -213,6 +244,8 @@ const migratedResult = state.fixtures.find((fixture) => fixture.id === retainedR
 assert.equal(migratedResult.homeGoals, retainedResult.homeGoals, "migration should preserve the original home score");
 assert.equal(migratedResult.awayGoals, retainedResult.awayGoals, "migration should preserve the original away score");
 assert.equal(state.currentRound, 1, "migration should preserve the current round");
+assert.ok(state.players.filter((player) => player.position === "GK").every((player) => Number.isFinite(player.goalkeeping) && player.goalkeeping >= 35), "legacy saves should receive a goalkeeper attribute");
+assert.ok(state.players.filter((player) => player.position !== "GK").every((player) => player.goalkeeping === 0), "legacy outfield players should not retain goalkeeper skill");
 
 game.change("trainingFocus", "fitness");
 state = game.savedState();
