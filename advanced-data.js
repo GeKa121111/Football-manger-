@@ -90,7 +90,7 @@
     ["mitrovic","Aleksandar Mitrović","hil","ST","Serbia",32,9,82,88,65,74,64,70,79,18000000,250000],
     ["mahrez","Riyad Mahrez","ahl","RW","Algeria",35,7,80,82,80,87,40,69,75,10000000,180000]
   ].map(function (p) {
-    return { id:p[0],name:p[1],clubId:p[2],position:p[3],nationality:p[4],age:p[5],shirt:p[6],overall:p[7],finishing:p[8],pace:p[9],technique:p[10],defending:p[11],stamina:p[12],creativity:p[13],leadership:p[14],value:p[15],wage:p[16],realData:true,source:"seeded demo snapshot",potential:Math.min(99,p[7]+(p[5]<23?8:p[5]<27?4:1)),contractYears:2,fitness:94,morale:75,form:[6.8,7.1,7.0,7.4,6.9],goals:0,assists:0,injuredWeeks:0 };
+    return { id:p[0],name:p[1],clubId:p[2],position:p[3],nationality:p[4],age:p[5],shirt:p[6],overall:p[7],finishing:p[8],pace:p[9],technique:p[10],defending:p[11],stamina:p[12],creativity:p[13],leadership:Math.max(30,Math.min(95,Math.round((p[7]+p[11]+p[13])/3))),value:p[14],wage:p[15],realData:true,source:"seeded demo snapshot",potential:Math.min(99,p[7]+(p[5]<23?8:p[5]<27?4:1)),contractYears:2,fitness:94,morale:75,form:[6.8,7.1,7.0,7.4,6.9],goals:0,assists:0,injuredWeeks:0 };
   });
   root.FM_WORLD_DATA = { dataSeason:"2025/26 sample snapshot — not a verified 2026/27 roster", clubs:clubs, players:stars, nations:["England","Spain","Italy","Germany","France","Egypt","Saudi Arabia"], databaseNotes:["The built-in list is a playable sample, not a complete licensed/current database.","Imported player values and wages are source-dependent; football-data.org does not provide reliable market values or wages for all players.","Generated academy slots are explicitly marked and should not be mistaken for real-world players."] };
 })(typeof window !== "undefined" ? window : globalThis);
