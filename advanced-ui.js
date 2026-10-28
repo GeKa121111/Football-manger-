@@ -270,7 +270,7 @@
   function matchStatsAtMinute(minute) {
     if(!live?.result)return null;
     const r=live.result.stats,frac=clamp(minute/90,0,1),base=live.statBase;
-    if(base&&Number(minute)>Number(base.minute)){
+    if(base&&Number(minute)>=Number(base.minute)){
       const start=clamp(Number(base.minute)||0,0,90),played=Math.max(0,Number(minute)-start),den=Math.max(1,start+played);
       const counts=(key,decimal)=>Array.isArray(r[key])?r[key].map((v,i)=>{
         const current=Number(base.stats?.[key]?.[i]||0),projected=Number(v||0)*played/90;
