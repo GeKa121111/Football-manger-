@@ -820,7 +820,15 @@
       roster.forEach(p=>{if(!known.has(p.id)){state.players.push(p);known.add(p.id);}});
     });
     state.generatedCount=state.players.filter(p=>p.generated).length;
-    state.finances.weeklyCosts=state.players.filter(p=>p.clubId===state.userClubId&&!p.retired).reduce((sum,p)=>sum+(Number(p.wage)||0),0)
+    const managedSquad=state.players.filter(p=>p.clubId===state.userClubId&&!p.retired).sort((a,b)=>(a.registered===false?1:0)-(b.registered===false?1:0)||b.overall-a.overall);
+    managedSquad.forEach((p,i)=>{p.registered=i<25;});
+    const managedIds=new Set(managedSquad.map(p=>p.id));
+    state.tactics.startingXI=Array.from(new Set((state.tactics.startingXI||[]).filter(id=>managedIds.has(id)))).slice(0,11);
+    const bestManaged=managedSquad.slice().sort((a,b)=>b.overall-a.overall);
+    ["captainId","viceCaptainId","penaltyId","freeKickId","cornerId"].forEach((key,index)=>{
+      if(!managedIds.has(state.tactics[key]))state.tactics[key]=bestManaged[index%Math.max(1,bestManaged.length)]?.id||null;
+    });
+    state.finances.weeklyCosts=managedSquad.reduce((sum,p)=>sum+(Number(p.wage)||0),0)
       +(state.staff||[]).reduce((sum,p)=>sum+(Number(p.salary)||0),0);
     state.world.clubs=state.clubs;state.world.players=state.players;
     state.season++;state.seasonNumber++;state.day=String(state.season)+"-07-01";state.currentRound=0;state.seasonDays=0;state.fixtures=state.world.calendar[currentClub(state).league]||[];state.fixtures=setFixtureDates(circleSchedule(state.clubs.filter(c=>c.league===currentClub(state).league).map(c=>c.id)).map(f=>Object.assign(f,{competition:currentClub(state).league})),String(state.season)+"-07-08");
@@ -855,6 +863,7 @@
     const windowStatus=transferWindowStatus(state.day);
     if(player.clubId&&!windowStatus.open)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
     const isFreeAgent=!player.clubId;
+    const registeredCount=state.players.filter(p=>p.clubId===state.userClubId&&!p.retired&&p.registered!==false).length;
     const fee=Math.max(0,Number(offer.fee)||0),wage=Math.max(0,Number(offer.wage)||0),upfront=clamp(Number(offer.upfront||fee),0,fee);
     const signingBonus=Math.max(0,Number(offer.signingBonus)||0);
     const months=Number(offer.installmentMonths||0),installments=Math.max(0,fee-upfront);
@@ -868,7 +877,7 @@
     state.finances.balance-=upfront;
     if(installments>0)state.transfers.push({id:"installment-"+player.id+"-"+Date.now(),type:"installments",playerId:player.id,remaining:installments,months:months||12,monthsRemaining:months||12,monthly:Math.ceil(installments/(months||12)),due:state.day});
     if(player.clubId){const old=state.clubs.find(c=>c.id===player.clubId);if(old)old.transferBudget=(old.transferBudget||0)+fee;}
-    player.clubId=state.userClubId;player.retired=false;player.wage=wage;player.wageKnown=true;player.wageEstimated=false;player.contractYears=Number(offer.years||4);player.value=Math.max(player.value,fee);player.morale=clamp(player.morale+7,0,100);player.generated=false;player.appearanceBonus=Math.max(0,Number(offer.appearanceBonus)||0);player.goalBonus=Math.max(0,Number(offer.goalBonus)||0);player.sellOnPercent=clamp(Number(offer.sellOn)||0,0,50);player.releaseClause=Math.max(0,Number(offer.releaseClause)||0);player.signingBonus=signingBonus;state.finances.balance-=signingBonus;
+    player.clubId=state.userClubId;player.retired=false;player.registered=registeredCount<25;player.wage=wage;player.wageKnown=true;player.wageEstimated=false;player.contractYears=Number(offer.years||4);player.value=Math.max(player.value,fee);player.morale=clamp(player.morale+7,0,100);player.generated=false;player.appearanceBonus=Math.max(0,Number(offer.appearanceBonus)||0);player.goalBonus=Math.max(0,Number(offer.goalBonus)||0);player.sellOnPercent=clamp(Number(offer.sellOn)||0,0,50);player.releaseClause=Math.max(0,Number(offer.releaseClause)||0);player.signingBonus=signingBonus;state.finances.balance-=signingBonus;
     state.finances.weeklyCosts+=wage;state.inbox.unshift({id:"signed-"+player.id+"-"+Date.now(),title:"Signing complete",text:isFreeAgent?player.name+" signed as a free agent with a weekly wage of "+wage+".":player.name+" signed for "+fee+" with a weekly wage of "+wage+".",kind:"success",read:false,day:state.day});
     state.careerHistory.push({type:"transfer-in",day:state.day,playerId:player.id,fee:fee,wage:wage});
     return {ok:true,message:"Transfer and contract registered.",player:player};
