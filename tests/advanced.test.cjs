@@ -167,6 +167,30 @@ assert.equal(importState.players.filter(p => p.clubId === "liv" && p.generated).
 assert.ok(importState.realSquadClubIds.includes("liv"), "the world state should remember which clubs have real source squads");
 assert.equal(importState.players.find(p => p.name === "Nested Import Striker")?.value, 12500000, "market value should come through the provider mapping");
 
+const legacyState = engine.newCareer({
+  mode: "career", managerName: "Legacy Save", primaryNation: "England",
+  nations: ["England", "Egypt"], databaseSize: "medium", clubId: "liv"
+});
+const oldSnapshotClubIds = new Set(legacyState.clubs.filter(c => c.unverifiedDivision).map(c => c.id));
+legacyState.players = legacyState.players.filter(p => !p.worldCupSnapshot && !oldSnapshotClubIds.has(p.clubId));
+legacyState.clubs = legacyState.clubs.filter(c => !c.unverifiedDivision);
+legacyState.world.clubs = legacyState.clubs;
+legacyState.world.players = legacyState.players;
+legacyState.bundledRealDataImported = false;
+legacyState.worldCupPlayers = 0;
+const legacyTracked = legacyState.players.find(p => p.clubId === "liv" && p.generated);
+assert.ok(legacyTracked, "legacy save fixture should have a generated roster player to preserve");
+legacyTracked.goals = 17;
+const legacyTrackedId = legacyTracked.id;
+const migration = engine.mergeBundledRealPlayers(legacyState);
+assert.equal(migration.realPlayers, 1248, "legacy-save migration should include the complete bundled World Cup snapshot");
+assert.ok(legacyState.bundledRealDataImported, "migration flag should prevent repeated importing on future launches");
+assert.ok(legacyState.players.filter(p => p.worldCupSnapshot).length >= 1200, "migrated save should include real registered World Cup players");
+assert.equal(legacyState.players.find(p => p.id === legacyTrackedId)?.goals, 17, "migration must preserve existing career progress");
+assert.equal(new Set(legacyState.players.map(p => p.id)).size, legacyState.players.length, "migration must preserve unique player IDs");
+for (const c of global.FM_WORLD_DATA.clubs) {
+  assert.ok(legacyState.players.filter(p => p.clubId === c.id).length >= 25, "migration must keep each seeded club playable: " + c.name);
+}
 console.log("Advanced simulation tests passed.");
 
 (async function testBatchRealSquadImport() {
