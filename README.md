@@ -56,6 +56,10 @@ Careers are stored per browser/device. Use **Settings → Export save JSON** bef
 
 Missing player positions are filled with generated slots, clearly marked as generated. Import is best treated as replacing/updating the existing seed world rather than an official database sync.
 
+## Code review notes
+
+The onboarding flow now removes the welcome overlay after a new career is successfully created and filters out clubs marked as unverified. Match selection guards manually ordered XIs so an outfield player cannot be assigned to the goalkeeper slot. Match injuries are persisted as multi-week player absences; retired players are excluded from squads, training and match lineups; zero fitness/morale values remain zero when saved player data is normalized. Discipline and retirement notifications are scoped to the managed club to avoid flooding the inbox with AI-club events. Regression tests cover these behaviors.
+
 ## Tests
 
 With Node.js 20 or newer:
