@@ -27,7 +27,7 @@ const state = engine.newCareer({
   clubId: "liv"
 });
 assert.equal(state.userClubId, "liv", "chosen club should be used");
-assert.equal(state.clubs.length, 48, "world should retain global transfer-market clubs");
+assert.equal(state.clubs.length, 222, "world should retain global transfer-market clubs");
 assert.equal(state.playableNations.length, 3, "career should keep selected playable nation list");
 assert.equal(state.players.length, 222 * 25, "medium world should have 25-player roster slots per club");
 assert.equal(new Set(state.players.map(p => p.id)).size, state.players.length, "player ids must be unique");
