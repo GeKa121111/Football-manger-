@@ -69,7 +69,7 @@
     const hidden=player.hiddenAttributes||{};
     const personality=(finiteNumber(hidden.professionalism,10)-10)*0.004
       +(finiteNumber(hidden.ambition,10)-10)*0.003;
-    return clamp(base+personality,Math.max(0.01,base*0.5),Math.min(0.95,base*1.6));
+    return Math.max(0.001,Math.min(0.95,base+personality));
   }
   function ensureYouthIntakeState(state){
     if(!state.youthIntake||typeof state.youthIntake!=="object"||Array.isArray(state.youthIntake)){
@@ -604,7 +604,8 @@
       board:{confidence:68,expectation:"Finish in the top half",objectives:["Maintain positive finances","Develop young talent"],lastReview:null},
       morale:76,harmony:72,trainingFocus:"Balanced",lastTrainingDay:null,week:0,matchPending:null,careerHistory:[],inbox:[{id:"welcome",day:"2026-07-01",title:"Welcome to the club",text:"Review your squad, set your tactical identity, and prepare for the first league fixture.",read:false,kind:"info"}],
       staff:[{id:"asst",type:"Assistant Manager",name:"Assistant Coach",rating:3,salary:3000},{id:"physio",type:"Physio",name:"Club Physio",rating:2,salary:1800},{id:"scout",type:"Scout",name:"Regional Scout",rating:2,salary:1600}],
-      transfers:[],sponsorships:[],trainingLog:[],challenge:options.mode==="challenge"?(options.challenge||"Relegation survival"):null,achievements:[],settings:{currency:"GBP",wageDisplay:"weekly",language:"en",speed:1,highlightMode:"key",databaseSource:world.sourceSeason},generatedCount:world.players.filter(p=>p.generated).length
+      transfers:[],sponsorships:[],trainingLog:[],challenge:options.mode==="challenge"?(options.challenge||"Relegation survival"):null,achievements:[],settings:{currency:"GBP",wageDisplay:"weekly",language:"en",speed:1,highlightMode:"key",databaseSource:world.sourceSeason},generatedCount:world.players.filter(p=>p.generated).length,
+      youthIntake:{version:1,previews:{},announcedYears:[],history:[]}
     };
     clubPlayers.slice().sort((a,b)=>b.overall-a.overall).forEach((p,i)=>{p.registered=i<25;});
     const startingXI=clubPlayers.slice().sort((a,b)=>b.overall-a.overall).slice(0,11);
@@ -815,7 +816,7 @@
       p.fitness=clamp(p.fitness-rand(2,6),0,100);
       let key= focus==="Attacking"?"shooting":focus==="Defending"?"tackling":focus==="Technical"?"technique":focus==="Passing"?"passing":focus==="Fitness"?"stamina":"teamwork";
       const canDevelop=p.age<24&&p.overall<p.potential;
-      const bumpChance = canDevelop ? 0.12 : (p.age < 30 ? 0.025 : 0.005);
+      const bumpChance = canDevelop ? developmentChance(p,0.12) : developmentChance(p,p.age<30?0.025:0.005);
       if(Math.random()<bumpChance&&att[key]<20){
         att[key]++;gains++;
         // Overall follows the position-weighted attributes instead of receiving random, disconnected +1s.
@@ -823,6 +824,7 @@
           const recalculated=playerOverall(p);
           if(recalculated>p.overall)p.overall=Math.min(Number(p.potential)||99,recalculated);
         }
+        syncAbilityRatings(p);
       }
     });
     state.lastTrainingDay=state.day;state.trainingLog.unshift({day:state.day,focus:focus,gains:gains,players:players.length});
@@ -841,9 +843,10 @@
       });
       state.transfers=state.transfers.filter(t=>t.type!=="installments"||t.remaining>0);
     }
+    const youthEvent=processYouthIntakeCalendar(state,dt);
     const todays=state.fixtures.find(f=>!f.played&&f.date===state.day&&(f.homeId===state.userClubId||f.awayId===state.userClubId));
-    if(todays){state.matchPending=todays.id;return {match:true,fixture:todays};}
-    return {match:false};
+    if(todays){state.matchPending=todays.id;return {match:true,fixture:todays,youthEvent:youthEvent};}
+    return {match:false,youthEvent:youthEvent};
   }
   function applyResult(state, fixture, result) {
     fixture.played=true;fixture.homeGoals=result.homeGoals;fixture.awayGoals=result.awayGoals;fixture.stats=result.stats;fixture.events=result.events;fixture.manOfTheMatch=result.manOfTheMatch;
@@ -972,7 +975,7 @@
         p.attributes[k]=clamp((p.attributes[k]||10)-1,1,20);
         p.overall=Math.max(35,Math.min(p.overall,playerOverall(p)));
       }
-      if(!p.retired&&p.age<24&&p.overall<p.potential&&Math.random()<.18){
+      if(!p.retired&&p.age<24&&p.overall<p.potential&&Math.random()<developmentChance(p,0.18)){
         const developmentKeys=p.position==="GK"?["goalkeeping","positioning","decisions","passing"]:
           p.position==="ST"?["shooting","movement","pace","technique","heading"]:
           ["passing","technique","decisions","stamina","dribbling","tackling","positioning"];
@@ -982,6 +985,7 @@
         const recalculated=playerOverall(p);
         if(recalculated>p.overall)p.overall=Math.min(Number(p.potential)||99,recalculated);
       }
+      syncAbilityRatings(p);
     });
     retirements.forEach(({player:p,clubId})=>{
       if(clubId!==state.userClubId)return;
