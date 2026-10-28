@@ -31,11 +31,11 @@ assert.ok(advancedCss.includes("env(safe-area-inset-bottom)") && advancedCss.inc
   "advanced manager mobile controls must respect device safe areas and touch target sizing");
 assert.ok(mainCss.includes("@media (max-width: 420px)") && mainCss.includes("overscroll-behavior-x: contain"),
   "main shell mobile styles must handle narrow screens and horizontal table scrolling");
-assert.ok(serviceWorker.includes('touchline-manager-v19'), "IndexedDB persistence requires a fresh offline cache version");
+assert.ok(serviceWorker.includes('touchline-manager-v21'), "the spatial simulation requires a fresh offline cache version");
 assert.ok(serviceWorker.includes('"./simulation-worker.js"'), "offline cache should include the simulation worker");
 assert.ok(serviceWorker.includes('"./career-storage.js"'), "offline cache should include the career storage module");
 assert.doesNotThrow(() => new Function(simulationWorkerSource), "simulation worker source should be valid JavaScript");
-assert.ok(simulationWorkerSource.includes('scope.importScripts("advanced-data.js", "advanced-player-data.js", "advanced-engine.js")'),
+assert.ok(simulationWorkerSource.includes('scope.importScripts("advanced-data.js", "advanced-player-data.js", "spatial-match-engine.js", "advanced-engine.js")'),
   "the worker should initialize the same data and engine dependencies as the main thread");
 for (const task of ["simulate-round", "simulate-domestic-cup-round", "simulate-continental-round", "finish-season"]) {
   assert.ok(simulationWorkerSource.includes('case "' + task + '"'), "worker must support task " + task);
@@ -58,7 +58,7 @@ const workerScope = {
   addEventListener: function (name, handler) { if (name === "message") workerMessageHandler = handler; }
 };
 vm.runInNewContext(simulationWorkerSource, { self: workerScope }, { filename: "simulation-worker.js" });
-assert.deepEqual(importedWorkerScripts, ["advanced-data.js", "advanced-player-data.js", "advanced-engine.js"],
+assert.deepEqual(importedWorkerScripts, ["advanced-data.js", "advanced-player-data.js", "spatial-match-engine.js", "advanced-engine.js"],
   "worker should import exactly the data and simulation engine dependencies");
 assert.equal(workerMessages[0].type, "ready", "worker should announce readiness after initializing its engine");
 assert.equal(typeof workerMessageHandler, "function", "worker should register a message handler");

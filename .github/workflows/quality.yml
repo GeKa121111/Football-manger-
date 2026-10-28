@@ -20,7 +20,13 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           node --check app.js
+          node --check spatial-match-engine.js
           node --check simulation-worker.js
           node --check career-storage.js
       - name: Run game smoke tests
-        run: node tests/smoke.test.cjs
+        run: |
+          node tests/smoke.test.cjs
+          node tests/advanced.test.cjs
+          node tests/spatial-match.test.cjs
+          node tests/tactical-phases.test.cjs
+          node tests/data-hub.test.cjs
