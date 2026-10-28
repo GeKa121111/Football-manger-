@@ -677,9 +677,16 @@
       if(focus==="Recovery"){p.fitness=clamp(p.fitness+rand(8,14),0,100);p.morale=clamp(p.morale+1,0,100);return;}
       p.fitness=clamp(p.fitness-rand(2,6),0,100);
       let key= focus==="Attacking"?"shooting":focus==="Defending"?"tackling":focus==="Technical"?"technique":focus==="Passing"?"passing":focus==="Fitness"?"stamina":"teamwork";
-      const bump=p.age<24&&p.overall<p.potential&&Math.random()<.55?.12:.04;
-      if(Math.random()<bump&&att[key]<20){att[key]++;gains++;}
-      if(p.age<22&&p.overall<p.potential&&Math.random()<.08)p.overall=clamp(p.overall+1,20,p.potential);
+      const canDevelop=p.age<24&&p.overall<p.potential;
+      const bumpChance=canDevelop?.12:p.age<30?.025:.005;
+      if(Math.random()<bumpChance&&att[key]<20){
+        att[key]++;gains++;
+        // Overall follows the position-weighted attributes instead of receiving random, disconnected +1s.
+        if(canDevelop){
+          const recalculated=playerOverall(p);
+          if(recalculated>p.overall)p.overall=Math.min(Number(p.potential)||99,recalculated);
+        }
+      }
     });
     state.lastTrainingDay=state.day;state.trainingLog.unshift({day:state.day,focus:focus,gains:gains,players:players.length});
     return {ok:true,message:"Training completed; "+gains+" attribute improvements.",gains:gains};
