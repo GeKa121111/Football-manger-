@@ -35,6 +35,8 @@ jobs:
           cp index.html app.js styles.css manifest.webmanifest icon.svg service-worker.js dist/
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: Upload static app
         uses: actions/upload-pages-artifact@v4
         with:
