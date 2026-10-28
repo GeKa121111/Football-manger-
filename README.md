@@ -23,6 +23,7 @@ Open `index.html` through a static web server or publish the repository with Git
 - Matchday selection checks all fixtures scheduled for the date, so an AI-only fixture cannot hide the managed club's match.
 - Transfer installments respect a genuine zero upfront payment, validate the term (1–48 months) and reserve the entire agreed fee from the transfer budget to prevent overspending.
 - Training attribute gains now feed into the position-weighted overall rating for developing players, with potential acting as the growth ceiling; training progression is regression-tested.
+- Season rollover development and ageing adjust position-relevant attributes and recalculate overall, replacing disconnected random overall increases with attribute-linked progression.
 - Red cards trigger a one-match suspension, five season yellow cards trigger a suspension, and suspended players are excluded from tactical lineup selection and shown in the squad UI.
 - Regression coverage includes same-day fixture lookup, red-card availability, yellow-card thresholds and suspension service.
 
