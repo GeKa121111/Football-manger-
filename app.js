@@ -1052,15 +1052,13 @@
       return;
     }
     if (action === "resume-advanced-career") {
-      removeStartScreen();
-      if (window.FM_ADVANCED_MANAGER && typeof window.FM_ADVANCED_MANAGER.open === "function") window.FM_ADVANCED_MANAGER.open();
-      else { toast("وضع المسيرة المتقدمة لسه بيحمّل. حدّث الصفحة وجرب تاني.", "warning"); renderStartScreen(pendingSavedState); }
+      if (window.FM_ADVANCED && typeof window.FM_ADVANCED.open === "function") window.FM_ADVANCED.open();
+      else toast("وضع المسيرة المتقدمة لسه بيحمّل. حدّث الصفحة وجرب تاني.", "warning");
       return;
     }
     if (action === "start-new-career") {
-      if (window.FM_ADVANCED_MANAGER && typeof window.FM_ADVANCED_MANAGER.openNewCareer === "function") {
-        removeStartScreen();
-        window.FM_ADVANCED_MANAGER.openNewCareer();
+      if (window.FM_ADVANCED && typeof window.FM_ADVANCED.openNewCareer === "function") {
+        window.FM_ADVANCED.openNewCareer();
       } else {
         toast("وضع المسيرة المتقدمة لسه بيحمّل. حدّث الصفحة وجرب تاني.", "warning");
       }
