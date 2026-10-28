@@ -134,7 +134,10 @@
         if(setup.mode==="myclub") setup.clubId=createMyClub(setup);
         state=E.newCareer(Object.assign({},setup,{nations:selectedNations}));
         if(setup.mode==="myclub"){state.manager.clubId=setup.clubId;}
-        save();view="overview";root.classList.add("is-open");render();toast("اتعملت المسيرة. جاري تحديث بيانات لاعبي الدوري الإنجليزي…","success");runFPLImport(true);
+        save();
+        const welcomeScreen=document.getElementById("tm-start-screen");
+        if(welcomeScreen&&typeof welcomeScreen.remove==="function")welcomeScreen.remove();
+        view="overview";root.classList.add("is-open");render();toast("اتعملت المسيرة. جاري تحديث بيانات لاعبي الدوري الإنجليزي…","success");runFPLImport(true);
       }catch(err){toast(err.message||"Unable to create career.","warning");}
     });
     $("#fm-import-file",root).addEventListener("change",handleImportFile);
@@ -142,7 +145,7 @@
   }
   function refreshClubOptions() {
     const select=$("#fm-club-select"), nation=$("#fm-nation");if(!select||!nation)return;
-    const list=DATA.clubs.filter(c=>c.country===nation.value);
+    const list=DATA.clubs.filter(c=>c.country===nation.value&&!c.unverifiedDivision);
     select.innerHTML=list.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+' · '+esc(c.league)+'</option>').join("");
     refreshClubPreview();
   }
