@@ -62,7 +62,7 @@
       ratingsEstimated:p.ratingsEstimated===true||legacyEstimate||!!p.worldCupSnapshot,
       contractYears:clamp(Number(p.contractYears ?? 2),0,8),fitness:clamp(Number(p.fitness || 94),0,100),
       morale:clamp(Number(p.morale || 72),0,100),form:Array.isArray(p.form)?p.form.slice(-5):[6.8,6.9,7.0,7.0,6.9],
-      goals:Number(p.goals||0),assists:Number(p.assists||0),injuredWeeks:Number(p.injuredWeeks||0),
+      goals:Number(p.goals||0),assists:Number(p.assists||0),appearances:Number(p.appearances||0),yellowCards:Number(p.yellowCards||0),redCards:Number(p.redCards||0),averageRating:Number(p.averageRating||0),lastMatchRating:Number(p.lastMatchRating||0),cleanSheets:Number(p.cleanSheets||0),injuredWeeks:Number(p.injuredWeeks||0),
       realData:p.realData !== false && !p.generated, source:p.source || (p.generated?"Generated academy slot":"Imported dataset"),
       generated:!!p.generated, attributes:p.attributes && typeof p.attributes==="object" ? p.attributes : null,
       role:p.role || null, status:p.status || "Available", dob:p.dateOfBirth || p.dob || null,
@@ -370,7 +370,7 @@
     return {alreadyImported:false,playersAdded:playersAdded,playersUpdated:playersUpdated,playersMoved:playersMoved,clubsAdded:clubsAdded,realPlayers:snapshotPlayers.length,generated:state.generatedCount};
   }
   function defaultTactics() {
-    return {formation:"4-2-3-1",mentality:"Balanced",width:"Balanced",tempo:"Normal",passing:"Mixed",finalThird:"Work Ball Into Box",line:"Balanced",pressing:"Balanced",tackling:"Normal",offsideTrap:false,style:"Possession",roles:{},captainId:null,viceCaptainId:null,penaltyId:null,freeKickId:null,cornerId:null};
+    return {formation:"4-2-3-1",mentality:"Balanced",width:"Balanced",tempo:"Normal",passing:"Mixed",finalThird:"Work Ball Into Box",line:"Balanced",pressing:"Balanced",pressIntensity:11,tackling:"Normal",offsideTrap:false,style:"Possession",roles:{},positions:{},startingXI:[],captainId:null,viceCaptainId:null,penaltyId:null,freeKickId:null,cornerId:null};
   }
   function createDomesticCup(nation, clubs, season) {
     const countryClubs=clubs.filter(c=>c.country===nation&&!c.unverifiedDivision).slice().sort((a,b)=>b.strength-a.strength);
@@ -472,33 +472,66 @@
     return (groups[wanted]||[]).includes(actual)?45:0;
   }
   function tacticalDelta(t) {
-    let attack=0,defense=0,fatigue=0;
-    const m=t.mentality||"Balanced";
-    if(m==="Attacking"||m==="Overload") {attack+=m==="Overload"?14:8;defense-=5;fatigue+=.25;}
-    if(m==="Defensive"||m==="Contain") {attack-=5;defense+=9;fatigue-=.08;}
-    if(t.tempo==="Fast"){attack+=5;fatigue+=.18;} if(t.tempo==="Slow"){defense+=2;attack-=2;fatigue-=.1;}
-    if(t.width==="Wide")attack+=2;if(t.width==="Narrow")defense+=2;
-    if(t.passing==="Direct"||t.passing==="Long Ball")attack+=3;
-    if(t.pressing==="Press All Over"){attack+=3;defense+=1;fatigue+=.3;}
-    if(t.line==="High Line"){defense+=3;fatigue+=.05;}
-    if(t.tackling==="Committed")defense+=2;
-    return {attack,defense,fatigue};
+    t=t||defaultTactics();
+    let attack=0,defense=0,fatigue=0,possession=0,xg=0,shotVolume=0,shotQuality=0,passAccuracy=0,cardRisk=0,wideThreat=0,counterRisk=0;
+    const m=t.mentality||"Balanced",tempo=t.tempo||"Normal",press=clamp(Number(t.pressIntensity??11),1,20);
+    if(m==="Overload"){attack+=12;defense-=7;fatigue+=.34;shotVolume+=.18;xg+=.08;}
+    else if(m==="Attacking"){attack+=7;defense-=3;fatigue+=.2;shotVolume+=.1;xg+=.04;}
+    else if(m==="Positive"){attack+=4;defense-=1;fatigue+=.1;xg+=.02;}
+    else if(m==="Defensive"){attack-=3;defense+=6;shotVolume-=.1;xg-=.08;}
+    else if(m==="Contain"){attack-=6;defense+=9;fatigue-=.08;shotVolume-=.2;xg-=.14;possession-=3;}
+    if(tempo==="Fast"){attack+=3;fatigue+=.2;shotVolume+=.14;passAccuracy-=2;}
+    else if(tempo==="Slow"){defense+=1;fatigue-=.1;shotVolume-=.12;possession+=3;passAccuracy+=3;}
+    if(t.width==="Wide"){attack+=1;wideThreat+=.14;possession-=1;}
+    else if(t.width==="Narrow"){defense+=1;possession+=2;wideThreat-=.08;}
+    if(t.passing==="Short"){possession+=4;passAccuracy+=4;shotVolume-=.04;}
+    else if(t.passing==="Direct"){attack+=2;shotVolume+=.1;passAccuracy-=2;counterRisk+=.02;}
+    else if(t.passing==="Long Ball"){attack+=1;shotVolume+=.08;passAccuracy-=6;wideThreat+=.03;counterRisk+=.04;}
+    if(t.finalThird==="Work Ball Into Box"){xg+=.08;shotVolume-=.1;passAccuracy+=2;shotQuality+=.08;}
+    else if(t.finalThird==="Shoot on Sight"){shotVolume+=.26;xg-=.04;shotQuality-=.1;}
+    else if(t.finalThird==="Early Crosses"){shotVolume+=.08;wideThreat+=.14;shotQuality+=.02;}
+    else if(t.finalThird==="Run at Defence"){attack+=1;shotVolume+=.1;cardRisk+=.02;}
+    if(t.style==="Possession"){possession+=4;passAccuracy+=2;}
+    else if(t.style==="Counter-Attack"){possession-=5;xg+=.09;counterRisk+=.02;shotVolume+=.04;}
+    else if(t.style==="Gegenpress"){attack+=2;defense+=1;fatigue+=.22;shotVolume+=.08;}
+    else if(t.style==="Wing Play"){wideThreat+=.18;shotVolume+=.07;}
+    else if(t.style==="Route One"){shotVolume+=.1;passAccuracy-=4;counterRisk+=.03;}
+    const pressDiff=press-11;
+    attack+=pressDiff*.22;defense+=pressDiff*.18;fatigue+=Math.max(0,pressDiff)*.025;cardRisk+=Math.max(0,pressDiff)*.002;
+    if(t.pressing==="Press All Over"){attack+=2;defense+=2;fatigue+=.18;}
+    else if(t.pressing==="Sit Back"){defense+=3;attack-=2;fatigue-=.06;possession-=2;}
+    if(t.line==="High Line"){defense+=2;fatigue+=.04;counterRisk+=.09;}
+    else if(t.line==="Low Block"){defense+=4;attack-=2;possession-=2;counterRisk-=.03;}
+    if(t.tackling==="Committed"){defense+=2;cardRisk+=.08;}
+    else if(t.tackling==="Cautious"){defense-=1;cardRisk-=.04;}
+    if(t.offsideTrap){defense+=1.5;counterRisk+=.04;}
+    return {attack,defense,fatigue,possession,xg,shotVolume,shotQuality,passAccuracy,cardRisk,wideThreat,counterRisk,pressIntensity:press};
   }
   function strengthForXI(xi,tactics,home) {
     if(!xi.length) return 45;
     const power=xi.reduce((sum,p)=>{
       const att=p.attributes||baseAttributes(p);
-      const role=tactics.roles&&tactics.roles[p.id];
+      const role=(tactics.roles&&tactics.roles[p.id])||p.role;
       let factor=p.overall*.75;
       factor+=(att.decisions+att.teamwork+att.positioning)*.42;
       if(["ST","LW","RW","AM"].includes(p.assignedPosition))factor+=(att.shooting+att.movement+att.pace)*.18;
       else factor+=(att.tackling+att.passing+att.strength)*.18;
-      if(role&&ROLES[p.assignedPosition]&&ROLES[p.assignedPosition].includes(role))factor+=1.8;
-      factor*=clamp(p.fitness/100,.45,1)*(.75+clamp(p.morale,0,100)/400);
+      const roleBoost={
+        "Sweeper Keeper":(att.passing+att.decisions)*.035,"Ball Playing Defender":(att.passing+att.technique)*.04,
+        "Wing Back":(att.pace+att.crossing+att.stamina)*.035,"Inverted Wing Back":(att.passing+att.technique)*.035,
+        "Deep Lying Playmaker":(att.passing+att.creativity+att.decisions)*.045,"Advanced Playmaker":(att.creativity+att.passing+att.technique)*.04,
+        "Box-to-Box":(att.stamina+att.teamwork+att.movement)*.04,"Ball Winning Midfielder":(att.tackling+att.aggression+att.stamina)*.04,
+        "Inside Forward":(att.dribbling+att.shooting+att.pace)*.035,"Winger":(att.crossing+att.pace+att.dribbling)*.035,
+        "Poacher":(att.shooting+att.movement)*.045,"Target Man":(att.heading+att.aerial+att.strength)*.045,
+        "Pressing Forward":(att.stamina+att.teamwork+att.aggression)*.035,"False 9":(att.passing+att.technique+att.creativity)*.04
+      };
+      factor+=roleBoost[role]||0;
+      if(role&&ROLES[p.assignedPosition]&&ROLES[p.assignedPosition].includes(role))factor+=1.2;
+      factor*=clamp(p.fitness/100,.45,1)*(.72+clamp(p.morale,0,100)/360);
       return sum+factor;
     },0)/xi.length;
     const delta=tacticalDelta(tactics);
-    return clamp(power+delta.attack*.28+delta.defense*.12+(home?2.7:0),30,99);
+    return clamp(power+delta.attack*.24+delta.defense*.13+(home?2.4:0),30,99);
   }
   function poisson(lambda) {
     let L=Math.exp(-lambda),k=0,p=1;
@@ -506,27 +539,85 @@
     return k-1;
   }
   function simulateMatch(homeClub,awayClub,allPlayers,homeT,awayT) {
+    homeT=homeT||defaultTactics();awayT=awayT||defaultTactics();
     const hp=allPlayers.filter(p=>p.clubId===homeClub.id&&p.injuredWeeks===0);
     const ap=allPlayers.filter(p=>p.clubId===awayClub.id&&p.injuredWeeks===0);
-    const getXI=(list,t)=>{ const plan=FORMATIONS[t.formation]||FORMATIONS["4-2-3-1"],used=new Set();return plan.map(pos=>{const c=list.filter(p=>!used.has(p.id)).sort((a,b)=>positionFit(b.position,pos)-positionFit(a.position,pos)+b.overall-a.overall)[0];if(c)used.add(c.id);return c;}).filter(Boolean);};
-    const hxi=getXI(hp,homeT||defaultTactics()),axi=getXI(ap,awayT||defaultTactics());
-    const hs=strengthForXI(hxi,homeT||defaultTactics(),true),as=strengthForXI(axi,awayT||defaultTactics(),false);
-    const hxg=clamp(.9+(hs-as)*.042+Math.random()*.45,.15,4.3),axg=clamp(.82+(as-hs)*.041+Math.random()*.45,.1,4.0);
+    const getXI=(list,t)=>{
+      const plan=FORMATIONS[t.formation]||FORMATIONS["4-2-3-1"],used=new Set(),manual=Array.isArray(t.startingXI)?t.startingXI:[];
+      const byId=new Map(list.map(p=>[p.id,p]));
+      return plan.map((pos,i)=>{
+        const preferredId=manual[i],preferred=preferredId&&byId.get(preferredId);
+        const choices=list.filter(p=>!used.has(p.id)).sort((a,b)=>(positionFit(b.position,pos)-positionFit(a.position,pos))*0.55+(b.overall-a.overall));
+        const c=preferred&&!used.has(preferred.id)?preferred:choices[0];
+        if(c)used.add(c.id);
+        return c?Object.assign({},c,{assignedPosition:pos}):null;
+      }).filter(Boolean);
+    };
+    const hxi=getXI(hp,homeT),axi=getXI(ap,awayT);
+    const hs=strengthForXI(hxi,homeT,true),as=strengthForXI(axi,awayT,false);
+    const hd=tacticalDelta(homeT),ad=tacticalDelta(awayT);
+    const hAttackers=hxi.filter(p=>["ST","LW","RW","AM"].includes(p.assignedPosition));
+    const aAttackers=axi.filter(p=>["ST","LW","RW","AM"].includes(p.assignedPosition));
+    const hFinishing=hxi.length?hxi.reduce((v,p)=>v+Number(p.attributes?.shooting||10)*(["ST","LW","RW","AM"].includes(p.assignedPosition)?1.45:.55),0)/hxi.length:10;
+    const aFinishing=axi.length?axi.reduce((v,p)=>v+Number(p.attributes?.shooting||10)*(["ST","LW","RW","AM"].includes(p.assignedPosition)?1.45:.55),0)/axi.length:10;
+    const hxg=clamp(1.18+(hs-as)*.031+(hd.xg-ad.defense*.009)+((hFinishing-10)*.018)+Math.random()*.26,.12,4.15);
+    const axg=clamp(1.02+(as-hs)*.031+(ad.xg-hd.defense*.009)+((aFinishing-10)*.018)+Math.random()*.26,.08,3.85);
     const hg=poisson(hxg),ag=poisson(axg);
-    const hpct=clamp(Math.round(50+(hs-as)*.52+rand(-7,7)),28,72);
-    const hsot=clamp(hg+poisson(hxg*.85),hg,16),asot=clamp(ag+poisson(axg*.85),ag,15);
-    const hshots=clamp(hsot+poisson(3+hxg*1.5),hsot,30),ashots=clamp(asot+poisson(3+axg*1.5),asot,29);
-    const events=[], scorer=(xi)=>xi.slice().sort((a,b)=>(b.attributes?.shooting||10)*.7+(b.attributes?.movement||10)*.3-((a.attributes?.shooting||10)*.7+(a.attributes?.movement||10)*.3));
-    const hscorers=scorer(hxi),ascorers=scorer(axi);
-    for(let i=0;i<hg;i++){const p=pick(hscorers.length?hscorers:hp);if(p){events.push({minute:rand(3,90),type:"goal",clubId:homeClub.id,playerId:p.id,text:p.name+" scores for "+homeClub.name+"!"});}}
-    for(let i=0;i<ag;i++){const p=pick(ascorers.length?ascorers:ap);if(p){events.push({minute:rand(3,90),type:"goal",clubId:awayClub.id,playerId:p.id,text:p.name+" scores for "+awayClub.name+"!"});}}
-    const foulCount=rand(8,29), yellowHome=rand(0,3),yellowAway=rand(0,3);
-    if(Math.random()<.12){const injuredClub=Math.random()<.5?homeClub:awayClub,injuredXI=injuredClub.id===homeClub.id?hxi:axi,injuredPlayer=pick(injuredXI);events.push({minute:rand(10,88),type:"injury",clubId:injuredClub.id,playerId:injuredPlayer?.id||null,text:(injuredPlayer?.name||"A player")+" is injured"});}
+    const hpct=clamp(Math.round(50+(hs-as)*.34+hd.possession-ad.possession+rand(-5,5)),25,75);
+    const hShots=clamp(poisson(4.3+hxg*2.5+hd.shotVolume+Math.max(0,hs-as)*.025)+hg,Math.max(1,hg),34);
+    const aShots=clamp(poisson(4.0+axg*2.5+ad.shotVolume+Math.max(0,as-hs)*.025)+ag,Math.max(1,ag),32);
+    const hOnTarget=clamp(Math.round(hShots*clamp(.28+hd.shotQuality+(hFinishing-10)*.012, .18,.62)+hg*.2+rand(-1,1)),hg,hShots);
+    const aOnTarget=clamp(Math.round(aShots*clamp(.28+ad.shotQuality+(aFinishing-10)*.012, .18,.62)+ag*.2+rand(-1,1)),ag,aShots);
+    const weightedPick=(list,weightFn)=>{
+      if(!list.length)return null;
+      const weights=list.map(p=>Math.max(.1,Number(weightFn(p))||.1)),total=weights.reduce((a,b)=>a+b,0);
+      let roll=Math.random()*total;
+      for(let i=0;i<list.length;i++){roll-=weights[i];if(roll<=0)return list[i];}
+      return list[list.length-1];
+    };
+    const events=[];
+    const addGoals=(count,xi,club)=>{
+      for(let i=0;i<count;i++){
+        const scorer=weightedPick(xi,p=>{
+          const a=p.attributes||baseAttributes(p),role=(homeT.roles&&homeT.roles[p.id])||p.role;
+          return (Number(a.shooting||10)*.55+Number(a.movement||10)*.25+Number(a.positioning||10)*.1+Number(a.setPieces||10)*.1)*(p.assignedPosition==="ST"?1.3: p.assignedPosition==="AM"||p.assignedPosition==="RW"||p.assignedPosition==="LW"?1.12:1)*(role==="Poacher"?1.08:1);
+        });
+        if(!scorer)continue;
+        const possibleAssists=xi.filter(p=>p.id!==scorer.id);
+        const assist=weightedPick(possibleAssists,p=>{const a=p.attributes||baseAttributes(p);return Number(a.passing||10)*.42+Number(a.creativity||10)*.34+Number(a.crossing||10)*.24;});
+        events.push({minute:rand(2,90),type:"goal",clubId:club.id,playerId:scorer.id,assistId:assist&&assist.id!==scorer.id?assist.id:null,text:scorer.name+" scores for "+club.name+(assist?" after a pass from "+assist.name:"")+"!"});
+      }
+    };
+    addGoals(hg,hxi,homeClub);addGoals(ag,axi,awayClub);
+    const addCards=(xi,club,tactic,count,type)=>{
+      const d=tacticalDelta(tactic),risk=Math.max(0,d.cardRisk);
+      for(let i=0;i<count;i++){
+        const p=weightedPick(xi,x=>Math.max(1,(x.attributes?.aggression||10)*.55+(21-(x.attributes?.decisions||10))*.45));
+        if(p)events.push({minute:rand(6,89),type:type,clubId:club.id,playerId:p.id,text:p.name+(type==="red"?" is sent off.":" is booked.")});
+      }
+      return risk;
+    };
+    const hYellow=clamp(rand(0,2)+Math.round(hd.cardRisk*4),0,5),aYellow=clamp(rand(0,2)+Math.round(ad.cardRisk*4),0,5);
+    addCards(hxi,homeClub,homeT,hYellow,"yellow");addCards(axi,awayClub,awayT,aYellow,"yellow");
+    const hRed=Math.random()<(0.018+hd.cardRisk*.12)?1:0,aRed=Math.random()<(0.018+ad.cardRisk*.12)?1:0;
+    addCards(hxi,homeClub,homeT,hRed,"red");addCards(axi,awayClub,awayT,aRed,"red");
+    if(Math.random()<.1){
+      const injuredClub=Math.random()<.5?homeClub:awayClub,injuredXI=injuredClub.id===homeClub.id?hxi:axi,injuredPlayer=pick(injuredXI);
+      if(injuredPlayer)events.push({minute:rand(10,88),type:"injury",clubId:injuredClub.id,playerId:injuredPlayer.id,text:injuredPlayer.name+" is injured"});
+    }
     events.sort((a,b)=>a.minute-b.minute);
     const ratings={};
-    hxi.concat(axi).forEach(p=>{ratings[p.id]=clamp(6.1+Math.random()*1.5+(events.some(e=>e.type==="goal"&&e.playerId===p.id)?1.2:0),4,10);});
-    const stats={possession:[hpct,100-hpct],shots:[hshots,ashots],shotsOnTarget:[hsot,asot],xg:[Number(hxg.toFixed(2)),Number(axg.toFixed(2))],corners:[rand(2,9),rand(1,7)],fouls:[Math.round(foulCount*(.48+Math.random()*.05)),Math.round(foulCount*.52)],yellow:[yellowHome,yellowAway],red:[Math.random()<.04?1:0,Math.random()<.04?1:0],passAccuracy:[clamp(Math.round(72+(hs-70)*.4+rand(-6,5)),45,95),clamp(Math.round(72+(as-70)*.4+rand(-6,5)),45,95)],ratings:ratings};
-    return {homeGoals:hg,awayGoals:ag,stats:stats,events:events,homeStrength:Number(hs.toFixed(1)),awayStrength:Number(as.toFixed(1)),manOfTheMatch:Object.keys(ratings).sort((a,b)=>ratings[b]-ratings[a])[0]||null,playedAt:new Date().toISOString()};
+    hxi.concat(axi).forEach(p=>{
+      const goalCount=events.filter(e=>e.type==="goal"&&e.playerId===p.id).length;
+      const assistCount=events.filter(e=>e.type==="goal"&&e.assistId===p.id).length;
+      const base=6.25+Math.random()*.9+goalCount*1.05+assistCount*.55;
+      ratings[p.id]=clamp(Number((base-((p.fitness<65)?(.65):0)).toFixed(1)),3.5,10);
+    });
+    const corners=[clamp(Math.round(3+hd.wideThreat*8+hxg+rand(-2,3)),0,15),clamp(Math.round(3+ad.wideThreat*8+axg+rand(-2,3)),0,15)];
+    const fouls=[clamp(Math.round(rand(8,17)+hd.cardRisk*20),2,35),clamp(Math.round(rand(8,17)+ad.cardRisk*20),2,35)];
+    const passAccuracy=[clamp(Math.round(73+(hs-70)*.28+hd.passAccuracy+rand(-4,3)),42,96),clamp(Math.round(73+(as-70)*.28+ad.passAccuracy+rand(-4,3)),42,96)];
+    const stats={possession:[hpct,100-hpct],shots:[hShots,aShots],shotsOnTarget:[hOnTarget,aOnTarget],xg:[Number(hxg.toFixed(2)),Number(axg.toFixed(2))],corners:corners,fouls:fouls,yellow:[hYellow,aYellow],red:[hRed,aRed],passAccuracy:passAccuracy,ratings:ratings};
+    return {homeGoals:hg,awayGoals:ag,stats:stats,events:events,homeStrength:Number(hs.toFixed(1)),awayStrength:Number(as.toFixed(1)),manOfTheMatch:Object.keys(ratings).sort((a,b)=>ratings[b]-ratings[a])[0]||null,playedAt:new Date().toISOString(),lineups:{[homeClub.id]:hxi.map(p=>p.id),[awayClub.id]:axi.map(p=>p.id)}};
   }
   function recalcStandings(state, fixtures) {
     const rows=state.clubs.filter(c=>c.league===currentClub(state).league).map(c=>({clubId:c.id,name:c.name,played:0,wins:0,draws:0,losses:0,GF:0,GA:0,GD:0,points:0,form:[]}));
@@ -577,14 +668,38 @@
   function applyResult(state, fixture, result) {
     fixture.played=true;fixture.homeGoals=result.homeGoals;fixture.awayGoals=result.awayGoals;fixture.stats=result.stats;fixture.events=result.events;fixture.manOfTheMatch=result.manOfTheMatch;
     const home=state.clubs.find(c=>c.id===fixture.homeId),away=state.clubs.find(c=>c.id===fixture.awayId);
-    (state.players.filter(p=>p.clubId===fixture.homeId||p.clubId===fixture.awayId)).forEach(p=>{p.fitness=clamp(p.fitness-rand(5,14),20,100);p.form=(p.form||[]).concat([result.stats.ratings[p.id]||6.6]).slice(-5);});
-    result.events.filter(e=>e.type==="goal").forEach(e=>{const p=state.players.find(p=>p.id===e.playerId);if(p)p.goals=(p.goals||0)+1;});
+    const lineupMap=result.lineups||{};
+    const appeared=new Set([...(lineupMap[fixture.homeId]||[]),...(lineupMap[fixture.awayId]||[])]);
+    state.players.filter(p=>p.clubId===fixture.homeId||p.clubId===fixture.awayId).forEach(p=>{
+      if(appeared.has(p.id)){
+        p.fitness=clamp(p.fitness-rand(5,12),20,100);
+        const rating=Number(result.stats.ratings?.[p.id]||6.5);
+        p.form=(p.form||[]).concat([rating]).slice(-5);
+        p.appearances=(p.appearances||0)+1;p.lastMatchRating=rating;
+        const previous=Number(p.averageRating)||0;p.averageRating=Number(((previous*(p.appearances-1)+rating)/p.appearances).toFixed(2));
+      }else{
+        p.fitness=clamp(p.fitness+rand(0,2),20,100);
+      }
+    });
+    result.events.filter(e=>e.type==="goal").forEach(e=>{
+      const p=state.players.find(p=>p.id===e.playerId);if(p)p.goals=(p.goals||0)+1;
+      const assist=state.players.find(p=>p.id===e.assistId);if(assist)assist.assists=(assist.assists||0)+1;
+    });
+    result.events.filter(e=>e.type==="yellow"||e.type==="red").forEach(e=>{
+      const p=state.players.find(p=>p.id===e.playerId);if(p){if(e.type==="yellow")p.yellowCards=(p.yellowCards||0)+1;else p.redCards=(p.redCards||0)+1;}
+    });
     result.events.filter(e=>e.type==="injury").forEach(e=>{
       const p=state.players.find(p=>p.id===e.playerId);
       if(p){p.injuredWeeks=Math.max(p.injuredWeeks||0,rand(1,5));state.inbox.unshift({id:"injury-"+p.id+"-"+Date.now(),title:"Injury report",text:p.name+" is out for approximately "+p.injuredWeeks+" week(s).",read:false,kind:"warning",day:state.day});}
     });
+    [fixture.homeId,fixture.awayId].forEach(id=>{
+      const ids=lineupMap[id]||[],clubPlayers=ids.map(pid=>state.players.find(p=>p.id===pid)).filter(Boolean);
+      if(result.stats.cleanSheets&&result.stats.cleanSheets[id]){
+        clubPlayers.filter(p=>p.position==="GK").forEach(p=>p.cleanSheets=(p.cleanSheets||0)+1);
+      }
+    });
     if(fixture.homeId===state.userClubId||fixture.awayId===state.userClubId){
-      const userGoals=fixture.homeId===state.userClubId?result.homeGoals:result.awayGoals, oppGoals=fixture.homeId===state.userClubId?result.awayGoals:result.homeGoals;
+      const userGoals=fixture.homeId===state.userClubId?result.homeGoals:result.awayGoals,oppGoals=fixture.homeId===state.userClubId?result.awayGoals:result.homeGoals;
       state.careerHistory.unshift({day:state.day,home:home.name,away:away.name,score:result.homeGoals+"–"+result.awayGoals,goalsFor:userGoals,goalsAgainst:oppGoals});
       if(userGoals>oppGoals){state.morale=clamp(state.morale+4,0,100);state.board.confidence=clamp(state.board.confidence+3,0,100);}
       else if(userGoals<oppGoals){state.morale=clamp(state.morale-5,0,100);state.board.confidence=clamp(state.board.confidence-4,0,100);}
