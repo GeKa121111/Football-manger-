@@ -731,9 +731,32 @@
     state.domesticCup=createDomesticCup(state.nation,state.clubs,state.season);
     state.finances.balance+=state.finances.weeklyIncome*4;
   }
+  function transferWindowStatus(day) {
+    const value=String(day||new Date().toISOString().slice(0,10));
+    const match=value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!match)return {open:false,label:"Window status unavailable",nextOpen:null,daysRemaining:null};
+    const year=Number(match[1]),month=Number(match[2]),date=Number(match[3]);
+    const current=new Date(Date.UTC(year,month-1,date));
+    let label,close,nextOpen;
+    if(month===7||month===8){
+      label="Summer transfer window";close=new Date(Date.UTC(year,8,1));nextOpen=null;
+    }else if(month===1){
+      label="Winter transfer window";close=new Date(Date.UTC(year,1,1));nextOpen=null;
+    }else{
+      label="Transfer window closed";
+      nextOpen=month>=9?new Date(Date.UTC(year+1,0,1)):month===1?null:new Date(Date.UTC(year,6,1));
+    }
+    if(close){
+      const remaining=Math.max(0,Math.ceil((close-current)/86400000));
+      return {open:true,label:label,nextOpen:null,closes:close.toISOString().slice(0,10),daysRemaining:remaining};
+    }
+    return {open:false,label:label,nextOpen:nextOpen.toISOString().slice(0,10),closes:null,daysRemaining:null};
+  }
   function negotiateTransfer(state, playerId, offer) {
     const player=state.players.find(p=>p.id===playerId);
     if(!player||player.clubId===state.userClubId)return {ok:false,message:"Player is not available to buy."};
+    const windowStatus=transferWindowStatus(state.day);
+    if(!windowStatus.open&&Number(player.value)>0)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
     const fee=Math.max(0,Number(offer.fee)||0),wage=Math.max(0,Number(offer.wage)||0),upfront=clamp(Number(offer.upfront||fee),0,fee);
     const months=Number(offer.installmentMonths||0),installments=Math.max(0,fee-upfront);
     if(fee>state.finances.transferBudget)return {ok:false,message:"Transfer budget is too low for the offer."};
@@ -753,6 +776,8 @@
     const p=state.players.find(p=>p.id===playerId);
     if(!p||p.clubId!==state.userClubId)return {ok:false,message:"Player is not in your squad."};
     if(squad(state,state.userClubId).length<=18)return {ok:false,message:"Keep at least 18 registered players."};
+    const windowStatus=transferWindowStatus(state.day);
+    if(!windowStatus.open&&Number(p.value)>0)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
     const amount=Math.max(0,Number(fee)||p.value);
     p.clubId=null;state.finances.balance+=amount;state.finances.transferBudget+=amount;state.finances.weeklyCosts=Math.max(0,state.finances.weeklyCosts-p.wage);
     state.careerHistory.push({type:"transfer-out",day:state.day,playerId:p.id,fee:amount});
@@ -1034,7 +1059,7 @@
     if(p.includes("offence")||p.includes("forward")||p.includes("attacker"))return "ST";
     return "CM";
   }
-  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,mergeBundledRealPlayers,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
+  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,transferWindowStatus,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,mergeBundledRealPlayers,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
   root.FM_ENGINE=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
