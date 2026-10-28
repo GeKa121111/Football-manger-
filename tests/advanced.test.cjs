@@ -25,7 +25,7 @@ assert.ok(advancedCss.includes("env(safe-area-inset-bottom)") && advancedCss.inc
   "advanced manager mobile controls must respect device safe areas and touch target sizing");
 assert.ok(mainCss.includes("@media (max-width: 420px)") && mainCss.includes("overscroll-behavior-x: contain"),
   "main shell mobile styles must handle narrow screens and horizontal table scrolling");
-assert.ok(serviceWorker.includes('touchline-manager-v6'), "career startup UI changes require a fresh offline cache version");
+assert.ok(serviceWorker.includes('touchline-manager-v7'), "profile and startup styling changes require a fresh offline cache version");
 assert.ok(mainCss.includes(".topbar-right {") && mainCss.includes("flex-wrap: nowrap"),
   "main mobile header must keep its controls in a predictable bounded row");
 assert.ok(mainCss.includes(".nav-list {") && mainCss.includes("overflow-x: auto") && mainCss.includes("flex-direction: row"),
@@ -45,6 +45,12 @@ assert.ok(advancedUiSource.includes('name="managerName" required') && advancedUi
   "new-career setup must collect manager name, nationality and selected club");
 assert.ok(advancedUiSource.includes("اختار النادي اللي هتدربه") && advancedUiSource.includes("جنسية المدير الفني"),
   "manager profile and club selection should be localized in Arabic");
+assert.ok(advancedUiSource.includes("managerNationality:String(fd.get(\"managerNationality\")||\"Egypt\")"),
+  "manager nationality should be stored separately from the selected playable league");
+assert.ok(appSource.includes('data-action="start-new-career">اختيار النادي وبدء المسيرة'),
+  "the in-game new career action should open the same manager and club setup instead of resetting to a default club");
+assert.ok(advancedCss.includes("fm-setup-form .fm-field") && advancedCss.includes("direction: rtl; text-align: right"),
+  "the Arabic manager profile wizard must render with RTL alignment");
 assert.ok(worldCup.players.some(p => p.name === "Kylian Mbappé" || p.name === "Kylian Mbappe"), "real national-team players should be bundled");
 assert.ok(worldCup.players.every(p => p.clubName && p.dateOfBirth && p.nationalTeam), "source snapshot should include player club, DOB and national team fields");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Mohamed Salah"), "known seed player should exist");
