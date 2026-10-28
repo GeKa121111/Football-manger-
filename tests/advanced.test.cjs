@@ -45,6 +45,11 @@ assert.ok(advancedUiSource.includes('name="managerName" required') && advancedUi
   "new-career setup must collect manager name, nationality and selected club");
 assert.ok(advancedUiSource.includes("اختار النادي اللي هتدربه") && advancedUiSource.includes("جنسية المدير الفني"),
   "manager profile and club selection should be localized in Arabic");
+assert.ok(advancedUiSource.includes('DATA.clubs.filter(c=>c.country===nation.value&&!c.unverifiedDivision)'),
+  "new career club list must hide unverified affiliate clubs that the engine cannot select as a managed club");
+assert.ok(advancedUiSource.includes('const welcomeScreen=document.getElementById("tm-start-screen")') &&
+  advancedUiSource.includes('if(welcomeScreen&&typeof welcomeScreen.remove==="function")welcomeScreen.remove()'),
+  "successful career creation must remove the startup welcome layer instead of leaving it over/under the game");
 assert.ok(advancedUiSource.includes("managerNationality:String(fd.get(\"managerNationality\")||\"Egypt\")"),
   "manager nationality should be stored separately from the selected playable league");
 assert.ok(appSource.includes('data-action="start-new-career">اختيار النادي وبدء المسيرة'),
