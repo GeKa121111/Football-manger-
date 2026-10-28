@@ -66,6 +66,13 @@ assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.league === "Championship" && c.
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.league === "Liga Portugal 2" && c.tier === 2), "Portuguese second tier should be present");
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.league === "J1 League"), "Japan should be represented");
 assert.ok(global.FM_WORLD_DATA.clubs.some(c => c.league === "Major League Soccer"), "MLS should be represented");
+const zeroVitalsPlayer = engine.normalizePlayer({
+  id: "zero-vitals-regression", name: "Zero Vitals Test", position: "CM",
+  age: 25, overall: 60, potential: 70, fitness: 0, morale: 0,
+  attributes: Object.fromEntries(engine.ATTRS.map(key => [key, 10]))
+});
+assert.equal(zeroVitalsPlayer.fitness, 0, "normalizing a saved player must not restore fitness when it is genuinely zero");
+assert.equal(zeroVitalsPlayer.morale, 0, "normalizing a saved player must not restore morale when it is genuinely zero");
 assert.equal(new Set(global.FM_WORLD_DATA.clubs.map(c => c.id)).size, global.FM_WORLD_DATA.clubs.length, "club ids should be unique");
 assert.equal(new Set(global.FM_WORLD_DATA.nations).size, 27, "playable nation list should have 27 entries");
 
