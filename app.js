@@ -392,6 +392,9 @@
       reportStat("الاستحواذ ٪", report.home.possession, report.away.possession, 100) +
       reportStat("التسديدات", report.home.shots, report.away.shots) +
       reportStat("على المرمى", report.home.onTarget, report.away.onTarget) +
+      (Number.isFinite(report.home.xG) && Number.isFinite(report.away.xG)
+        ? reportStat("الأهداف المتوقعة (xG)", report.home.xG.toFixed(2), report.away.xG.toFixed(2))
+        : '') +
       reportStat("الركنيات", report.home.corners, report.away.corners) +
       reportStat("دقة التمرير ٪", report.home.passAccuracy, report.away.passAccuracy, 100) +
       reportStat("الإنذارات", report.home.yellowCards, report.away.yellowCards) +
@@ -789,6 +792,8 @@
     const events = homeLineup.events.concat(awayLineup.events).sort(function (a, b) { return a.minute - b.minute; });
     const reportHomeStats = homeLineup.stats;
     const reportAwayStats = awayLineup.stats;
+    reportHomeStats.xG = Math.round(lambdaHome * 100) / 100;
+    reportAwayStats.xG = Math.round(lambdaAway * 100) / 100;
     reportAwayStats.possession = 100 - reportHomeStats.possession;
     fixture.report = {
       home: reportHomeStats,
