@@ -11,7 +11,7 @@
   let startupError = null;
 
   try {
-    scope.importScripts("advanced-data.js", "advanced-player-data.js", "advanced-engine.js");
+    scope.importScripts("advanced-data.js", "advanced-player-data.js", "spatial-match-engine.js", "advanced-engine.js");
     engine = scope.FM_ENGINE;
     if (!engine) throw new Error("FM_ENGINE did not initialize in the simulation worker.");
     scope.postMessage({
