@@ -35,7 +35,7 @@ assert.ok(serviceWorker.includes('touchline-manager-v21'), "the spatial simulati
 assert.ok(serviceWorker.includes('"./simulation-worker.js"'), "offline cache should include the simulation worker");
 assert.ok(serviceWorker.includes('"./career-storage.js"'), "offline cache should include the career storage module");
 assert.doesNotThrow(() => new Function(simulationWorkerSource), "simulation worker source should be valid JavaScript");
-assert.ok(simulationWorkerSource.includes('scope.importScripts("advanced-data.js", "advanced-player-data.js", "advanced-engine.js")'),
+assert.ok(simulationWorkerSource.includes('scope.importScripts("advanced-data.js", "advanced-player-data.js", "spatial-match-engine.js", "advanced-engine.js")'),
   "the worker should initialize the same data and engine dependencies as the main thread");
 for (const task of ["simulate-round", "simulate-domestic-cup-round", "simulate-continental-round", "finish-season"]) {
   assert.ok(simulationWorkerSource.includes('case "' + task + '"'), "worker must support task " + task);
