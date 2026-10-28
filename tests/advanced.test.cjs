@@ -73,12 +73,21 @@ state.tactics.startingXI = manualXIIds;
 assert.deepEqual(engine.selectedXI(state, state.userClubId).map(p => p.id), manualXIIds,
   "the manager's selected starting XI must override automatic selection without duplicates");
 state.tactics.startingXI = [];
+const poorShape = Object.assign({},engine.defaultTactics(),{positions:Object.fromEntries(xi.map(p=>[p.id,[.5,.02]]))});
+assert.ok(engine.strengthForXI(xi,poorShape,false)<engine.strengthForXI(xi,engine.defaultTactics(),false),
+  "dragging the whole team out of its role zones should reduce tactical strength");
 const baselineTactics = engine.tacticalDelta(engine.defaultTactics());
 const highPressTactics = engine.tacticalDelta(Object.assign({}, engine.defaultTactics(), {pressIntensity:20}));
 const counterTactics = engine.tacticalDelta(Object.assign({}, engine.defaultTactics(), {style:"Counter-Attack"}));
 assert.ok(highPressTactics.attack > baselineTactics.attack, "higher pressing intensity should influence attacking pressure");
 assert.ok(highPressTactics.fatigue > baselineTactics.fatigue, "higher pressing intensity should increase fatigue cost");
 assert.ok(counterTactics.xg > baselineTactics.xg, "counter-attacking instructions should affect expected chance quality");
+const aiProfileA = engine.aiTactics(state.clubs.find(c=>c.id==="liv"), state.season);
+const aiProfileB = engine.aiTactics(state.clubs.find(c=>c.id==="liv"), state.season);
+assert.deepEqual(aiProfileA, aiProfileB, "AI tactical identity should remain stable within a season");
+assert.ok(Object.keys(engine.FORMATIONS).includes(aiProfileA.formation), "AI should choose a supported formation");
+assert.ok(new Set(global.FM_WORLD_DATA.clubs.slice(0,25).map(c=>engine.aiTactics(c,2026).style)).size>1,
+  "different AI clubs should use more than one tactical style");
 assert.ok(state.players.filter(p => p.position !== "GK").every(p => p.attributes.goalkeeping === 1), "outfield players should not be rated as goalkeepers");
 for (const p of state.players) {
   for (const attr of engine.ATTRS) {
