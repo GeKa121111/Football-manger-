@@ -1014,7 +1014,7 @@
   }
 
   function resetGame() {
-    startModal("بدء مسيرة جديدة", '<p>هيتم استبدال الحفظ الحالي بمسيرة جديدة، وده هيمسح نتائجك وصفقاتك وتقدمك الحالي من هذا المتصفح.</p><div class="notice">لو عايز تحتفظ بمسيرتك، اختار إلغاء وكمّل اللعب.</div>', '<button class="button button-secondary" data-action="dismiss-modal">إلغاء</button><button class="button button-danger" data-action="confirm-reset">بدء من جديد</button>');
+    startModal("بدء مسيرة جديدة", '<p>هتقدر تختار اسم المدير الفني وجنسيته والنادي الجديد قبل بداية المسيرة.</p><div class="notice">المسيرة الحالية مش هتتستبدل إلا لما تكمل إنشاء المسيرة الجديدة وتحفظها.</div>', '<button class="button button-secondary" data-action="dismiss-modal">إلغاء</button><button class="button button-primary" data-action="start-new-career">اختيار النادي وبدء المسيرة</button>');
   }
 
   function openInbox() {
@@ -1058,9 +1058,11 @@
     }
     if (action === "start-new-career") {
       if (window.FM_ADVANCED && typeof window.FM_ADVANCED.openNewCareer === "function") {
-        window.FM_ADVANCED.openNewCareer();
+        const opened = window.FM_ADVANCED.openNewCareer();
+        if (opened !== false) modalRoot.innerHTML = "";
       } else {
         // Graceful fallback if the advanced module is blocked or fails to load.
+        modalRoot.innerHTML = "";
         state = makeInitialState();
         updateClubStrengths();
         removeStartScreen();
