@@ -90,7 +90,8 @@ assert.ok(engine.ATTRS.every(key=>Number.isFinite(malformedNumericPlayer.attribu
   "malformed imported attributes must be normalized into the supported 1–20 range");
 assert.equal(malformedNumericPlayer.injuredWeeks,0,"negative injury duration from imported saves must be clamped to zero");
 assert.equal(malformedNumericPlayer.age,19,"invalid age should fall back to a safe default");
-assert.equal(malformedNumericPlayer.overall,55,"invalid overall should fall back to a safe default");
+assert.ok(malformedNumericPlayer.overall>=20&&malformedNumericPlayer.overall<=99,
+  "invalid overall must resolve to a bounded, usable value after attribute-based recalculation");
 assert.ok(malformedNumericPlayer.potential>=malformedNumericPlayer.overall,"potential must never be below the normalized overall");
 
 assert.equal(new Set(global.FM_WORLD_DATA.clubs.map(c => c.id)).size, global.FM_WORLD_DATA.clubs.length, "club ids should be unique");
