@@ -451,3 +451,32 @@ assert.equal(installmentRecord.remaining, 2000000, "all of the fee should remain
 assert.equal(installmentRecord.monthsRemaining, 4, "installment term should be preserved");
 assert.equal(installmentRecord.monthly, 500000, "installment amount should be calculated from the agreed term");
 console.log("Transfer installment accounting tests passed.");
+
+// Training regression: development changes role-weighted OVR through attributes and respects potential.
+const trainingState = engine.newCareer({
+  mode: "career", managerName: "Training Development Test", primaryNation: "England",
+  nations: ["England"], databaseSize: "small", clubId: "liv"
+});
+const trainingPlayer = trainingState.players.find(p => p.clubId === trainingState.userClubId && p.position === "ST");
+assert.ok(trainingPlayer, "training test requires a striker in the managed squad");
+trainingPlayer.age = 18;
+trainingPlayer.overall = 50;
+trainingPlayer.potential = 80;
+trainingPlayer.injuredWeeks = 0;
+trainingPlayer.attributes = Object.fromEntries(engine.ATTRS.map(key => [key, 10]));
+trainingState.lastTrainingDay = null;
+const savedRandom = Math.random;
+let trainingResult;
+try {
+  Math.random = () => 0;
+  trainingResult = engine.train(trainingState, "Attacking");
+} finally {
+  Math.random = savedRandom;
+}
+assert.equal(trainingResult.ok, true, "training should run once on the current day");
+assert.equal(trainingPlayer.attributes.shooting, 11, "attacking training should improve the selected skill");
+assert.equal(trainingPlayer.overall, engine.playerOverall(trainingPlayer),
+  "young player's displayed overall must follow the updated position-weighted attributes");
+assert.ok(trainingPlayer.overall <= trainingPlayer.potential,
+  "training-driven overall must not exceed the player's potential");
+console.log("Training development integration tests passed.");
