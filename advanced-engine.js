@@ -678,7 +678,7 @@
       p.fitness=clamp(p.fitness-rand(2,6),0,100);
       let key= focus==="Attacking"?"shooting":focus==="Defending"?"tackling":focus==="Technical"?"technique":focus==="Passing"?"passing":focus==="Fitness"?"stamina":"teamwork";
       const canDevelop=p.age<24&&p.overall<p.potential;
-      const bumpChance=canDevelop?.12:p.age<30?.025:.005;
+      const bumpChance = canDevelop ? 0.12 : (p.age < 30 ? 0.025 : 0.005);
       if(Math.random()<bumpChance&&att[key]<20){
         att[key]++;gains++;
         // Overall follows the position-weighted attributes instead of receiving random, disconnected +1s.
