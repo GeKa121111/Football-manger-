@@ -519,7 +519,44 @@ assert.ok(disciplineState.inbox.some(m => m.title === "Injury during match" && m
 const postInjuryMatch = engine.simulateMatch(managedClub,opponentClub,disciplineState.players,disciplineState.tactics,engine.defaultTactics());
 assert.ok(!(postInjuryMatch.lineups[managedClub.id]||[]).includes(injuredMatchPlayer.id),
   "a player injured during a match must be unavailable for later match selection until recovered");
-console.log("Matchday lookup, discipline and injury availability tests passed.");
+
+const aiRedCardPlayer = disciplineState.players.find(p => p.clubId === disciplineOpponentId &&
+  p.id !== injuredMatchPlayer.id && !p.generated && !p.retired);
+const aiYellowCardPlayer = disciplineState.players.find(p => p.clubId === disciplineOpponentId &&
+  p.id !== aiRedCardPlayer?.id && p.id !== injuredMatchPlayer.id && !p.generated && !p.retired);
+assert.ok(aiRedCardPlayer && aiYellowCardPlayer, "AI discipline alert test requires two opponent players");
+aiYellowCardPlayer.seasonStats = Object.assign({}, aiYellowCardPlayer.seasonStats, {yellowCards:4});
+engine.applyResult(disciplineState,
+  {id:"ai-card-inbox-test",homeId:disciplineOpponentId,awayId:disciplineState.userClubId,round:5},
+  {
+    homeGoals:0,awayGoals:0,stats:emptyMatchStats(),
+    events:[
+      {type:"red",clubId:disciplineOpponentId,playerId:aiRedCardPlayer.id,minute:51,text:"Red card"},
+      {type:"yellow",clubId:disciplineOpponentId,playerId:aiYellowCardPlayer.id,minute:67,text:"Yellow card"}
+    ],
+    lineups:emptyLineups(disciplineOpponentId,disciplineState.userClubId),manOfTheMatch:null
+  });
+assert.equal(aiRedCardPlayer.suspendedMatches, 1, "AI players should still receive suspension rules");
+assert.equal(aiYellowCardPlayer.suspendedMatches, 1, "AI yellow-card thresholds should still trigger suspensions");
+assert.ok(!disciplineState.inbox.some(m => ["Suspension after red card","Suspension: yellow-card threshold"].includes(m.title) &&
+  (m.text.includes(aiRedCardPlayer.name)||m.text.includes(aiYellowCardPlayer.name))),
+  "the manager inbox must not be flooded by discipline alerts for AI clubs");
+
+const retirementAlertState = engine.newCareer({
+  mode:"career",managerName:"AI Retirement Alert Test",primaryNation:"England",
+  nations:["England"],databaseSize:"small",clubId:"liv"
+});
+retirementAlertState.players.forEach(p=>{p.age=25;p.contractYears=5;p.retired=false;});
+const aiRetiree = retirementAlertState.players.find(p=>p.clubId && p.clubId!==retirementAlertState.userClubId);
+assert.ok(aiRetiree, "retirement alert test requires a player at an AI club");
+aiRetiree.age=41;
+const savedRandomForRetirement=Math.random;
+try { Math.random=()=>0; engine.finishSeason(retirementAlertState); }
+finally { Math.random=savedRandomForRetirement; }
+assert.equal(aiRetiree.retired,true,"season rollover should still retire old AI players");
+assert.ok(!retirementAlertState.inbox.some(m=>m.title==="Player retirement"&&m.text.includes(aiRetiree.name)),
+  "the manager inbox should only report retirements at their own club");
+console.log("Matchday, discipline, injury, and inbox-scope tests passed.");
 
 // Transfer finance regression: zero-upfront deals remain zero-upfront and reserve the full fee against the transfer budget.
 const installmentState = engine.newCareer({
