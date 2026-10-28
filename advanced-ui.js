@@ -48,6 +48,9 @@
   }
 
   let state = null, view = "overview", modal = null, live = null, animationFrame = null, lastFrame = 0;
+  let simulationWorker = null, simulationWorkerReadyPromise = null, simulationWorkerResolveReady = null, simulationWorkerRejectReady = null;
+  let simulationWorkerError = null, simulationRequestId = 0, simulationBusy = false;
+  const pendingSimulationTasks = new Map();
   let search = "", marketFilters = {position:"all",age:40,value:300000000,attribute:"pace",minimum:10}, selectedNations = ["England","Egypt"];
   let setup = {mode:"career",challenge:"Relegation survival",managerName:"Alex Manager",managerNationality:"England",reputation:45,badge:"Tactician",primaryNation:"England",databaseSize:"medium",clubId:""};
   const $ = (sel, root=document) => root.querySelector(sel);
@@ -91,6 +94,122 @@
   function load() {
     try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return null;const s=JSON.parse(raw);if(s&&s.schemaVersion===1&&s.players&&s.clubs&&s.fixtures)return s;}catch(err){console.warn("Advanced career save could not be loaded.",err);}
     return null;
+  }
+  function failSimulationWorker(error) {
+    simulationWorkerError = error instanceof Error ? error : new Error(String(error || "Simulation worker unavailable."));
+    const worker = simulationWorker;
+    simulationWorker = null;
+    if (worker) {
+      worker.onmessage = null;
+      worker.onerror = null;
+      try { worker.terminate(); } catch (e) {}
+    }
+    if (simulationWorkerRejectReady) {
+      const reject = simulationWorkerRejectReady;
+      simulationWorkerRejectReady = null;
+      simulationWorkerResolveReady = null;
+      reject(simulationWorkerError);
+    }
+    pendingSimulationTasks.forEach(function (task) { task.reject(simulationWorkerError); });
+    pendingSimulationTasks.clear();
+  }
+  function getSimulationWorker() {
+    if (simulationWorkerError || typeof Worker === "undefined") return null;
+    if (simulationWorker) return simulationWorker;
+    try {
+      const worker = new Worker(new URL("simulation-worker.js", document.baseURI));
+      simulationWorker = worker;
+      simulationWorkerReadyPromise = new Promise(function (resolve, reject) {
+        simulationWorkerResolveReady = resolve;
+        simulationWorkerRejectReady = reject;
+      });
+      worker.onmessage = function (event) {
+        const message = event && event.data || {};
+        if (message.type === "ready") {
+          const resolve = simulationWorkerResolveReady;
+          simulationWorkerResolveReady = null;
+          simulationWorkerRejectReady = null;
+          if (resolve) resolve(true);
+          return;
+        }
+        if (message.type === "startup-error") {
+          failSimulationWorker(new Error(message.error || "Simulation worker failed to initialize."));
+          return;
+        }
+        if (message.type !== "task-result" || !message.id) return;
+        const pending = pendingSimulationTasks.get(message.id);
+        if (!pending) return;
+        pendingSimulationTasks.delete(message.id);
+        if (message.ok) pending.resolve(message);
+        else pending.reject(new Error(message.error || "Simulation task failed."));
+      };
+      worker.onerror = function (event) {
+        if (event && typeof event.preventDefault === "function") event.preventDefault();
+        failSimulationWorker(new Error(event && event.message || "Simulation worker crashed."));
+      };
+      return worker;
+    } catch (error) {
+      failSimulationWorker(error);
+      return null;
+    }
+  }
+  function adoptSimulationSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return;
+    Object.assign(state, snapshot);
+    if (state.world) {
+      state.world.players = state.players;
+      state.world.clubs = state.clubs;
+      const managedClub = state.clubs.find(function (item) { return item.id === state.userClubId; });
+      if (managedClub && state.world.calendar && state.world.calendar[managedClub.league]) {
+        state.world.calendar[managedClub.league] = state.fixtures;
+      }
+    }
+  }
+  async function executeSimulationTask(taskName, extra, fallback) {
+    const worker = getSimulationWorker();
+    if (!worker) return fallback();
+    try {
+      await simulationWorkerReadyPromise;
+      const id = "sim-" + (++simulationRequestId);
+      const response = await new Promise(function (resolve, reject) {
+        pendingSimulationTasks.set(id, { resolve: resolve, reject: reject });
+        try {
+          worker.postMessage(Object.assign({ id: id, task: taskName, state: state }, extra || {}));
+        } catch (error) {
+          pendingSimulationTasks.delete(id);
+          reject(error);
+        }
+      });
+      if (!response.ok) throw new Error(response.error || "Simulation worker reported a failure.");
+      adoptSimulationSnapshot(response.state);
+      return response.result;
+    } catch (error) {
+      // Worker tasks operate on a cloned snapshot, so synchronous recovery is safe.
+      failSimulationWorker(error);
+      if (typeof fallback === "function") return fallback();
+      throw error;
+    }
+  }
+  async function runBackgroundSimulation(taskName, fallback, label) {
+    if (simulationBusy) {
+      toast("A simulation task is already running.", "warning");
+      return;
+    }
+    simulationBusy = true;
+    toast(label || "Simulating in background…", "info");
+    render();
+    try {
+      const result = await executeSimulationTask(taskName, {}, fallback);
+      save();
+      render();
+      if (result && typeof result.message === "string") toast(result.message, result.ok === false ? "warning" : "success");
+      return result;
+    } catch (error) {
+      toast("Simulation failed: " + String(error && error.message || error), "warning");
+    } finally {
+      simulationBusy = false;
+      render();
+    }
   }
   function addInbox(title,text,kind="info") {
     state.inbox.unshift({id:"msg-"+Date.now()+"-"+Math.random().toString(36).slice(2,6),day:state.day,title:title,text:text,kind:kind,read:false});
@@ -429,19 +548,37 @@
     const feed=$(".fm-commentary-list",root);if(feed)feed.innerHTML=live.commentary.slice(-7).map(e=>'<div class="fm-commentary-row '+esc(e.type||"")+'"><b>'+Math.floor(e.minute||0)+'′</b><span>'+esc(e.text)+'</span></div>').join("");
     const latest=$(".fm-commentary-feed",root);if(latest)latest.textContent=live.latest;
     const stat=$("#fm-match-live-stats",root);if(stat)stat.innerHTML=renderLiveStats(matchStatsAtMinute(live.minute));
-    const controls=$(".fm-live-controls",root);if(controls){const btn=$('[data-action="resume-match"], [data-action="pause-match"], [data-action="second-half"], [data-action="finish-match"]',controls);if(btn){if(live.finished){btn.dataset.action="finish-match";btn.textContent="Complete match";}else if(live.halfTime&&!live.halfDone){btn.dataset.action="second-half";btn.textContent="Start second half";}else if(live.paused){btn.dataset.action="resume-match";btn.textContent="Resume";}else{btn.dataset.action="pause-match";btn.textContent="Pause";}}}
+    const controls=$(".fm-live-controls",root);if(controls){const btn=$('[data-action="resume-match"], [data-action="pause-match"], [data-action="second-half"], [data-action="finish-match"]',controls);if(btn){if(live.finished){btn.dataset.action="finish-match";btn.textContent=simulationBusy?"Processing…":"Complete match";btn.disabled=simulationBusy;}else if(live.halfTime&&!live.halfDone){btn.disabled=false;btn.dataset.action="second-half";btn.textContent="Start second half";}else if(live.paused){btn.disabled=false;btn.dataset.action="resume-match";btn.textContent="Resume";}else{btn.disabled=false;btn.dataset.action="pause-match";btn.textContent="Pause";}}}
     if(live.finished){const banners=$$(".fm-fulltime-banner",root);if(!banners.length){view="match";render();}}
   }
-  function finishLiveMatch() {
-    if(!live||!live.finished)return;
-    const fixture=live.fixture;E.applyResult(state,fixture,live.result);
-    state.matchPending=null;
-    const rounds=[...new Set(state.fixtures.map(f=>f.round))].sort((a,b)=>a-b);
-    const current=rounds.find(r=>state.fixtures.some(f=>f.round===r&&!f.played));
-    if(current&&state.fixtures.some(f=>f.round===current&&f.date<=state.day&& !f.played))E.simulateRound(state,current);
-    state.currentRound=Math.max(state.currentRound||0,fixture.round);
-    if(state.fixtures.every(f=>f.played))E.finishSeason(state);
-    stopMatch();live=null;view="overview";save();render();toast("Match result and league table saved.","success");
+  async function finishLiveMatch() {
+    if(!live||!live.finished||simulationBusy)return;
+    simulationBusy=true;
+    const finishedLive=live;
+    try {
+      const fixture=finishedLive.fixture;
+      E.applyResult(state,fixture,finishedLive.result);
+      state.matchPending=null;
+      const rounds=[...new Set(state.fixtures.map(f=>f.round))].sort((a,b)=>a-b);
+      const current=rounds.find(r=>state.fixtures.some(f=>f.round===r&&!f.played));
+      if(current&&state.fixtures.some(f=>f.round===current&&f.date<=state.day&&!f.played)) {
+        toast("Full-time saved. Remaining fixtures are being simulated off the main thread…","info");
+        render();
+        await executeSimulationTask("simulate-round",{round:current},()=>E.simulateRound(state,current));
+      }
+      state.currentRound=Math.max(state.currentRound||0,fixture.round);
+      if(state.fixtures.every(f=>f.played)) {
+        toast("Season rollover is being processed in the background…","info");
+        render();
+        await executeSimulationTask("finish-season",{},()=>E.finishSeason(state));
+      }
+      stopMatch();live=null;view="overview";save();render();toast("Match result and league table saved.","success");
+    } catch(error) {
+      toast("Could not finish the match: "+String(error&&error.message||error),"warning");
+    } finally {
+      simulationBusy=false;
+      render();
+    }
   }
   function drawPitch(canvas, isTactics) {
     if(!canvas)return;
@@ -556,8 +693,8 @@
     if(a==="sell"){showModal("sell",action.dataset.player);return;}
     if(a==="continue"){advanceDay();return;}
     if(a==="open-match"){const f=state.fixtures.find(x=>x.id===action.dataset.fixture)||nextFixture();if(!f)return;state.matchPending=f.id;startMatch(f);view="match";render();return;}
-    if(a==="simulate-cup-round"){const res=E.simulateDomesticCupRound(state);save();render();toast(res.message,res.ok?"success":"warning");return;}
-    if(a==="simulate-continental-round"){const res=E.simulateContinentalRound(state);save();render();toast(res.message,res.ok?"success":"warning");return;}
+    if(a==="simulate-cup-round"){runBackgroundSimulation("simulate-domestic-cup-round",()=>E.simulateDomesticCupRound(state),"Simulating the cup round in a background worker…");return;}
+    if(a==="simulate-continental-round"){runBackgroundSimulation("simulate-continental-round",()=>E.simulateContinentalRound(state),"Simulating the continental round in a background worker…");return;}
     if(a==="open-tactics"){if(live&&!live.finished){live.wasRunningBeforeTactics=!!(live.started&&!live.paused);live.tacticsOpenedAt=live.minute;if(live.started){live.paused=true;stopMatch();}view="tactics";render();}return;}
     if(a==="return-to-match"){if(live){refreshRemainingSimulation();view="match";const resume=!!live.wasRunningBeforeTactics;live.wasRunningBeforeTactics=false;render();if(resume&&!live.finished&&!live.halfTime){live.paused=false;lastFrame=0;animateMatch();}}return;}
     if(a==="start-live-match"){beginMatch();render();return;}
@@ -635,12 +772,24 @@
     if(kind==="youth"){state.finances.balance-=cost;state.board.youthAcademy=(state.board.youthAcademy||1)+1;addInbox("Youth academy upgraded","Youth academy investment approved.");}
     save();render();toast("Board request processed.","success");
   }
-  function advanceDay() {
-    if(!state)return;
+  async function advanceDay() {
+    if(!state||simulationBusy)return;
     if(live&&!live.finished){toast("Finish or pause the current match before advancing the calendar.","warning");return;}
     const out=E.continueDay(state);
     if(out.match){state.matchPending=out.fixture.id;view="match";startMatch(out.fixture);save();render();toast("Match day: "+club(out.fixture.homeId).name+" vs "+club(out.fixture.awayId).name,"success");return;}
-    if(state.seasonDays>0&&state.seasonDays%365===0){E.finishSeason(state);addInbox("Season rollover","New season "+state.season+" has started.");}
+    if(state.seasonDays>0&&state.seasonDays%365===0){
+      simulationBusy=true;
+      toast("Season rollover is being processed in a background worker…","info");
+      render();
+      try {
+        await executeSimulationTask("finish-season",{},()=>E.finishSeason(state));
+        addInbox("Season rollover","New season "+state.season+" has started.");
+      } catch(error) {
+        toast("Season rollover failed: "+String(error&&error.message||error),"warning");
+      } finally {
+        simulationBusy=false;
+      }
+    }
     save();render();
   }
   function handleChange(event) {
