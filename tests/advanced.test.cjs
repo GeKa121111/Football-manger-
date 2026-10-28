@@ -480,3 +480,49 @@ assert.equal(trainingPlayer.overall, engine.playerOverall(trainingPlayer),
 assert.ok(trainingPlayer.overall <= trainingPlayer.potential,
   "training-driven overall must not exceed the player's potential");
 console.log("Training development integration tests passed.");
+
+// Season rollover regression: growth and ageing update relevant attributes and the position-weighted overall.
+function prepareDeterministicSeasonState(managerName, targetAge) {
+  const state = engine.newCareer({
+    mode: "career", managerName, primaryNation: "England",
+    nations: ["England"], databaseSize: "small", clubId: "liv"
+  });
+  state.players.forEach(p => {
+    p.age = 25;
+    p.contractYears = 5;
+    p.retired = false;
+  });
+  const target = state.players.find(p => p.clubId === state.userClubId && p.position === "ST");
+  assert.ok(target, "season-development test requires a managed striker");
+  state.players.splice(state.players.indexOf(target), 1);
+  state.players.unshift(target);
+  target.age = targetAge;
+  target.overall = 50;
+  target.potential = 80;
+  target.contractYears = 5;
+  target.attributes = Object.fromEntries(engine.ATTRS.map(key => [key, 10]));
+  return {state, target};
+}
+function finishSeasonWithControlledRandom(state) {
+  const savedRandom = Math.random;
+  let calls = 0;
+  try {
+    Math.random = () => (++calls <= 2 ? 0 : 0.99);
+    engine.finishSeason(state);
+  } finally {
+    Math.random = savedRandom;
+  }
+}
+const youthSeason = prepareDeterministicSeasonState("Youth Season Growth Test", 18);
+finishSeasonWithControlledRandom(youthSeason.state);
+assert.equal(youthSeason.target.attributes.shooting, 11, "a developing striker should improve a role-relevant attribute during season rollover");
+assert.equal(youthSeason.target.overall, engine.playerOverall(youthSeason.target),
+  "season growth should recalculate overall from attributes");
+assert.ok(youthSeason.target.overall <= youthSeason.target.potential,
+  "season growth should respect potential ability");
+const ageingSeason = prepareDeterministicSeasonState("Veteran Ageing Test", 34);
+finishSeasonWithControlledRandom(ageingSeason.state);
+assert.equal(ageingSeason.target.attributes.shooting, 9, "ageing should reduce a role-relevant attribute");
+assert.equal(ageingSeason.target.overall, engine.playerOverall(ageingSeason.target),
+  "ageing decline should be reflected in position-weighted overall");
+console.log("Season rollover development tests passed.");
