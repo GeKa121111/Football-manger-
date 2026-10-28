@@ -68,7 +68,7 @@
       role:p.role || null, status:p.status || "Available", dob:p.dateOfBirth || p.dob || null,
       dateOfBirth:p.dateOfBirth||p.dob||null,nationalTeam:p.nationalTeam||null,
       sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
-      worldCupSnapshot:!!p.worldCupSnapshot,
+      worldCupSnapshot:!!p.worldCupSnapshot,retired:!!p.retired,
       fantasyPrice:p.fantasyPrice==null?null:Number(p.fantasyPrice),fantasyPriceCurrency:p.fantasyPriceCurrency||null,
       fplStatus:p.fplStatus||null,minutes:Number(p.minutes||0),
       seasonHistory:Array.isArray(p.seasonHistory)?p.seasonHistory.slice(-20):[]
@@ -772,7 +772,57 @@
       p.seasonHistory=p.seasonHistory.slice(0,20);
       p.seasonStats={appearances:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,averageRating:0,lastMatchRating:0};
     });
-    state.players.forEach(p=>{p.age=Math.min(48,p.age+1);p.contractYears=Math.max(0,p.contractYears-1);if(p.age>32&&Math.random()<.13)p.overall=Math.max(35,p.overall-1);if(p.age<24&&Math.random()<.18)p.overall=Math.min(p.potential,p.overall+1);if(p.age<24&&p.overall<p.potential&&Math.random()<.12){const k=pick(ATTRS.filter(key=>key!=="goalkeeping"||p.position==="GK"));p.attributes=p.attributes||baseAttributes(p);p.attributes[k]=clamp((p.attributes[k]||10)+1,1,20);}});
+    const retirements=[],expiredUserContracts=[];
+    state.players.forEach(p=>{
+      const previousClubId=p.clubId;
+      p.age=Math.min(48,p.age+1);
+      p.contractYears=Math.max(0,p.contractYears-1);
+      if(p.clubId&&p.age>=36){
+        const retirementChance=p.age>=42?.8:p.age>=40?.58:p.age>=38?.38:p.age>=36?.18:0;
+        if(Math.random()<retirementChance){
+          p.retired=true;p.clubId=null;
+          if(previousClubId===state.userClubId)state.finances.weeklyCosts=Math.max(0,state.finances.weeklyCosts-(Number(p.wage)||0));
+          retirements.push({player:p,clubId:previousClubId});
+        }
+      }
+      if(p.clubId&&p.contractYears===0){
+        if(p.clubId===state.userClubId){
+          p.clubId=null;expiredUserContracts.push(p);
+          state.finances.weeklyCosts=Math.max(0,state.finances.weeklyCosts-(Number(p.wage)||0));
+        }else{
+          const oldClub=state.clubs.find(c=>c.id===p.clubId);
+          const minimumQuality=(Number(oldClub?.strength)||50)-12;
+          const shouldRenew=p.age<34&&p.overall>=minimumQuality&&Math.random()<.82;
+          if(shouldRenew){
+            p.contractYears=p.age<24?3:p.age<30?2:1;
+            if(p.wage>0)p.wage=Math.round(p.wage*(p.overall>(Number(oldClub?.strength)||50)?1.08:1.03));
+          }else p.clubId=null;
+        }
+      }
+      if(!p.retired&&p.age>32&&Math.random()<.13)p.overall=Math.max(35,p.overall-1);
+      if(!p.retired&&p.age<24&&Math.random()<.18)p.overall=Math.min(p.potential,p.overall+1);
+      if(!p.retired&&p.age<24&&p.overall<p.potential&&Math.random()<.12){
+        const k=pick(ATTRS.filter(key=>key!=="goalkeeping"||p.position==="GK"));
+        p.attributes=p.attributes||baseAttributes(p);p.attributes[k]=clamp((p.attributes[k]||10)+1,1,20);
+      }
+    });
+    retirements.forEach(({player:p,clubId})=>{
+      const c=state.clubs.find(x=>x.id===clubId);
+      state.inbox.unshift({id:"retirement-"+p.id+"-"+state.season,title:"Player retirement",text:p.name+" has retired at age "+p.age+(c?" from "+c.name:"")+".",read:false,kind:"info",day:state.day});
+    });
+    expiredUserContracts.forEach(p=>{
+      state.inbox.unshift({id:"contract-expired-"+p.id+"-"+state.season,title:"Contract expired",text:p.name+"'s contract expired and the player has left the club. Renew before the season ends to avoid losing a player.",read:false,kind:"warning",day:state.day});
+    });
+    state.clubs.filter(c=>!c.unverifiedDivision).forEach(c=>{
+      const count=state.players.filter(p=>p.clubId===c.id&&!p.retired).length;
+      if(count>=25)return;
+      const roster=generateRoster(c,state.players,"small"),known=new Set(state.players.map(p=>p.id));
+      roster.forEach(p=>{if(!known.has(p.id)){state.players.push(p);known.add(p.id);}});
+    });
+    state.generatedCount=state.players.filter(p=>p.generated).length;
+    state.finances.weeklyCosts=state.players.filter(p=>p.clubId===state.userClubId&&!p.retired).reduce((sum,p)=>sum+(Number(p.wage)||0),0)
+      +(state.staff||[]).reduce((sum,p)=>sum+(Number(p.salary)||0),0);
+    state.world.clubs=state.clubs;state.world.players=state.players;
     state.season++;state.seasonNumber++;state.day=String(state.season)+"-07-01";state.currentRound=0;state.seasonDays=0;state.fixtures=state.world.calendar[currentClub(state).league]||[];state.fixtures=setFixtureDates(circleSchedule(state.clubs.filter(c=>c.league===currentClub(state).league).map(c=>c.id)).map(f=>Object.assign(f,{competition:currentClub(state).league})),String(state.season)+"-07-08");
     state.players.filter(p=>p.clubId===state.userClubId).forEach(p=>{p.fitness=rand(80,100);p.morale=clamp(p.morale+rand(-5,5),40,95);p.registered=(p.registered===true);});
     state.domesticCup=createDomesticCup(state.nation,state.clubs,state.season);
@@ -801,7 +851,7 @@
   }
   function negotiateTransfer(state, playerId, offer) {
     const player=state.players.find(p=>p.id===playerId);
-    if(!player||player.clubId===state.userClubId)return {ok:false,message:"Player is not available to buy."};
+    if(!player||player.retired||player.clubId===state.userClubId)return {ok:false,message:"Player is not available to buy."};
     const windowStatus=transferWindowStatus(state.day);
     if(player.clubId&&!windowStatus.open)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
     const fee=Math.max(0,Number(offer.fee)||0),wage=Math.max(0,Number(offer.wage)||0),upfront=clamp(Number(offer.upfront||fee),0,fee);
