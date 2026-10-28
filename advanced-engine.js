@@ -696,8 +696,8 @@
       });
       state.transfers=state.transfers.filter(t=>t.type!=="installments"||t.remaining>0);
     }
-    const todays=state.fixtures.find(f=>!f.played&&f.date===state.day);
-    if(todays&&(todays.homeId===state.userClubId||todays.awayId===state.userClubId)){state.matchPending=todays.id;return {match:true,fixture:todays};}
+    const todays=state.fixtures.find(f=>!f.played&&f.date===state.day&&(f.homeId===state.userClubId||f.awayId===state.userClubId));
+    if(todays){state.matchPending=todays.id;return {match:true,fixture:todays};}
     return {match:false};
   }
   function applyResult(state, fixture, result) {
