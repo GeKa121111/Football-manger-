@@ -199,11 +199,11 @@
       p.regrouping=!!(config&&config.transition==="Regroup"&&phase==="outOfPossession");
     });});}
     const counters = [
-      {possession:0,shots:0,onTarget:0,xg:0,corners:0,fouls:0,yellow:0,red:0,passes:0,completed:0},
-      {possession:0,shots:0,onTarget:0,xg:0,corners:0,fouls:0,yellow:0,red:0,passes:0,completed:0}
+      {possession:0,shots:0,onTarget:0,xg:0,xa:0,keyPasses:0,corners:0,fouls:0,yellow:0,red:0,passes:0,completed:0},
+      {possession:0,shots:0,onTarget:0,xg:0,xa:0,keyPasses:0,corners:0,fouls:0,yellow:0,red:0,passes:0,completed:0}
     ];
     const playerWork = new Map();
-    teams.flat().forEach(p => playerWork.set(p.id, {actions:0,passes:0,assists:0,goals:0,shots:0,tackles:0,interceptions:0,fouls:0}));
+    teams.flat().forEach(p => playerWork.set(p.id, {actions:0,passes:0,assists:0,goals:0,shots:0,xg:0,xa:0,keyPasses:0,tackles:0,interceptions:0,fouls:0}));
     const events = [];
     const trace = [];
     const teamAverage = teams.map(line => line.reduce((s,p) => s + p.overall, 0) / Math.max(1,line.length));
@@ -213,6 +213,7 @@
     owner.x = ball.x + (ownerTeam === 0 ? -1 : 1); owner.y = ball.y;
     ball = {x:owner.x,y:owner.y};
     let lastPasser = [null,null];
+    let lastPassReceiver = [null,null];
     function addEvent(type, minute, clubIndex, actor, text, extra) {
       const event = Object.assign({
         minute:clamp(Math.floor(minute),1,90),type:type,clubId:clubs[clubIndex].id,
@@ -222,6 +223,7 @@
       return event;
     }
     function setPossession(team, player, position) {
+      if (ownerTeam !== team) { lastPasser = [null,null]; lastPassReceiver = [null,null]; }
       ownerTeam = team;
       owner = player || null;
       if (position) ball = bounded(position);
@@ -324,11 +326,14 @@
         counters[activeFlight.team].completed++;
         playerWork.get(activeFlight.passerId).passes++;
         lastPasser[activeFlight.team] = activeFlight.passerId;
+        lastPassReceiver[activeFlight.team] = receiver.id;
         setPossession(activeFlight.team, receiver, ball);
         if (activeFlight.breaksLine) addEvent("line-break", minute, activeFlight.team, playerAt(activeFlight.passerId),
           eventTextPass(playerAt(activeFlight.passerId),receiver,true), {receiverId:receiver.id});
         return {type:"reception",team:activeFlight.team,playerId:receiver.id};
       }
+      lastPasser[activeFlight.team] = null;
+      lastPassReceiver[activeFlight.team] = null;
       const looseWinner = defending.player || nearest(teams[activeFlight.team], ball).player;
       if (looseWinner) setPossession(looseWinner.team, looseWinner, ball);
       return {type:"loose-ball",team:looseWinner ? looseWinner.team : activeFlight.team,playerId:looseWinner ? looseWinner.id : null};
@@ -351,26 +356,35 @@
       const keeper = teams[1-team].find(p => p.position === "GK");
       const goalChance = clamp(xg * 1.18 - (keeper ? keeper.goalkeeping/20*0.10 : 0.035),0.01,0.58);
       const scored = onTarget && rng() < goalChance;
+      const assistId = lastPasser[team] && lastPasser[team] !== shooter.id && lastPassReceiver[team] === shooter.id ? lastPasser[team] : null;
+      const assist = assistId ? playerAt(assistId) : null;
+      const xa = assist ? xg : 0;
+      playerWork.get(shooter.id).xg += xg;
+      if (assist) {
+        playerWork.get(assist.id).xa += xa;
+        playerWork.get(assist.id).keyPasses++;
+        counters[team].xa += xa;
+        counters[team].keyPasses++;
+      }
+      lastPasser[team] = null;
+      lastPassReceiver[team] = null;
       const minuteText = String(Math.floor(minute));
       if (scored) {
-        const assistId = lastPasser[team] && lastPasser[team] !== shooter.id ? lastPasser[team] : null;
-        const assist = assistId ? playerAt(assistId) : null;
         playerWork.get(shooter.id).goals++;
         if (assist) playerWork.get(assist.id).assists++;
         addEvent("goal", minute, team, shooter, shooter.name + " scores for " + clubs[team].name
-          + (assist ? " after a pass from " + assist.name : "") + "!", {assistId:assist ? assist.id : null,xg:Number(xg.toFixed(3))});
-        lastPasser[team] = null;
+          + (assist ? " after a pass from " + assist.name : "") + "!", {assistId:assist ? assist.id : null,xg:Number(xg.toFixed(3)),xa:Number(xa.toFixed(3)),keyPass:!!assist});
         setPossession(1-team, teams[1-team].find(p => p.position === "GK") || teams[1-team][0],
           {x:team===0?COLS-2:1,y:4});
       } else if (onTarget) {
-        addEvent("shot", minute, team, shooter, shooter.name + " tests the goalkeeper.", {onTarget:true,xg:Number(xg.toFixed(3))});
+        addEvent("shot", minute, team, shooter, shooter.name + " tests the goalkeeper.", {onTarget:true,xg:Number(xg.toFixed(3)),xa:Number(xa.toFixed(3)),assistId:assist ? assist.id : null,keyPass:!!assist});
         const keeperPlayer = keeper || nearest(teams[1-team],ball).player;
         if (keeperPlayer) setPossession(1-team, keeperPlayer, {x:team===0?COLS-2:1,y:4});
       } else {
         const corner = rng() < 0.22;
         if (corner) counters[team].corners++;
         addEvent(corner ? "corner" : "shot", minute, team, shooter,
-          corner ? shooter.name + " wins a corner." : shooter.name + " shoots wide.", {onTarget:false,xg:Number(xg.toFixed(3))});
+          corner ? shooter.name + " wins a corner." : shooter.name + " shoots wide.", {onTarget:false,xg:Number(xg.toFixed(3)),xa:Number(xa.toFixed(3)),assistId:assist ? assist.id : null,keyPass:!!assist});
         setPossession(corner?team:1-team,corner?shooter:(teams[1-team].find(p=>p.position==="GK")||teams[1-team][0]),
           {x:team===0?COLS-2:1,y:corner?(shooter.y<4?0:ROWS-1):4});
       }
@@ -486,6 +500,11 @@
       shots:[counters[0].shots,counters[1].shots],
       shotsOnTarget:[counters[0].onTarget,counters[1].onTarget],
       xg:[Number(counters[0].xg.toFixed(2)),Number(counters[1].xg.toFixed(2))],
+      xa:[Number(counters[0].xa.toFixed(2)),Number(counters[1].xa.toFixed(2))],
+      keyPasses:[counters[0].keyPasses,counters[1].keyPasses],
+      playerXg:Object.fromEntries(teams.flat().map(p=>[p.id,Number(playerWork.get(p.id).xg.toFixed(3))])),
+      playerXa:Object.fromEntries(teams.flat().map(p=>[p.id,Number(playerWork.get(p.id).xa.toFixed(3))])),
+      playerKeyPasses:Object.fromEntries(teams.flat().map(p=>[p.id,playerWork.get(p.id).keyPasses])),
       corners:[counters[0].corners,counters[1].corners],
       fouls:[counters[0].fouls,counters[1].fouls],
       yellow:[counters[0].yellow,counters[1].yellow],
