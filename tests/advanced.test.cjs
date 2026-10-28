@@ -13,6 +13,8 @@ const pageHtml = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8
 const serviceWorker = fs.readFileSync(path.join(__dirname, "..", "service-worker.js"), "utf8");
 const advancedCss = fs.readFileSync(path.join(__dirname, "..", "advanced.css"), "utf8");
 const mainCss = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
+const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const advancedUiSource = fs.readFileSync(path.join(__dirname, "..", "advanced-ui.js"), "utf8");
 assert.ok(pageHtml.includes('src="advanced-player-data.js"'), "the app shell must load the real-player dataset");
 assert.ok(deploymentWorkflow.includes("advanced-player-data.js") && deploymentWorkflow.includes("dist/"),
   "the Pages build must copy the real-player dataset into the deploy artifact");
@@ -23,13 +25,26 @@ assert.ok(advancedCss.includes("env(safe-area-inset-bottom)") && advancedCss.inc
   "advanced manager mobile controls must respect device safe areas and touch target sizing");
 assert.ok(mainCss.includes("@media (max-width: 420px)") && mainCss.includes("overscroll-behavior-x: contain"),
   "main shell mobile styles must handle narrow screens and horizontal table scrolling");
-assert.ok(serviceWorker.includes('touchline-manager-v5'), "Arabic mobile shell changes require a fresh offline cache version");
+assert.ok(serviceWorker.includes('touchline-manager-v6'), "career startup UI changes require a fresh offline cache version");
 assert.ok(mainCss.includes(".topbar-right {") && mainCss.includes("flex-wrap: nowrap"),
   "main mobile header must keep its controls in a predictable bounded row");
 assert.ok(mainCss.includes(".nav-list {") && mainCss.includes("overflow-x: auto") && mainCss.includes("flex-direction: row"),
   "main mobile navigation must scroll horizontally rather than clip items");
 assert.ok(mainCss.includes("width: 100vw; max-width: 100vw; left: 0; right: 0"),
   "main mobile bottom navigation must cover the full device viewport width");
+assert.ok(appSource.includes("function renderStartScreen(saved)") && appSource.includes('data-action="start-new-career"'),
+  "fresh launches should show a career menu before entering the game");
+assert.ok(appSource.includes('data-action="resume-classic-career"') && appSource.includes('data-action="resume-advanced-career"'),
+  "the career menu should preserve separate resume paths for existing local saves");
+assert.ok(mainCss.includes(".tm-start-screen") && mainCss.includes(".tm-start-new"),
+  "the career menu should have a designed mobile-first welcome screen");
+assert.ok(advancedUiSource.includes("function openNewCareer(skipConfirm)"),
+  "the startup menu must be able to open the advanced new-career wizard even if an old save exists");
+assert.ok(advancedUiSource.includes('name="managerName" required') && advancedUiSource.includes('name="managerNationality"') &&
+  advancedUiSource.includes('name="clubId"') && advancedUiSource.includes("اكتب اسمك هنا"),
+  "new-career setup must collect manager name, nationality and selected club");
+assert.ok(advancedUiSource.includes("اختار النادي اللي هتدربه") && advancedUiSource.includes("جنسية المدير الفني"),
+  "manager profile and club selection should be localized in Arabic");
 assert.ok(worldCup.players.some(p => p.name === "Kylian Mbappé" || p.name === "Kylian Mbappe"), "real national-team players should be bundled");
 assert.ok(worldCup.players.every(p => p.clubName && p.dateOfBirth && p.nationalTeam), "source snapshot should include player club, DOB and national team fields");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Mohamed Salah"), "known seed player should exist");
