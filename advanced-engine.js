@@ -513,7 +513,7 @@
   function ensureTacticalPhases(tactics) {
     const target=tactics&&typeof tactics==="object"&&!Array.isArray(tactics)?tactics:defaultTactics();
     const objectValue=value=>value&&typeof value==="object"&&!Array.isArray(value)?value:{};
-    target.roles=objectValue(target.roles);target.positions=objectValue(target.positions);
+    target.roles=objectValue(target.roles);target.positions=objectValue(target.positions);target.phasePositions=objectValue(target.phasePositions);
     const legacyRoles=Object.assign({},target.roles);
     const defaults={
       inPossession:{formation:String(target.formation||"4-3-3"),mentality:String(target.mentality||"Balanced"),width:String(target.width||"Balanced"),tempo:String(target.tempo||"Normal"),passing:String(target.passing||"Mixed"),style:String(target.style||"Possession"),finalThird:String(target.finalThird||"Work Ball Into Box"),buildUp:"Balanced",roles:Object.assign({},legacyRoles)},

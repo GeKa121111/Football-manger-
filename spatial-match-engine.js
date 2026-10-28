@@ -193,7 +193,7 @@
     const attackBonus=[tacticAttack(phaseSettings[0].inPossession),tacticAttack(phaseSettings[1].inPossession)];
     const press=[pressLevel(phaseSettings[0].outOfPossession),pressLevel(phaseSettings[1].outOfPossession)];
     function phaseForTeam(team){return ownerTeam===team?"inPossession":"outOfPossession";}
-    function roleFor(player,team,phase){const config=phaseSettings[team][phase];return String((config&&config.roles&&config.roles[player.id])||(tactics[team].roles&&tactics[team].roles[player.id])||"");}
+    function roleFor(player,team,phase){const config=phaseSettings[team][phase],roles=config&&config.roles;if(roles&&Object.prototype.hasOwnProperty.call(roles,player.id))return String(roles[player.id]||"");return String((tactics[team].roles&&tactics[team].roles[player.id])||"");}
     function applyPhasePositions(){teams.forEach((line,team)=>{const phase=phaseForTeam(team),config=phaseSettings[team][phase];line.forEach(p=>{
       const slot=phaseMaps[team][phase].get(p.id);if(slot)p.position=slot.slot;p.phase=phase;p.phaseRole=roleFor(p,team,phase);
       p.regrouping=!!(config&&config.transition==="Regroup"&&phase==="outOfPossession");
@@ -256,12 +256,14 @@
         const width=getTacticalValue(attackT,["width"],"Balanced"),line=getTacticalValue(phaseSettings[team].outOfPossession,["line"],"Balanced");
         const trigger=getTacticalValue(phaseSettings[team].outOfPossession,["pressTrigger"],"On poor touch");
         teamPlayers.forEach(p=>{
-          const owns=!flight&&owner&&owner.id===p.id,role=roleFor(p,team,phase);
+          const owns=!flight&&owner&&owner.id===p.id,role=roleFor(p,team,phase),shapeSlot=phaseMaps[team][phase].get(p.id);
+          const phaseY=shapeSlot?shapeSlot.y:p.startY;
+          p.phaseSlot=shapeSlot||null;
           let target;
           if(p.position==="GK")target={x:team===0?1:COLS-2,y:clamp(ball.y,2,6)};
           else if(owns){
             target={x:clamp(p.x+dir,1,COLS-2),y:clamp(p.y+Math.sign(4-p.y),1,7)};
-            if(role==="Winger")target.y=clamp(p.startY<=4?1:7,1,7);
+            if(role==="Winger"||role==="Wing Back")target.y=clamp(phaseY<=4?1:7,1,7);
             if(role==="Inside Forward"||role==="Inverted Wing Back")target.y=clamp(Math.round(p.y+(4-p.y)*0.55),1,7);
           }else if(ownerTeam===team){
             let advance=ATTACKING.has(p.position)?2:DEFENSIVE.has(p.position)?-1:1;
@@ -269,13 +271,14 @@
             if(role==="Poacher"||role==="Shadow Striker")advance=3;
             if(role==="Anchor Man")advance=-1;
             if(role==="Inverted Wing Back")advance=1;
-            let targetY=clamp(Math.round(p.startY*0.55+ball.y*0.45),1,7);
-            if(width==="Wide"&&(ATTACKING.has(p.position)||role==="Wing Back"||role==="Winger"))targetY=clamp(p.startY<=4?Math.min(targetY,2):Math.max(targetY,6),1,7);
+            let targetY=clamp(Math.round(phaseY*0.55+ball.y*0.45),1,7);
+            if(width==="Wide"&&(ATTACKING.has(p.position)||role==="Wing Back"||role==="Winger"))targetY=clamp(phaseY<=4?Math.min(targetY,2):Math.max(targetY,6),1,7);
             if(width==="Narrow")targetY=clamp(Math.round(targetY+(4-targetY)*0.5),1,7);
-            if(role==="Winger"||role==="Wing Back")targetY=clamp(p.startY<=4?1:7,1,7);
+            if(role==="Winger"||role==="Wing Back")targetY=clamp(phaseY<=4?1:7,1,7);
             if(role==="Inside Forward"||role==="Shadow Striker")targetY=clamp(Math.round(targetY+(4-targetY)*0.7),1,7);
             if(role==="Anchor Man"||role==="Deep Lying Playmaker")advance=Math.min(advance,0);
-            target={x:clamp(ball.x+dir*advance,1,COLS-2),y:targetY};
+            const attackX=clamp(ball.x+dir*advance,1,COLS-2);
+            target={x:clamp(Math.round(attackX*0.76+(shapeSlot?shapeSlot.x:attackX)*0.24),1,COLS-2),y:targetY};
           }else{
             const carrier=owner||(flight&&playerAt(flight.passerId));
             const triggerActive=trigger==="Always"
@@ -284,16 +287,16 @@
               ||(trigger!=="Never"&&phaseT.transition==="Counter-press"&&flight&&flight.team===1-team);
             if(triggerActive){
               const retreat=line==="High Line"?1:line==="Low Block"?3:2;
-              target={x:clamp(ball.x-dir*(DEFENSIVE.has(p.position)?retreat:1),1,COLS-2),y:clamp(ball.y+(p.startY-4)*0.35,1,7)};
+              target={x:clamp(ball.x-dir*(DEFENSIVE.has(p.position)?retreat:1),1,COLS-2),y:clamp(ball.y+(phaseY-4)*0.35,1,7)};
               if(role==="Ball Winning Midfielder")target.x=clamp(ball.x-dir,1,COLS-2);
-              if(role==="Anchor Man"||role==="Central Defender")target.y=clamp(Math.round(p.startY*0.65+ball.y*0.35),1,7);
+              if(role==="Anchor Man"||role==="Central Defender")target.y=clamp(Math.round(phaseY*0.65+ball.y*0.35),1,7);
             }else{
               const defensiveSlot=phaseMaps[team].outOfPossession.get(p.id);
               target={x:defensiveSlot?defensiveSlot.x:p.startX,y:defensiveSlot?defensiveSlot.y:p.startY};
               if(line==="Low Block")target.x=clamp(target.x-dir,1,COLS-2);
               if(line==="High Line")target.x=clamp(target.x+dir,1,COLS-2);
             }
-            if(carrier&&distance(p,carrier)>6)target.y=clamp(Math.round(target.y+(p.startY-4)*0.15),1,7);
+            if(carrier&&distance(p,carrier)>6)target.y=clamp(Math.round(target.y+(phaseY-4)*0.15),1,7);
           }
           const moveChance=clamp(0.68+p.fitness/100*0.23-(100-p.fitness)*0.002,0.38,0.9);
           if(rng()<moveChance)moveOne(p,target);
