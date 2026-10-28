@@ -44,7 +44,15 @@ New launches open a mobile-first welcome screen before the dashboard. The menu o
 
 ## Save storage
 
-Careers are stored per browser/device. Use **Settings → Export save JSON** before clearing browser data or moving devices. Import a Touchline save JSON to continue the career. You can also import a JSON database shaped like:
+Advanced Career uses **IndexedDB (database schema v2)** as its primary local store, with the legacy LocalStorage save mirrored as a recovery fallback. Existing v1 IndexedDB saves and LocalStorage saves are read and upgraded on first load; saves remain local to the browser/device, not synced to an online account.
+
+- The active career is saved after gameplay actions. Automatic recovery checkpoints are created on first save, about once per seven in-game days, and after a season archive; manual checkpoints can be created from **Settings → Save checkpoint**.
+- **Settings → Recovery history** lists recoverable checkpoints and stored player-stat season archives. Restoring a checkpoint first writes a checkpoint of the current state.
+- The app retains up to 28 recovery checkpoints per career, while the in-save season archive is capped at 40 seasons. IndexedDB also stores season snapshots separately from the active state.
+- Export JSON from **Settings → Export save JSON** before clearing browser data, switching browsers/devices or troubleshooting storage. IndexedDB is browser-local and can still be removed by clearing site data; it is not a substitute for an exported backup.
+- If IndexedDB is unavailable or blocked, the app falls back to the legacy LocalStorage save and JSON export/import.
+
+Import a Touchline save JSON to continue the career. You can also import a JSON database shaped like:
 
 ```json
 {
@@ -65,6 +73,8 @@ node --check app.js
 node --check advanced-data.js
 node --check advanced-engine.js
 node --check advanced-ui.js
+node --check simulation-worker.js
+node --check career-storage.js
 node tests/smoke.test.cjs
 node tests/advanced.test.cjs
 ```
