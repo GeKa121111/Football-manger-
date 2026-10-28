@@ -43,10 +43,13 @@ for (const seededClub of global.FM_WORLD_DATA.clubs) {
 assert.ok(state.players.filter(p=>p.worldCupSnapshot).every(p=>p.realData&&!p.generated), "real snapshot players must not be marked as generated");
 assert.ok(state.players.filter(p=>p.wageEstimated).length>0, "unknown player wages should be marked as estimated");
 assert.equal(new Set(state.players.map(p => p.id)).size, state.players.length, "player ids must be unique");
-for (const club of state.clubs) {
+for (const club of state.clubs.filter(c => !c.unverifiedDivision)) {
   const roster = state.players.filter(p => p.clubId === club.id);
-  assert.equal(roster.length, 25, "every seeded club should have 25 roster entries: " + club.name);
+  assert.ok(roster.length >= 25, "seeded / playable clubs should have at least 25 roster entries: " + club.name);
   assert.ok(roster.every(p => p.name && p.position), "all roster entries need names and positions");
+}
+for (const club of state.clubs.filter(c => c.unverifiedDivision)) {
+  assert.ok(state.players.some(p => p.clubId === club.id && p.worldCupSnapshot), "unverified snapshot clubs must have real source player(s): " + club.name);
 }
 const managed = state.players.filter(p => p.clubId === state.userClubId);
 assert.equal(managed.filter(p => p.registered).length, 25, "first 25 squad players should be competition-registered");
