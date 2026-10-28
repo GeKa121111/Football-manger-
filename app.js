@@ -608,7 +608,7 @@
   function openPlayerSale(playerId) {
     const player = playerById(playerId);
     if (!player || player.clubId !== state.userClubId) { toast("اللاعب مش ضمن فريقك.", "error"); return; }
-    if (state.!isTransferWindowOpen()) { toast("فترة الانتقالات مغلقة الآن، ومش هتقدر تبيع اللاعب قبل فتحها تاني.", "warning"); return; }
+    if (!isTransferWindowOpen()) { toast("فترة الانتقالات مغلقة الآن، ومش هتقدر تبيع اللاعب قبل فتحها تاني.", "warning"); return; }
     if (userPlayers().length <= 15) { toast("مينفعش تبيع اللاعب ده؛ لازم تحتفظ بـ15 لاعب على الأقل.", "warning"); return; }
     const fee = saleValue(player);
     const buyers = state.clubs.filter(function (club) { return club.id !== state.userClubId && (club.budget || 0) >= fee; })
@@ -627,7 +627,7 @@
       toast("تعذر إتمام البيع؛ تفاصيل العرض غير صحيحة.", "error");
       return;
     }
-    if (state.!isTransferWindowOpen()) { modalRoot.innerHTML = ""; toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
+    if (!isTransferWindowOpen()) { modalRoot.innerHTML = ""; toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
     if (userPlayers().length <= 15) { modalRoot.innerHTML = ""; toast("لازم تحتفظ بـ15 لاعب على الأقل.", "error"); return; }
     if ((buyer.budget || 0) < fee || fee < 1) { modalRoot.innerHTML = ""; toast("النادي المشتري لم يعد قادرًا على دفع العرض.", "error"); return; }
     const sellerName = player.name;
@@ -905,7 +905,7 @@
   function buyPlayer(id) {
     const player = playerById(id);
     if (!player || player.clubId === state.userClubId) { toast("اللاعب لم يعد متاحًا.", "error"); return; }
-    if (state.!isTransferWindowOpen()) { toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
+    if (!isTransferWindowOpen()) { toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
     if (userPlayers().length >= 25) { toast("قائمة الفريق وصلت إلى 25 لاعبًا. بع لاعبًا أولًا.", "warning"); return; }
     const fee = transferFee(player);
     if (state.balance < fee) { toast("ميزانية النادي لا تكفي الصفقة.", "error"); return; }
@@ -918,7 +918,7 @@
     const player = playerById(id);
     if (!player || player.clubId === state.userClubId) { modalRoot.innerHTML = ""; toast("الصفقة لم تعد متاحة.", "error"); return; }
     const fee = transferFee(player);
-    if (state.!isTransferWindowOpen() || userPlayers().length >= 25 || state.balance < fee) {
+    if (!isTransferWindowOpen() || userPlayers().length >= 25 || state.balance < fee) {
       modalRoot.innerHTML = ""; toast("شروط الصفقة لم تعد متاحة.", "error"); return;
     }
     const from = clubById(player.clubId);
