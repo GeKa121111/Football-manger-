@@ -28,11 +28,15 @@ jobs:
       - name: Validate JavaScript
         run: |
           node --check app.js
+          node --check advanced-data.js
+          node --check advanced-engine.js
+          node --check advanced-ui.js
           node tests/smoke.test.cjs
+          node tests/advanced.test.cjs
       - name: Prepare static site
         run: |
           mkdir -p dist
-          cp index.html app.js styles.css manifest.webmanifest icon.svg service-worker.js dist/
+          cp index.html app.js styles.css advanced.css advanced-data.js advanced-engine.js advanced-ui.js manifest.webmanifest icon.svg service-worker.js dist/
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
