@@ -2,6 +2,7 @@
   "use strict";
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   const finiteNumber = (value, fallback = 0) => {
+    if (value == null || (typeof value === "string" && value.trim() === "")) return fallback;
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   };
