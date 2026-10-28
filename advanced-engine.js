@@ -879,18 +879,22 @@
     if(player.clubId&&!windowStatus.open)return {ok:false,code:"WINDOW_CLOSED",message:"The transfer window is closed. The next window opens on "+windowStatus.nextOpen+"."};
     const isFreeAgent=!player.clubId;
     const registeredCount=state.players.filter(p=>p.clubId===state.userClubId&&!p.retired&&p.registered!==false).length;
-    const fee=Math.max(0,Number(offer.fee)||0),wage=Math.max(0,Number(offer.wage)||0),upfront=clamp(Number(offer.upfront||fee),0,fee);
+    const fee=Math.max(0,Number(offer.fee)||0),wage=Math.max(0,Number(offer.wage)||0);
+    const rawUpfront=offer.upfront==null?fee:Number(offer.upfront);
+    const upfront=clamp(Number.isFinite(rawUpfront)?rawUpfront:fee,0,fee);
     const signingBonus=Math.max(0,Number(offer.signingBonus)||0);
-    const months=Number(offer.installmentMonths||0),installments=Math.max(0,fee-upfront);
+    const rawMonths=Number(offer.installmentMonths||0);
+    const months=rawMonths>0?clamp(Math.round(rawMonths),1,48):12;
+    const installments=Math.max(0,fee-upfront);
     if(fee>state.finances.transferBudget)return {ok:false,message:"Transfer budget is too low for the offer."};
     const wageHeadroom=Math.max(0,Number(state.finances.wageBudget)-Number(state.finances.weeklyCosts));
     if(wage>wageHeadroom)return {ok:false,message:"Weekly wage exceeds the remaining payroll headroom of "+Math.round(wageHeadroom)+"."};
     if(upfront+signingBonus>state.finances.balance)return {ok:false,message:"The club cannot afford the upfront fee and signing bonus."};
     if(player.clubId&&fee<player.value*.72&&Math.random()>.12)return {ok:false,counter:Math.round(player.value*1.12),message:"Selling club rejected the fee and requested a higher offer."};
     if(wage<Math.max(500,player.wage*.78)&&Math.random()>.18)return {ok:false,counterWage:Math.round(player.wage*1.1),message:"The player rejected the wage offer."};
-    state.finances.transferBudget-=upfront;
+    state.finances.transferBudget-=fee;
     state.finances.balance-=upfront;
-    if(installments>0)state.transfers.push({id:"installment-"+player.id+"-"+Date.now(),type:"installments",playerId:player.id,remaining:installments,months:months||12,monthsRemaining:months||12,monthly:Math.ceil(installments/(months||12)),due:state.day});
+    if(installments>0)state.transfers.push({id:"installment-"+player.id+"-"+Date.now(),type:"installments",playerId:player.id,remaining:installments,months:months,monthsRemaining:months,monthly:Math.ceil(installments/months),due:state.day});
     if(player.clubId){const old=state.clubs.find(c=>c.id===player.clubId);if(old)old.transferBudget=(old.transferBudget||0)+fee;}
     player.clubId=state.userClubId;player.retired=false;player.registered=registeredCount<25;player.wage=wage;player.wageKnown=true;player.wageEstimated=false;player.contractYears=Number(offer.years||4);player.value=Math.max(player.value,fee);player.morale=clamp(player.morale+7,0,100);player.generated=false;player.appearanceBonus=Math.max(0,Number(offer.appearanceBonus)||0);player.goalBonus=Math.max(0,Number(offer.goalBonus)||0);player.sellOnPercent=clamp(Number(offer.sellOn)||0,0,50);player.releaseClause=Math.max(0,Number(offer.releaseClause)||0);player.signingBonus=signingBonus;state.finances.balance-=signingBonus;
     state.finances.weeklyCosts+=wage;state.inbox.unshift({id:"signed-"+player.id+"-"+Date.now(),title:"Signing complete",text:isFreeAgent?player.name+" signed as a free agent with a weekly wage of "+wage+".":player.name+" signed for "+fee+" with a weekly wage of "+wage+".",kind:"success",read:false,day:state.day});
