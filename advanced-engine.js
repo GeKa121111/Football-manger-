@@ -483,8 +483,9 @@
       if(!Array.isArray(c.squad))return;
       c.squad.filter(p=>p&&p.name).forEach(p=>nestedSquadRows.push(Object.assign({},p,{clubId:String(c.id||c.name),teamId:String(c.id||c.name),club:c.name})));
     });
-    const seenNested=new Set(playersIn.map(p=>String(p.id||p.name)+"|"+String(p.clubId||p.teamId||p.club||"")));
-    nestedSquadRows.forEach(p=>{const key=String(p.id||p.name)+"|"+String(p.clubId||p.teamId||p.club||"");if(!seenNested.has(key)){playersIn.push(p);seenNested.add(key);}});
+    const playerIdentity=p=>String(p.name||"").trim().toLowerCase()+"|"+String(p.clubId||p.teamId||p.club||p.team||"");
+    const seenNested=new Set(playersIn.map(playerIdentity));
+    nestedSquadRows.forEach(p=>{const key=playerIdentity(p);if(!seenNested.has(key)){playersIn.push(p);seenNested.add(key);}});
     const byName=new Map(state.clubs.map(c=>[normalizeClubName(c.name),c]));
     const idMap=new Map();
     clubsIn.forEach(c=>{
