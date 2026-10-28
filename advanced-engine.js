@@ -455,36 +455,69 @@
     const current=new Date(),months=(Number(match[1])-current.getFullYear())*12+(Number(match[2])-current.getMonth()-1);
     return clamp(Math.ceil(months/12),0,8);
   }
+  function normalizeClubName(value) {
+    const raw=String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase()
+      .replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim().replace(/\\s+/g," ");
+    const aliases={
+      "fc internazionale milano":"inter","internazionale milano":"inter","inter milan":"inter",
+      "bayern munchen":"bayern munich","fc bayern munchen":"bayern munich",
+      "real betis balompie":"real betis","real betis balompie seville":"real betis",
+      "real sociedad de futbol":"real sociedad","real sociedad de san sebastian":"real sociedad",
+      "athletic bilbao":"athletic club","athletic club bilbao":"athletic club",
+      "atletico de madrid":"atletico madrid","club atletico de madrid":"atletico madrid",
+      "paris saint germain":"paris saint germain","paris saint germain fc":"paris saint germain",
+      "al ahli saudi":"al ahli","al ahli club":"al ahli","al hilal saudi club":"al hilal",
+      "al nassr fc":"al nassr","al ittihad club":"al ittihad",
+      "al ahly sc":"al ahly","al ahly sporting club":"al ahly",
+      "mamelodi sundowns fc":"mamelodi sundowns","raja club athletic":"raja club athletic"
+    };
+    const withoutClubSuffix=raw.split(" ").filter(token=>!["fc","cf","afc","sc","ac","football"].includes(token)).join(" ");
+    return aliases[raw]||aliases[withoutClubSuffix]||withoutClubSuffix;
+  }
   function normalizeImportedWorld(data, state) {
     const clubsIn=data.clubs||data.teams||[];
-    const playersIn=data.players||[];
+    const playersIn=Array.isArray(data.players)?data.players.slice():[];
     if(!Array.isArray(clubsIn)||!Array.isArray(playersIn))throw new Error("JSON must include clubs/teams and players arrays.");
-    const byName=new Map(state.clubs.map(c=>[String(c.name).toLowerCase(),c]));
+    const nestedSquadRows=[];
+    clubsIn.forEach(c=>{
+      if(!Array.isArray(c.squad))return;
+      c.squad.filter(p=>p&&p.name).forEach(p=>nestedSquadRows.push(Object.assign({},p,{clubId:String(c.id||c.name),teamId:String(c.id||c.name),club:c.name})));
+    });
+    const seenNested=new Set(playersIn.map(p=>String(p.id||p.name)+"|"+String(p.clubId||p.teamId||p.club||"")));
+    nestedSquadRows.forEach(p=>{const key=String(p.id||p.name)+"|"+String(p.clubId||p.teamId||p.club||"");if(!seenNested.has(key)){playersIn.push(p);seenNested.add(key);}});
+    const byName=new Map(state.clubs.map(c=>[normalizeClubName(c.name),c]));
     const idMap=new Map();
     clubsIn.forEach(c=>{
       const name=String(c.name||c.shortName||"").trim();
       if(!name)return;
-      let found=byName.get(name.toLowerCase());
+      let found=byName.get(normalizeClubName(name));
+      if(!found && c.shortName)found=byName.get(normalizeClubName(c.shortName));
       if(!found){found=state.clubs.find(x=>x.code===c.code || (c.id&&x.id===String(c.id))); }
       const id=found?found.id:String(c.id||("import-"+name.toLowerCase().replace(/[^a-z0-9]+/g,"-")));
       idMap.set(String(c.id||c.name),id);
       const transformed={id:id,name:name,code:String(c.tla||c.code||name.slice(0,3).toUpperCase()),country:String(c.area?.name||c.country||c.nation||"Unknown"),nation:String(c.area?.name||c.country||c.nation||"Unknown"),league:String(c.competition?.name||c.league||"Imported League"),stadium:String(c.venue||c.stadium||"Unknown stadium"),primary:normalizeKitColor(String(c.primary||c.clubColors||found?.primary||"#233C7A").split("/")[0].trim()),secondary:normalizeKitColor(String(c.secondary||(String(c.clubColors||"").split("/")[1]||found?.secondary||"#F5F5F5")).split("/")[0].trim()),capacity:Number(c.capacity||found?.capacity||0),transferBudget:Number(c.transferBudget??c.budget??found?.transferBudget??0),wageBudget:Number(c.wageBudget??found?.wageBudget??0),strength:found?.strength||65,seeded:false,source:"Imported data"};
-      if(found)Object.assign(found,transformed);else{state.clubs.push(transformed);found=transformed;byName.set(name.toLowerCase(),found);}
+      if(found)Object.assign(found,transformed);else{state.clubs.push(transformed);found=transformed;byName.set(normalizeClubName(name),found);}
     });
     let added=0,updated=0;
+    const importedSquadClubIds=new Set(Array.isArray(state.realSquadClubIds)?state.realSquadClubIds:[]);
     playersIn.forEach(p=>{
       const clubKey=String(p.clubId||p.teamId||p.club||p.team||"");
       const mapped=idMap.get(clubKey);
-      const club= mapped||state.clubs.find(c=>c.id===clubKey||c.name.toLowerCase()===clubKey.toLowerCase());
+      const club= mapped||state.clubs.find(c=>c.id===clubKey||normalizeClubName(c.name)===normalizeClubName(clubKey));
+      if(club)importedSquadClubIds.add(club.id);
       const existing=state.players.find(x=>x.name.toLowerCase()===String(p.name||"").toLowerCase()&&x.clubId===(club&&club.id));
       const src=Object.assign({},p,{clubId:club?club.id:null,realData:true,generated:false,source:data.source||"JSON dataset"});
       const player=normalizePlayer(src,club&&club.id);
       if(existing){Object.assign(existing,player,{id:existing.id,clubId:club?club.id:existing.clubId});updated++;}
       else{state.players.push(player);added++;}
     });
+    state.realSquadClubIds=Array.from(importedSquadClubIds);
+    if(importedSquadClubIds.size){
+      state.players=state.players.filter(p=>!(p.generated&&importedSquadClubIds.has(p.clubId)));
+    }
     state.clubs.forEach(c=>{
       const current=state.players.filter(p=>p.clubId===c.id);
-      if(current.length<25){
+      if(!importedSquadClubIds.has(c.id)&&current.length<25){
         const generated=generateRoster(c,current,"large");
         generated.forEach(p=>{if(!state.players.some(x=>x.id===p.id))state.players.push(p);});
       }
@@ -508,6 +541,35 @@
       return normalizeImportedWorld({source:"football-data.org API ("+competitionCode+" "+seasonYear+")",clubs:teams,players:players},state);
     });
   }
+  async function importFootballDataBatch(competitionCodes, seasonYear, token, state, onProgress) {
+    if(!token)throw new Error("A football-data.org API token is required for this provider.");
+    const codes=Array.from(new Set((Array.isArray(competitionCodes)?competitionCodes:String(competitionCodes||"").split(","))
+      .map(c=>String(c).trim().toUpperCase()).filter(Boolean)));
+    if(!codes.length)throw new Error("Enter one or more competition codes, separated by commas.");
+    const report={requested:codes,successes:[],failures:[],playersAdded:0,playersUpdated:0,clubs:0};
+    for(let i=0;i<codes.length;i++){
+      const code=codes[i];
+      if(typeof onProgress==="function")onProgress({index:i+1,total:codes.length,code:code,stage:"fetching"});
+      try{
+        const result=await importFootballData(code,seasonYear,token,state);
+        const importedCount=(Number(result.playersAdded)||0)+(Number(result.playersUpdated)||0);
+        if(importedCount===0)throw new Error("The provider returned no squad players for this competition or this plan does not include squad data.");
+        report.successes.push({code:code,players:importedCount,clubs:Number(result.clubs)||0});
+        report.playersAdded+=Number(result.playersAdded)||0;report.playersUpdated+=Number(result.playersUpdated)||0;report.clubs+=Number(result.clubs)||0;
+      }catch(error){
+        report.failures.push({code:code,message:String(error&&error.message||error)});
+      }
+      if(i<codes.length-1)await new Promise(resolve=>setTimeout(resolve,6200));
+    }
+    report.generated=state.players.filter(p=>p.generated).length;
+    report.realPlayers=state.players.filter(p=>!p.generated&&p.realData!==false).length;
+    report.realSquads=(state.realSquadClubIds||[]).length;
+    state.world.sourceSeason="football-data.org API · "+report.successes.map(x=>x.code).join(", ")+" · "+seasonYear;
+    state.world.notes=state.world.notes||[];
+    state.world.notes.unshift("Real squad import on "+state.day+": "+report.successes.length+" competition(s) loaded; "+report.playersAdded+" added, "+report.playersUpdated+" updated; "+report.failures.length+" failed.");
+    if(!report.successes.length)throw new Error("No real squads were imported. Check the API token, competition codes and plan. "+report.failures.map(f=>f.code+": "+f.message).join(" | "));
+    return report;
+  }
   function mapPosition(pos) {
     const p=String(pos||"").toLowerCase();
     if(p.includes("goal"))return "GK";if(p.includes("keeper"))return "GK";
@@ -518,7 +580,7 @@
     if(p.includes("offence")||p.includes("forward")||p.includes("attacker"))return "ST";
     return "CM";
   }
-  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil};
+  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
   root.FM_ENGINE=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
