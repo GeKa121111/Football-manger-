@@ -80,6 +80,7 @@
       }catch(err){console.warn("Bundled real-player migration skipped:",err);}
     }
     render();
+    if(!state.fplImportedAt)runFPLImport(true);
   }
   function close() {
     stopMatch();const root=$("#advanced-root");if(root)root.classList.remove("is-open");
@@ -122,7 +123,7 @@
         if(setup.mode==="myclub") setup.clubId=createMyClub(setup);
         state=E.newCareer(Object.assign({},setup,{nations:selectedNations}));
         if(setup.mode==="myclub"){state.manager.clubId=setup.clubId;}
-        save();view="overview";root.classList.add("is-open");render();toast("Career created. Your world is ready.","success");
+        save();view="overview";root.classList.add("is-open");render();toast("Career created. Loading current Premier League squads in the background…","success");runFPLImport(true);
       }catch(err){toast(err.message||"Unable to create career.","warning");}
     });
     $("#fm-import-file",root).addEventListener("change",handleImportFile);
@@ -549,7 +550,8 @@
       toast(report.alreadyImported?"The bundled real-player snapshot is already applied.":"Added "+report.playersAdded+" player profiles, refreshed "+report.playersUpdated+" and reconciled "+report.playersMoved+" club affiliations.","success");
     }catch(err){toast("Could not update this career: "+err.message,"warning");}
   }
-  async function runFPLImport() {
+  async function runFPLImport(automatic) {
+    if(!state||!E.importFantasyPremierLeague)return;
     const btn=$('[data-action="import-fpl"]'),single=$('[data-action="import-api"]'),batch=$('[data-action="import-api-batch"]');
     if(btn){btn.disabled=true;btn.textContent="Loading current PL players…";}
     if(single)single.disabled=true;if(batch)batch.disabled=true;
@@ -558,10 +560,13 @@
         if(btn&&progress?.message)btn.textContent=progress.message;
       });
       state.generatedCount=state.players.filter(p=>p.generated).length;
-      save();view="settings";render();
+      state.fplImportedAt=new Date().toISOString();
+      save();
+      if(!automatic){view="settings";}
+      render();
       toast("Imported "+result.sourcePlayers+" current Premier League players across "+result.sourceClubs+" clubs. Market values and wages remain estimates unless sourced.", "success");
     }catch(err){
-      toast("Premier League import failed: "+err.message,"warning");
+      toast("Could not fetch current Premier League data: "+err.message+". You can retry in Settings or import a JSON/API squad file.","warning");
       if(btn){btn.disabled=false;btn.textContent="Import current Premier League players (free)";}
       if(single)single.disabled=false;if(batch)batch.disabled=false;
     }
