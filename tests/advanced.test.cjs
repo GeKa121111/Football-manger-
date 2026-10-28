@@ -5,6 +5,7 @@ const path = require("node:path");
 const data = require("../advanced-data.js");
 const worldCup = require("../advanced-player-data.js");
 const engine = require("../advanced-engine.js");
+const careerStorage = require("../career-storage.js");
 
 assert.equal(global.FM_WORLD_DATA.clubs.length, 222, "expanded database should include 222 club seeds across 27 football markets");
 assert.equal(worldCup.playerCount, 1248, "registered 2026 World Cup snapshot should contain 1248 players");
@@ -18,8 +19,11 @@ const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 const advancedUiSource = fs.readFileSync(path.join(__dirname, "..", "advanced-ui.js"), "utf8");
 const simulationWorkerSource = fs.readFileSync(path.join(__dirname, "..", "simulation-worker.js"), "utf8");
 assert.ok(pageHtml.includes('src="advanced-player-data.js"'), "the app shell must load the real-player dataset");
-assert.ok(deploymentWorkflow.includes("advanced-player-data.js") && deploymentWorkflow.includes("dist/"),
-  "the Pages build must copy the real-player dataset into the deploy artifact");
+assert.ok(pageHtml.includes('src="career-storage.js"'), "the app shell must load the local career storage module");
+assert.ok(pageHtml.indexOf('src="career-storage.js"') < pageHtml.indexOf('src="advanced-ui.js"'),
+  "IndexedDB storage must be available before the advanced UI starts");
+assert.ok(deploymentWorkflow.includes("advanced-player-data.js") && deploymentWorkflow.includes("career-storage.js") && deploymentWorkflow.includes("dist/"),
+  "the Pages build must copy the real-player dataset and career storage module into the deploy artifact");
 assert.ok(serviceWorker.includes('"./advanced-player-data.js"'), "the offline cache must include the real-player dataset");
 assert.ok(advancedCss.includes("@media (max-width: 480px)") && advancedCss.includes("position: fixed; top: auto; bottom: 0"),
   "advanced manager mobile CSS must provide a small-screen breakpoint and persistent bottom navigation");
@@ -27,8 +31,9 @@ assert.ok(advancedCss.includes("env(safe-area-inset-bottom)") && advancedCss.inc
   "advanced manager mobile controls must respect device safe areas and touch target sizing");
 assert.ok(mainCss.includes("@media (max-width: 420px)") && mainCss.includes("overscroll-behavior-x: contain"),
   "main shell mobile styles must handle narrow screens and horizontal table scrolling");
-assert.ok(serviceWorker.includes('touchline-manager-v18'), "Web Worker rollout requires a fresh offline cache version");
+assert.ok(serviceWorker.includes('touchline-manager-v19'), "IndexedDB persistence requires a fresh offline cache version");
 assert.ok(serviceWorker.includes('"./simulation-worker.js"'), "offline cache should include the simulation worker");
+assert.ok(serviceWorker.includes('"./career-storage.js"'), "offline cache should include the career storage module");
 assert.doesNotThrow(() => new Function(simulationWorkerSource), "simulation worker source should be valid JavaScript");
 assert.ok(simulationWorkerSource.includes('scope.importScripts("advanced-data.js", "advanced-player-data.js", "advanced-engine.js")'),
   "the worker should initialize the same data and engine dependencies as the main thread");
@@ -874,4 +879,87 @@ assert.equal(careerSave.state.players.find(player=>player.youthIntakeYear===2027
   intakePlayers[0].hiddenAttributes.professionalism,
   "save exports must preserve hidden attributes");
 console.log("Career calendar youth intake integration tests passed.");
+
+const archiveCareer=engine.newCareer({
+  mode:"career",managerName:"Season Archive Test",primaryNation:"England",
+  nations:["England"],databaseSize:"small",clubId:"liv"
+});
+const archiveSeason=archiveCareer.season;
+const archivePlayer=archiveCareer.players.find(player=>player.clubId===archiveCareer.userClubId);
+if(archivePlayer){
+  archivePlayer.seasonStats={appearances:25,goals:13,assists:5,yellowCards:2,redCards:0,cleanSheets:0,averageRating:7.25,lastMatchRating:8};
+}
+engine.finishSeason(archiveCareer);
+const archivedSeason=archiveCareer.seasonArchives.find(item=>item.season===archiveSeason);
+assert.ok(archivedSeason,"finishing a season should archive the manager's club squad");
+assert.equal(archivedSeason.clubId,"liv");
+assert.ok(archivedSeason.players.length>0);
+if(archivePlayer){
+  const archivedPlayer=archivedSeason.players.find(player=>player.id===archivePlayer.id);
+  assert.equal(archivedPlayer.stats.goals,13);
+  assert.equal(archivedPlayer.stats.appearances,25);
+}
+assert.ok(archiveCareer.seasonArchives.length<=40,"the in-save seasonal archive must remain bounded");
+console.log("Season archive snapshot tests passed.");
+
+
+ 
+// IndexedDB storage helpers, seasonal archives and localStorage migration fallback.
+assert.equal(careerStorage.DB_VERSION, 2, "the new storage schema should upgrade the existing v1 database");
+assert.equal(careerStorage.MAX_SNAPSHOTS, 28, "recovery checkpoint retention should remain bounded");
+assert.equal(careerStorage.validCareer(youthCareer), true);
+assert.equal(careerStorage.parseCareer(JSON.stringify(youthCareer)).userClubId, youthCareer.userClubId);
+assert.equal(careerStorage.parseCareer("{broken json"), null);
+assert.equal(careerStorage.dayDistance("2027-08-01", "2027-08-08"), 7);
+assert.equal(careerStorage.dayDistance("invalid", "2027-08-08"), Infinity);
+
+const storageFixture = {
+  schemaVersion:1,manager:{name:"Storage Test Manager"},userClubId:"storage-club",
+  clubs:[{id:"storage-club",name:"Storage United"}],players:[],fixtures:[],
+  day:"2028-01-03",season:2027,seasonNumber:2
+};
+const storagePayload=JSON.stringify(storageFixture);
+const storageSnapshot=careerStorage.buildSnapshot(storageFixture,storagePayload,false);
+assert.ok(storageSnapshot.id.includes("auto:2028-01-03"));
+assert.equal(storageSnapshot.careerId,undefined,"snapshot metadata should not invent a career ID before identity is assigned");
+storageFixture.careerId="test-career-id";
+const identifiedSnapshot=careerStorage.buildSnapshot(storageFixture,storagePayload,true);
+assert.ok(identifiedSnapshot.id.startsWith("test-career-id:manual:"));
+const seasonRecord=careerStorage.buildSeasonRecord(storageFixture,{
+  season:2027,clubId:"storage-club",clubName:"Storage United",champion:"storage-club",
+  finalPosition:1,players:[{id:"p1",name:"Test Player",stats:{appearances:24,goals:12,assists:4,averageRating:7.1}}]
+});
+assert.equal(seasonRecord.id,"test-career-id:season:2027");
+assert.equal(seasonRecord.playerCount,1);
+assert.equal(seasonRecord.players[0].stats.goals,12);
+
+(async function testLocalStorageFallbackAndMigration(){
+  const values=new Map();
+  const fakeLocalStorage={
+    getItem:key=>values.has(key)?values.get(key):null,
+    setItem:(key,value)=>{values.set(key,String(value));},
+    removeItem:key=>values.delete(key)
+  };
+  const fakeEnvironment={localStorage:fakeLocalStorage,indexedDB:null};
+  const fallbackStorage=careerStorage.createCareerStorage(fakeEnvironment);
+  const legacy=Object.assign({},storageFixture);
+  delete legacy.careerId;
+  fakeLocalStorage.setItem("touchline-advanced-save-v1",JSON.stringify(legacy));
+  const loaded=await fallbackStorage.load();
+  assert.equal(loaded.state.userClubId,"storage-club","legacy fallback should load the existing career");
+  assert.ok(loaded.state.careerId,"legacy saves should receive a persistent career identity");
+  assert.equal(loaded.migrated,false,"the module should not claim IndexedDB migration when IndexedDB is unavailable");
+  const fallbackResult=await fallbackStorage.save(loaded.state,{checkpoint:true,reason:"test"});
+  assert.equal(fallbackResult.storage,"localStorage");
+  assert.equal(fallbackResult.checkpoint,true);
+  const persisted=JSON.parse(fakeLocalStorage.getItem("touchline-advanced-save-v1"));
+  assert.equal(persisted.careerId,loaded.state.careerId);
+  assert.equal(persisted.storageMeta.lastCheckpointDay,"2028-01-03");
+  assert.equal(fallbackStorage.status().indexedDBAvailable,false);
+  console.log("Career storage fallback and migration tests passed.");
+})().catch(error=>{
+  console.error(error);
+  process.exitCode=1;
+});
+
 
