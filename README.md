@@ -23,6 +23,7 @@ Open `index.html` through a static web server or publish the repository with Git
 - Matchday selection checks all fixtures scheduled for the date, so an AI-only fixture cannot hide the managed club's match.
 - Regression tests assert the real-player dataset is loaded by the app shell, included in the GitHub Pages build artifact and precached for offline play.
 - Mobile UI uses a fixed horizontally scrollable bottom navigation in Advanced Career, safe-area padding, larger touch targets, readable form controls, compact match and squad layouts, horizontal table scrolling, and a refreshed offline cache.
+- Arabic main shell mobile fixes wrap the brand and actions into separate compact rows, constrain the original header and content to viewport width, and make the seven-item bottom navigation scroll safely instead of clipping the last item.
 - Transfer installments respect a genuine zero upfront payment, validate the term (1–48 months) and reserve the entire agreed fee from the transfer budget to prevent overspending.
 - Training attribute gains now feed into the position-weighted overall rating for developing players, with potential acting as the growth ceiling; training progression is regression-tested.
 - Season rollover development and ageing adjust position-relevant attributes and recalculate overall, replacing disconnected random overall increases with attribute-linked progression.
