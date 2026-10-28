@@ -332,3 +332,21 @@ assert.equal(seasonStatsPlayer.seasonHistory[0].season, 2026, "completed season 
 assert.equal(seasonStatsPlayer.seasonHistory[0].stats.goals, 9, "season history should keep the completed season's goals");
 assert.equal(seasonStatsPlayer.seasonHistory[0].stats.assists, 6, "season history should keep the completed season's assists");
 console.log("Season stats history tests passed.");
+
+
+const contractExpiryState = engine.newCareer({
+  mode: "career", managerName: "Contract Expiry Test", primaryNation: "England",
+  nations: ["England"], databaseSize: "small", clubId: "liv"
+});
+const expiringPlayer = contractExpiryState.players.find(p => p.clubId === contractExpiryState.userClubId && !p.generated);
+expiringPlayer.age = 25;
+expiringPlayer.contractYears = 1;
+expiringPlayer.retired = false;
+const expiringPlayerName = expiringPlayer.name;
+engine.finishSeason(contractExpiryState);
+assert.equal(expiringPlayer.clubId, null, "unrenewed user-club contract should move the player to free agency");
+assert.equal(expiringPlayer.retired, false, "an expired contract should not be mislabeled as retirement");
+assert.ok(contractExpiryState.inbox.some(m => m.title === "Contract expired" && m.text.includes(expiringPlayerName)),
+  "manager should receive an inbox notice when a contract expires");
+assert.ok(contractExpiryState.players.filter(p => p.clubId === contractExpiryState.userClubId && !p.retired).length >= 25,
+  "club should replenish squad depth after contract expiry");
