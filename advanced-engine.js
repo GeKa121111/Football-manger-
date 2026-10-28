@@ -575,8 +575,8 @@
   }
   function simulateMatch(homeClub,awayClub,allPlayers,homeT,awayT) {
     homeT=homeT||defaultTactics();awayT=awayT||defaultTactics();
-    const hp=allPlayers.filter(p=>p.clubId===homeClub.id&&p.injuredWeeks===0);
-    const ap=allPlayers.filter(p=>p.clubId===awayClub.id&&p.injuredWeeks===0);
+    const hp=allPlayers.filter(p=>p.clubId===homeClub.id&&Number(p.injuredWeeks||0)===0&&Number(p.suspendedMatches||0)===0);
+    const ap=allPlayers.filter(p=>p.clubId===awayClub.id&&Number(p.injuredWeeks||0)===0&&Number(p.suspendedMatches||0)===0);
     const getXI=(list,t)=>{
       const plan=FORMATIONS[t.formation]||FORMATIONS["4-2-3-1"],used=new Set(),manual=Array.isArray(t.startingXI)?t.startingXI:[];
       const byId=new Map(list.map(p=>[p.id,p]));
