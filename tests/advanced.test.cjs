@@ -58,7 +58,7 @@ const workerScope = {
   addEventListener: function (name, handler) { if (name === "message") workerMessageHandler = handler; }
 };
 vm.runInNewContext(simulationWorkerSource, { self: workerScope }, { filename: "simulation-worker.js" });
-assert.deepEqual(importedWorkerScripts, ["advanced-data.js", "advanced-player-data.js", "advanced-engine.js"],
+assert.deepEqual(importedWorkerScripts, ["advanced-data.js", "advanced-player-data.js", "spatial-match-engine.js", "advanced-engine.js"],
   "worker should import exactly the data and simulation engine dependencies");
 assert.equal(workerMessages[0].type, "ready", "worker should announce readiness after initializing its engine");
 assert.equal(typeof workerMessageHandler, "function", "worker should register a message handler");
