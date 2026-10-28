@@ -198,3 +198,42 @@ console.log("Advanced simulation tests passed.");
   process.exitCode = 1;
 });
 
+(async function testLivePremierLeagueImport() {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      events: [{name:"Gameweek 8",is_current:true}],
+      teams: [
+        {id: 91, name:"Arsenal", short_name:"ARS", strength:950},
+        {id: 92, name:"Liverpool", short_name:"LIV", strength:930}
+      ],
+      elements: [
+        {id:9101,first_name:"Test",second_name:"PL Forward",web_name:"Test Forward",team:91,element_type:4,birth_date:"2001-03-10",squad_number:19,now_cost:78,minutes:640,goals_scored:6,assists:2,clean_sheets:0,bonus:8,ict_index:"110.2",form:"6.4",status:"a"},
+        {id:9201,first_name:"Test",second_name:"PL Midfielder",web_name:"Test Midfielder",team:92,element_type:3,birth_date:"1999-07-14",squad_number:8,now_cost:69,minutes:570,goals_scored:2,assists:5,clean_sheets:3,bonus:6,ict_index:"85.5",form:"5.3",status:"a"}
+      ]
+    })
+  });
+  try {
+    const report = await engine.importFantasyPremierLeague(importState);
+    assert.equal(report.sourcePlayers, 2, "FPL importer should load all returned real player records");
+    assert.equal(report.sourceClubs, 2, "FPL importer should load current club list");
+    const forward = importState.players.find(p => p.name === "Test PL Forward");
+    assert.ok(forward && forward.clubId === "ars", "current Premier League players should map to the correct existing club");
+    assert.equal(forward.worldCupSnapshot, false, "non-international current player should not be mislabelled as World Cup data");
+    assert.equal(forward.fantasyPrice, 7.8, "Fantasy Premier League price must be stored separately from market value");
+    assert.equal(forward.value, 0, "fantasy game price must not be misrepresented as player market value");
+    assert.equal(forward.valueEstimated, true, "missing market value should be marked estimated/unavailable");
+    assert.equal(forward.wageEstimated, true, "missing wages should be clearly marked estimated");
+    assert.equal(importState.players.filter(p => p.clubId === "ars" && p.generated).length, 0, "real club import should remove generated players for imported clubs");
+    assert.ok(importState.realSquadClubIds.includes("ars"), "current team should be marked as a real-squad import");
+    assert.ok(importState.world.calendar["Premier League"].length > 0, "Premier League calendar should be rebuilt for imported teams");
+    console.log("Live Premier League importer tests passed.");
+  } finally {
+    global.fetch = originalFetch;
+  }
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
