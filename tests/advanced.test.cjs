@@ -33,7 +33,9 @@ assert.ok(managed.some(p => p.generated), "missing roster slots should be marked
 assert.ok(state.fixtures.length === 30, "six-club seeded English league gets 30 home/away fixtures");
 assert.equal(Math.max(...state.fixtures.map(f => f.round)), 10, "six-club double round robin has 10 rounds");
 assert.equal(state.fixtures[0].date, "2026-07-08", "the opening matchweek should start after career setup day");
-assert.equal(state.continental.teams.length, 36, "continental entrants should be limited to the five European seed nations");\nassert.ok(state.continental.teams.every(id => ["England","Spain","Italy","Germany","France"].includes(state.clubs.find(c=>c.id===id)?.country)), "UEFA-style entrants must not include Egypt or Saudi Arabia");\nassert.equal(state.continental.fixtures.length, 144, "36 European entrants with eight fixtures each means 144 matches");
+assert.equal(state.continental.teams.length, 36, "continental entrants should be limited to the five European seed nations");
+assert.ok(state.continental.teams.every(id => ["England","Spain","Italy","Germany","France"].includes(state.clubs.find(c=>c.id===id)?.country)), "UEFA-style entrants must not include Egypt or Saudi Arabia");
+assert.equal(state.continental.fixtures.length, 144, "36 European entrants with eight fixtures each means 144 matches");
 assert.ok(state.domesticCup && state.domesticCup.fixtures.length >= 2, "career needs a domestic cup framework");
 
 const xi = engine.selectedXI(state, state.userClubId);
