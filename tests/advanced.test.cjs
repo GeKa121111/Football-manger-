@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const vm = require("node:vm");
 const fs = require("node:fs");
 const path = require("node:path");
 const data = require("../advanced-data.js");
@@ -41,6 +42,40 @@ assert.ok(advancedUiSource.includes("function executeSimulationTask(taskName, ex
 assert.ok(advancedUiSource.includes('runBackgroundSimulation("simulate-domestic-cup-round"') &&
   advancedUiSource.includes('runBackgroundSimulation("simulate-continental-round"'),
   "cup and continental rounds should run through the worker bridge");
+
+const workerMessages = [];
+let workerMessageHandler = null;
+const importedWorkerScripts = [];
+const workerScope = {
+  FM_ENGINE: engine,
+  importScripts: function () { importedWorkerScripts.push(...Array.from(arguments)); },
+  postMessage: function (message) { workerMessages.push(message); },
+  addEventListener: function (name, handler) { if (name === "message") workerMessageHandler = handler; }
+};
+vm.runInNewContext(simulationWorkerSource, { self: workerScope }, { filename: "simulation-worker.js" });
+assert.deepEqual(importedWorkerScripts, ["advanced-data.js", "advanced-player-data.js", "advanced-engine.js"],
+  "worker should import exactly the data and simulation engine dependencies");
+assert.equal(workerMessages[0].type, "ready", "worker should announce readiness after initializing its engine");
+assert.equal(typeof workerMessageHandler, "function", "worker should register a message handler");
+const workerCareer = engine.newCareer({
+  mode:"career",managerName:"Worker integration test",primaryNation:"England",
+  nations:["England"],databaseSize:"small",clubId:"liv"
+});
+const workerRound = workerCareer.fixtures.find(f => !f.played).round;
+workerMessageHandler({ data:{id:"worker-round-test",task:"simulate-round",state:workerCareer,round:workerRound} });
+const workerResponse = workerMessages.find(message => message.type === "task-result" && message.id === "worker-round-test");
+assert.ok(workerResponse && workerResponse.ok, "worker should return successful league-round results");
+assert.ok(workerResponse.result && Array.isArray(workerResponse.result),
+  "league-round result should include recalculated standings");
+assert.ok(workerResponse.state.fixtures.filter(f => f.round === workerRound).every(f => f.played),
+  "worker should return the updated played fixtures in its career snapshot");
+const invalidWorkerMessageCount = workerMessages.length;
+workerMessageHandler({ data:{id:"worker-invalid-test",task:"not-a-task",state:workerCareer} });
+const invalidWorkerResponse = workerMessages.slice(invalidWorkerMessageCount)
+  .find(message => message.type === "task-result" && message.id === "worker-invalid-test");
+assert.ok(invalidWorkerResponse && !invalidWorkerResponse.ok && /Unsupported simulation task/.test(invalidWorkerResponse.error),
+  "worker should report an explicit error for unknown tasks");
+
 assert.ok(mainCss.includes(".topbar-right {") && mainCss.includes("flex-wrap: nowrap"),
   "main mobile header must keep its controls in a predictable bounded row");
 assert.ok(mainCss.includes(".nav-list {") && mainCss.includes("overflow-x: auto") && mainCss.includes("flex-direction: row"),
