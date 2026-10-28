@@ -36,10 +36,29 @@ function createElement() {
 function boot(storage, autoLaunch = true) {
   const documentListeners = {};
   const elements = new Map();
+  const body = createElement();
+  function findById(node, id) {
+    if (!node) return null;
+    if (node.id === id) return node;
+    for (const child of node.children || []) {
+      const match = findById(child, id);
+      if (match) return match;
+    }
+    return null;
+  }
   const document = {
+    body,
     getElementById(id) {
-      if (!elements.has(id)) elements.set(id, createElement());
-      return elements.get(id);
+      if (elements.has(id)) return elements.get(id);
+      const attached = findById(body, id);
+      if (attached) {
+        elements.set(id, attached);
+        return attached;
+      }
+      const element = createElement();
+      element.id = id;
+      elements.set(id, element);
+      return element;
     },
     querySelectorAll() { return []; },
     addEventListener(type, callback) {
@@ -91,7 +110,8 @@ function boot(storage, autoLaunch = true) {
       return JSON.parse(storage["touchline-manager-save-v1"]);
     },
     startScreenHtml() {
-      return elements.get("tm-start-screen")?.innerHTML || "";
+      const screen = elements.get("tm-start-screen") || findById(body, "tm-start-screen");
+      return screen?.innerHTML || "";
     }
   };
   if (autoLaunch) {
