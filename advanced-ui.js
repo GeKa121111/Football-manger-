@@ -512,7 +512,7 @@
   function startMatch(fixture) {
     const h=club(fixture.homeId),a=club(fixture.awayId);
     const ht=fixture.homeId===state.userClubId?state.tactics:E.aiTactics(h,state.season),at=fixture.awayId===state.userClubId?state.tactics:E.aiTactics(a,state.season);
-    const result=E.simulateMatch(h,a,state.players,ht,at);
+    const result=E.simulateMatch(h,a,state.players,ht,at,{seed:String(state.season)+"|"+String(fixture.date||state.day)+"|"+String(fixture.id||fixture.homeId+"-"+fixture.awayId)});
     live={fixture:fixture,minute:0,started:false,paused:true,halfTime:false,halfDone:false,finished:false,speed:Number(state.settings.speed||1),result:result,commentary:[],latest:"Match ready. Confirm your team talk and kick off.",subs:0,windows:0,shouts:[],lineup:E.selectedXI(state,state.userClubId),subbedOut:[],motm:null,seenEvents:new Set()};
     const opposition=fixture.homeId===state.userClubId?a:h;
     const opponentTactics=fixture.homeId===state.userClubId?at:ht;
@@ -535,7 +535,7 @@
     live.lineup=E.selectedXI(state,state.userClubId);
     const homeT=fixture.homeId===state.userClubId?state.tactics:E.aiTactics(home,state.season);
     const awayT=fixture.awayId===state.userClubId?state.tactics:E.aiTactics(away,state.season);
-    const next=E.simulateMatch(home,away,state.players,homeT,awayT);
+    const next=E.simulateMatch(home,away,state.players,homeT,awayT,{seed:String(state.season)+"|"+String(fixture.date||state.day)+"|"+String(fixture.id||fixture.homeId+"-"+fixture.awayId)});
     const futureEvents=(next.events||[]).filter(e=>Number(e.minute||0)>live.minute);
     const events=pastEvents.concat(futureEvents).sort((a,b)=>a.minute-b.minute);
     const stats=next.stats||{};
@@ -650,6 +650,23 @@
     const h=club(live.fixture.homeId),a=club(live.fixture.awayId);
     const homePlayers=live.fixture.homeId===state.userClubId?lineup:opp,awayPlayers=live.fixture.awayId===state.userClubId?lineup:opp;
     const all=homePlayers.concat(awayPlayers);
+    const spatialTrace=live.result&&live.result.spatial&&live.result.spatial.trace;
+    if(Array.isArray(spatialTrace)&&spatialTrace.length){
+      const index=clampCanvas(live.minute/90, H) < 0 ? 0 : Math.min(spatialTrace.length-1,Math.max(0,Math.floor(live.minute/90*(spatialTrace.length-1))));
+      const frame=spatialTrace[index];
+      const rosterById=new Map(state.players.map(p=>[String(p.id),p]));
+      (frame.players||[]).forEach((simPlayer,i)=>{
+        const p=rosterById.get(String(simPlayer.id));if(!p)return;
+        const isHome=simPlayer.team===0;
+        const teamClub=isHome?h:a;
+        const x=W*(.08+simPlayer.x/(spatialTrace.length?13:13)*.84);
+        const y=H*(.07+simPlayer.y/8*.86);
+        drawToken(ctx,x,y,String(p.shirt||simPlayer.shirt||((i%11)+1)),teamClub.primary,p.name,p.id,i,false);
+      });
+      const sx=W*(.08+frame.ball.x/13*.84),sy=H*(.07+frame.ball.y/8*.86);
+      ctx.fillStyle="#f6e84d";ctx.beginPath();ctx.arc(sx,sy,7,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#181818";ctx.lineWidth=2;ctx.stroke();
+      return;
+    }
     all.forEach((p,i)=>{
       const isHome=p.clubId===live.fixture.homeId;
       const posIndex=i%(isHome?homePlayers.length:Math.max(1,awayPlayers.length));

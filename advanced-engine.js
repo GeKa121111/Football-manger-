@@ -550,7 +550,7 @@
     const winners=[];
     games.forEach(f=>{
       const h=state.clubs.find(c=>c.id===f.homeId),a=state.clubs.find(c=>c.id===f.awayId);
-      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:aiTactics(h,state.season),f.awayId===state.userClubId?state.tactics:aiTactics(a,state.season));
+      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:aiTactics(h,state.season),f.awayId===state.userClubId?state.tactics:aiTactics(a,state.season),{seed:String(state.season)+"|"+String(state.day)+"|"+String(f.id||f.homeId+"-"+f.awayId)});
       f.played=true;f.homeGoals=result.homeGoals;f.awayGoals=result.awayGoals;f.stats=result.stats;f.events=result.events;
       let winnerId=f.homeGoals===f.awayGoals?(Math.random()<.5?f.homeId:f.awayId):(f.homeGoals>f.awayGoals?f.homeId:f.awayId);
       f.winnerId=winnerId;winners.push(winnerId);
@@ -581,7 +581,7 @@
     let count=0;
     c.fixtures.filter(f=>!f.played&&f.round===next).forEach(f=>{
       const h=state.clubs.find(x=>x.id===f.homeId),a=state.clubs.find(x=>x.id===f.awayId);if(!h||!a)return;
-      const r=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:aiTactics(h,state.season),f.awayId===state.userClubId?state.tactics:aiTactics(a,state.season));
+      const r=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:aiTactics(h,state.season),f.awayId===state.userClubId?state.tactics:aiTactics(a,state.season),{seed:String(state.season)+"|"+String(state.day)+"|"+String(f.id||f.homeId+"-"+f.awayId)});
       f.played=true;f.homeGoals=r.homeGoals;f.awayGoals=r.awayGoals;f.stats=r.stats;f.events=r.events;count++;
       if(f.homeId===state.userClubId||f.awayId===state.userClubId)applyResult(state,f,r);
     });
@@ -708,8 +708,15 @@
     do{k++;p*=Math.random();}while(p>L&&k<12);
     return k-1;
   }
-  function simulateMatch(homeClub,awayClub,allPlayers,homeT,awayT) {
+  function simulateMatch(homeClub,awayClub,allPlayers,homeT,awayT,matchContext) {
     homeT=homeT||defaultTactics();awayT=awayT||defaultTactics();
+    const spatialEngine=root.FM_SPATIAL_MATCH_ENGINE;
+    if(spatialEngine&&typeof spatialEngine.simulateMatch==="function"){
+      try{
+        const spatialResult=spatialEngine.simulateMatch(homeClub,awayClub,allPlayers,homeT,awayT,matchContext||{});
+        if(spatialResult&&spatialResult.engine==="spatial-tick-v1")return spatialResult;
+      }catch(error){if(root.console&&typeof root.console.warn==="function")root.console.warn("Spatial match simulation failed; using the legacy simulator.",error);}
+    }
     const hp=allPlayers.filter(p=>p.clubId===homeClub.id&&!p.retired&&Number(p.injuredWeeks||0)===0&&Number(p.suspendedMatches||0)===0);
     const ap=allPlayers.filter(p=>p.clubId===awayClub.id&&!p.retired&&Number(p.injuredWeeks||0)===0&&Number(p.suspendedMatches||0)===0);
     const getXI=(list,t)=>{
