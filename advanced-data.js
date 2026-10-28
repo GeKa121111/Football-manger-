@@ -330,6 +330,142 @@
     };
   });
   root.FM_WORLD_DATA = { dataSeason:"Expanded club seed for 2026 — divisions and player squads require season verification", clubs:clubs, players:stars, nations:["England","Spain","Italy","Germany","France","Egypt","Saudi Arabia","Portugal","Netherlands","Belgium","Turkey","Greece","Austria","Switzerland","Denmark","Norway","Sweden","Brazil","Argentina","United States","Mexico","Japan","South Korea","Australia","Morocco","South Africa","United Arab Emirates"], databaseNotes:["The built-in list is expanded to 222 club seeds across multiple league divisions but is not a complete licensed/current database.","Most clubs do not have a full real player squad embedded; their missing slots are generated. Imported player values and wages are source-dependent.","Generated academy slots are explicitly marked and should not be mistaken for real-world players."] };
+
+  // Deterministic two-stage youth intake generator. The intake year is the
+  // calendar year when the youth players are announced; previews run the prior December.
+  function createYouthSystem(world){
+    const nationRatings=Object.assign({},world.nationYouthRatings||NATION_YOUTH_RATINGS);
+    function resolveClub(clubOrId){
+      if(clubOrId&&typeof clubOrId==="object"&&clubOrId.id)return clubOrId;
+      const key=String(clubOrId||"");
+      const found=(world.clubs||[]).find(function(c){return c.id===key||c.name.toLowerCase()===key.toLowerCase();});
+      if(!found)throw new Error("Unknown club for youth intake: "+key);
+      return found;
+    }
+    function ratingsFor(club,options){
+      const opts=options||{};
+      const country=String(opts.country||club.country||club.nation||"England");
+      const strength=Number(club.strength)||58;
+      const reputation=youthClamp(club.reputation==null?strength*0.85:club.reputation,1,100);
+      const defaultRecruitment=youthRating(club.youthRecruitment,youthClamp(3+(strength-45)*0.28+(Number(club.tier)===1?5:0),1,20));
+      const defaultCoaching=youthRating(club.juniorCoaching,youthClamp(3+(strength-45)*0.24+(Number(club.tier)===1?5:0),1,20));
+      const defaultFacilities=youthRating(club.youthFacilities,youthClamp(3+(strength-45)*0.23+(Number(club.tier)===1?4:0),1,20));
+      return {
+        country:country,nationYouthRating:youthRating(opts.nationYouthRating,nationRatings[country]||10),
+        youthRecruitment:youthRating(opts.youthRecruitment,defaultRecruitment),
+        juniorCoaching:youthRating(opts.juniorCoaching,defaultCoaching),
+        youthFacilities:youthRating(opts.youthFacilities,defaultFacilities),
+        reputation:reputation,strength:youthClamp(strength,1,100)
+      };
+    }
+    function makeBlueprint(club,year,index,ratings){
+      const id="newgen-"+club.id+"-"+year+"-"+String(index).padStart(2,"0");
+      const seed=club.id+"|"+year+"|"+index;
+      const names=youthRandom(seed+"|name");
+      const age=youthInteger(youthRandom(seed+"|age"),15,17);
+      const positionChoices=["GK","CB","CB","RB","LB","DM","CM","CM","AM","RW","LW","ST"];
+      const position=positionChoices[youthInteger(youthRandom(seed+"|position"),0,positionChoices.length-1)];
+      const firstName=YOUTH_FIRST_NAMES[youthInteger(names,0,YOUTH_FIRST_NAMES.length-1)];
+      const lastName=YOUTH_LAST_NAMES[youthInteger(names,0,YOUTH_LAST_NAMES.length-1)];
+      const expectedCaRoll=youthInteger(youthRandom(seed+"|preview-ca"),-7,7);
+      const expectedPaRoll=youthInteger(youthRandom(seed+"|preview-pa"),-18,18);
+      const actualCaRoll=youthInteger(youthRandom(seed+"|actual-ca"),-10,10);
+      const actualPaRoll=youthInteger(youthRandom(seed+"|actual-pa"),-15,15);
+      const caBase=44+ratings.juniorCoaching*1.2+ratings.youthFacilities*0.6+ratings.strength*0.22;
+      const paBase=ratings.nationYouthRating*4.2+ratings.youthRecruitment*1.25+ratings.juniorCoaching*1.05+ratings.youthFacilities*0.9+ratings.reputation*0.25;
+      const expectedCA=youthClamp(caBase+expectedCaRoll,40,120);
+      const expectedPA=youthClamp(Math.max(expectedCA+5,paBase+expectedPaRoll),40,200);
+      const CA=youthClamp(caBase+actualCaRoll,30,125);
+      const PA=youthClamp(Math.max(CA+5,paBase+actualPaRoll),40,200);
+      const month=youthInteger(youthRandom(seed+"|dob-month"),1,12);
+      const day=youthInteger(youthRandom(seed+"|dob-day"),1,28);
+      const birthYear=year-age-(month>3?1:0);
+      return {
+        id:id,intakeIndex:index,name:firstName+" "+lastName,position:position,age:age,
+        expectedCA:expectedCA,expectedPA:expectedPA,CA:CA,PA:Math.max(CA,PA),
+        dateOfBirth:String(birthYear)+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0")
+      };
+    }
+    function qualityLabel(pa){
+      return pa>=175?"Elite":pa>=155?"High Potential":pa>=135?"Promising":pa>=110?"Developmental":"Raw Prospect";
+    }
+    function previewIntake(clubOrId,intakeYear,options){
+      const club=resolveClub(clubOrId);
+      const year=Number(intakeYear);
+      if(!Number.isInteger(year)||year<1900||year>2200)throw new RangeError("intakeYear must be a valid calendar year");
+      const ratings=ratingsFor(club,options);
+      const players=[];
+      for(let i=1;i<=16;i++){
+        const p=makeBlueprint(club,year,i,ratings);
+        players.push({
+          id:p.id,intakeIndex:p.intakeIndex,name:p.name,clubId:club.id,clubName:club.name,
+          nationality:ratings.country,position:p.position,age:p.age,dateOfBirth:p.dateOfBirth,previewOnly:true,
+          expectedCA:p.expectedCA,expectedPA:p.expectedPA,
+          expectedCARange:{min:Math.max(30,p.expectedCA-8),max:Math.min(125,p.expectedCA+8)},
+          expectedPARange:{min:Math.max(p.expectedCA+5,p.expectedPA-15),max:Math.min(200,p.expectedPA+15)},
+          expectedQuality:qualityLabel(p.expectedPA)
+        });
+      }
+      return {
+        type:"youth-intake-preview",clubId:club.id,clubName:club.name,intakeYear:year,
+        previewDate:String(year-1)+"-12-15",targetAnnouncementDate:String(year)+"-03-31",
+        count:players.length,ratings:ratings,players:players
+      };
+    }
+    function announceIntake(preview,options){
+      if(!preview||preview.type!=="youth-intake-preview"||!Array.isArray(preview.players))
+        throw new TypeError("announceIntake expects a youth-intake-preview object");
+      const club=resolveClub(preview.clubId);
+      const year=Number(preview.intakeYear);
+      const ratings=Object.assign({},preview.ratings||ratingsFor(club,options));
+      const players=preview.players.map(function(prospect){
+        const seed=String(club.id)+"|"+year+"|"+Number(prospect.intakeIndex);
+        const caRoll=youthInteger(youthRandom(seed+"|actual-ca"),-10,10);
+        const paRoll=youthInteger(youthRandom(seed+"|actual-pa"),-15,15);
+        const caBase=44+Number(ratings.juniorCoaching)*1.2+Number(ratings.youthFacilities)*0.6+Number(ratings.strength)*0.22;
+        const paBase=Number(ratings.nationYouthRating)*4.2+Number(ratings.youthRecruitment)*1.25+Number(ratings.juniorCoaching)*1.05+Number(ratings.youthFacilities)*0.9+Number(ratings.reputation)*0.25;
+        const CA=youthClamp(caBase+caRoll,30,125);
+        const PA=youthClamp(Math.max(CA+5,paBase+paRoll),CA,200);
+        const overall=youthClamp(CA/2,20,99);
+        const potential=youthClamp(Math.max(overall,PA/2),overall,99);
+        const age=Number(prospect.age)||16;
+        const dob=prospect.dateOfBirth;
+        const value=Math.round(Math.max(25000,overall*overall*250));
+        const wage=Math.round(Math.max(250,overall*18));
+        return {
+          id:prospect.id,name:prospect.name,clubId:club.id,position:prospect.position,
+          nationality:prospect.nationality||club.country||"Unknown",country:prospect.nationality||club.country||"Unknown",
+          age:age,dateOfBirth:dob,dob:dob,shirt:0,overall:overall,potential:potential,CA:CA,PA:PA,
+          hiddenAttributes:hiddenAttributeEstimate(prospect.id,age),abilityEstimated:true,
+          value:value,wage:wage,valueEstimated:true,wageKnown:false,wageEstimated:true,
+          contractYears:3,fitness:90,morale:72,form:[6.5,6.7,6.8,6.9,7.0],
+          goals:0,assists:0,appearances:0,injuredWeeks:0,realData:false,generated:true,
+          source:"Procedurally generated youth intake — fictional player",
+          youthIntakeYear:year,youthIntakeClubId:club.id,youthIntakeQuality:qualityLabel(PA)
+        };
+      });
+      return {
+        type:"youth-intake-announcement",clubId:club.id,clubName:club.name,intakeYear:year,
+        announcedOn:String(year)+"-03-31",previewDate:preview.previewDate,
+        count:players.length,players:players
+      };
+    }
+    function setNationYouthRating(country,rating){
+      const key=String(country||"").trim();
+      if(!key)throw new TypeError("country is required");
+      nationRatings[key]=youthRating(rating,10);
+      if(world.nationYouthRatings)world.nationYouthRatings[key]=nationRatings[key];
+      return nationRatings[key];
+    }
+    function getNationYouthRating(country){return nationRatings[String(country||"").trim()]||10;}
+    return {
+      previewIntake:previewIntake,createPreview:previewIntake,
+      announceIntake:announceIntake,announce:announceIntake,
+      getNationYouthRating:getNationYouthRating,setNationYouthRating:setNationYouthRating,
+      getNationRatings:function(){return Object.assign({},nationRatings);}
+    };
+  }
+
   root.FM_WORLD_DATA.nationYouthRatings=Object.assign({},NATION_YOUTH_RATINGS);
   root.FM_WORLD_DATA.youthSystem=createYouthSystem(root.FM_WORLD_DATA);
   root.FM_YOUTH_SYSTEM=root.FM_WORLD_DATA.youthSystem;
