@@ -1,6 +1,10 @@
 (function (root) {
   "use strict";
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  const finiteNumber = (value, fallback = 0) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  };
   const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const pick = (xs) => xs[Math.floor(Math.random() * xs.length)];
   const fmtDate = (iso) => new Date(iso + "T12:00:00Z").toISOString().slice(0, 10);
@@ -41,46 +45,54 @@
     return clamp(Math.round(num/den*5),20,99);
   }
   function normalizePlayer(p, fallbackClub) {
+    p = p && typeof p === "object" && !Array.isArray(p) ? p : {};
     const position = ["GK","RB","CB","LB","DM","CM","AM","RW","LW","ST"].includes(p.position || p.pos) ? (p.position || p.pos) : "CM";
-    const rawOverall = Number(p.overall || p.ovr || 55);
+    const overallInput = finiteNumber(p.overall ?? p.ovr, 55);
+    const rawOverall = overallInput > 0 ? overallInput : 55;
     const sourceName=String(p.source||"");
-    const rawValue=Number(p.value ?? p.marketValue ?? 0);
-    const rawWage=Number(p.wage ?? p.weeklyWage ?? 0);
+    const rawValue=Math.max(0,finiteNumber(p.value ?? p.marketValue,0));
+    const rawWage=Math.max(0,finiteNumber(p.wage ?? p.weeklyWage,0));
     const legacyEstimate=sourceName==="seeded demo snapshot"||!!p.generated;
     const wageKnown=p.wageKnown===true&&rawWage>0&&p.wageEstimated!==true;
     const wage=rawWage>0?rawWage:Math.max(650,Math.round(rawOverall*rawOverall*8));
+    const potentialInput=finiteNumber(p.potential,rawOverall+5);
     const player = {
       id:String(p.id || ("p-"+Math.random().toString(36).slice(2,10))),
       name:String(p.name || "Unnamed import").slice(0,100),
       clubId:p.clubId || fallbackClub || null,
       position:position,nationality:String(p.nationality || p.country || "Unknown"),contractUntil:p.contractUntil||p.contract?.until||null,
-      age:clamp(Number(p.age || 19),15,48),shirt:clamp(Number(p.shirt || p.number || 0),0,99),
-      overall:clamp(rawOverall,20,99),potential:clamp(Number(p.potential || rawOverall+5),20,99),
-      value:Math.max(0,rawValue),wage:Math.max(0,wage),
+      age:clamp(finiteNumber(p.age,19),15,48),shirt:clamp(finiteNumber(p.shirt ?? p.number,0),0,99),
+      overall:clamp(rawOverall,20,99),potential:clamp(potentialInput || rawOverall+5,20,99),
+      value:rawValue,wage:wage,
       valueEstimated:p.valueEstimated===true||legacyEstimate,
       wageKnown:wageKnown,wageEstimated:p.wageEstimated===true||legacyEstimate||!wageKnown,
       ratingsEstimated:p.ratingsEstimated===true||legacyEstimate||!!p.worldCupSnapshot,
-      contractYears:clamp(Number(p.contractYears ?? 2),0,8),fitness:clamp(Number(p.fitness ?? 94),0,100),
-      morale:clamp(Number(p.morale ?? 72),0,100),form:Array.isArray(p.form)?p.form.slice(-5):[6.8,6.9,7.0,7.0,6.9],
-      goals:Number(p.goals||0),assists:Number(p.assists||0),appearances:Number(p.appearances||0),yellowCards:Number(p.yellowCards||0),redCards:Number(p.redCards||0),averageRating:Number(p.averageRating||0),lastMatchRating:Number(p.lastMatchRating||0),cleanSheets:Number(p.cleanSheets||0),injuredWeeks:Number(p.injuredWeeks||0),
+      contractYears:clamp(finiteNumber(p.contractYears,2),0,8),fitness:clamp(finiteNumber(p.fitness,94),0,100),
+      morale:clamp(finiteNumber(p.morale,72),0,100),form:Array.isArray(p.form)?p.form.slice(-5):[6.8,6.9,7.0,7.0,6.9],
+      goals:finiteNumber(p.goals,0),assists:finiteNumber(p.assists,0),appearances:finiteNumber(p.appearances,0),
+      yellowCards:finiteNumber(p.yellowCards,0),redCards:finiteNumber(p.redCards,0),
+      averageRating:finiteNumber(p.averageRating,0),lastMatchRating:finiteNumber(p.lastMatchRating,0),
+      cleanSheets:finiteNumber(p.cleanSheets,0),injuredWeeks:clamp(Math.floor(finiteNumber(p.injuredWeeks,0)),0,52),
       realData:p.realData !== false && !p.generated, source:p.source || (p.generated?"Generated academy slot":"Imported dataset"),
-      generated:!!p.generated, attributes:p.attributes && typeof p.attributes==="object" ? p.attributes : null,
+      generated:!!p.generated, attributes:p.attributes && typeof p.attributes==="object"&&!Array.isArray(p.attributes) ? p.attributes : null,
       role:p.role || null, status:p.status || "Available", registered:p.registered!==false, dob:p.dateOfBirth || p.dob || null,
       dateOfBirth:p.dateOfBirth||p.dob||null,nationalTeam:p.nationalTeam||null,
       sourcePositionGroup:p.sourcePositionGroup||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
       worldCupSnapshot:!!p.worldCupSnapshot,retired:!!p.retired,
-      suspendedMatches:Math.max(0,Math.floor(Number(p.suspendedMatches)||0)),
-      fantasyPrice:p.fantasyPrice==null?null:Number(p.fantasyPrice),fantasyPriceCurrency:p.fantasyPriceCurrency||null,
-      fplStatus:p.fplStatus||null,minutes:Number(p.minutes||0),
+      suspendedMatches:clamp(Math.floor(finiteNumber(p.suspendedMatches,0)),0,52),
+      fantasyPrice:p.fantasyPrice==null?null:finiteNumber(p.fantasyPrice,0),fantasyPriceCurrency:p.fantasyPriceCurrency||null,
+      fplStatus:p.fplStatus||null,minutes:Math.max(0,finiteNumber(p.minutes,0)),
       seasonHistory:Array.isArray(p.seasonHistory)?p.seasonHistory.slice(-20):[]
     };
     player.seasonStats=Object.assign({
       appearances:player.appearances,goals:player.goals,assists:player.assists,yellowCards:player.yellowCards,
       redCards:player.redCards,cleanSheets:player.cleanSheets,averageRating:player.averageRating,lastMatchRating:player.lastMatchRating
-    },p.seasonStats||{});
+    },p.seasonStats&&typeof p.seasonStats==="object"&&!Array.isArray(p.seasonStats)?p.seasonStats:{});
     player.attributes = Object.assign(baseAttributes(player), player.attributes || {});
-    player.overall = playerOverall(player);
+    ATTRS.forEach(key=>{player.attributes[key]=clamp(finiteNumber(player.attributes[key],baseAttributes(player)[key]),1,20);});
     if (player.position !== "GK") player.attributes.goalkeeping = 1;
+    player.overall = playerOverall(player);
+    player.potential = Math.max(player.overall,player.potential);
     return player;
   }
   function clubStrength(players) {
