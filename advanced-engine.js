@@ -122,36 +122,143 @@
     schedule.forEach((f,i)=>{f.id="ucl-"+f.round+"-"+i;f.competition="ucl";f.date=null;});
     return {name:"Continental league phase",note:"36 teams, 8 different opponents per club, knockout places for top finishers.",teams:entrants.map(c=>c.id),fixtures:schedule};
   }
+  function normalizePersonName(value) {
+    return String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim().replace(/\\s+/g," ");
+  }
+  function stableHash(value) {
+    const s=String(value||"");let h=2166136261;
+    for(let i=0;i<s.length;i++)h=Math.imul(h^s.charCodeAt(i),16777619);
+    return h>>>0;
+  }
+  function ageAtDate(dob, isoDate) {
+    if(!dob)return 24;
+    const b=new Date(String(dob).slice(0,10)+"T12:00:00Z"),d=new Date(String(isoDate||"2026-07-01")+"T12:00:00Z");
+    if(Number.isNaN(b.getTime()))return 24;
+    let age=d.getUTCFullYear()-b.getUTCFullYear();
+    if(d.getUTCMonth()<b.getUTCMonth()||(d.getUTCMonth()===b.getUTCMonth()&&d.getUTCDate()<b.getUTCDate()))age--;
+    return clamp(age,15,48);
+  }
+  function estimateSnapshotPlayer(raw, clubId) {
+    const age=ageAtDate(raw.dateOfBirth||raw.dob,"2026-07-01");
+    const base=raw.positionGroup==="GK"?61:raw.positionGroup==="DF"?62:raw.positionGroup==="FW"?64:63;
+    const ageBonus=age<21?7:age<24?6:age<28?5:age<32?2:-4;
+    const overall=clamp(base+(stableHash(raw.id||raw.name)%18)+ageBonus,55,89);
+    const ageValue=age<22?1.55:age<26?1.35:age<30?1:age<33?.65:.32;
+    const value=Math.round(Math.max(150000,Math.pow(Math.max(1,overall-35),2)*18000*ageValue));
+    const wage=Math.round(Math.max(650,value*.0015));
+    const pos=String(raw.positionGroup||raw.pos||"MF").toUpperCase();
+    const mappedPosition=pos==="GK"?"GK":pos==="DF"?"CB":pos==="FW"?"ST":"CM";
+    return {
+      id:String(raw.id),name:raw.name,clubId:clubId,position:mappedPosition,
+      sourcePositionGroup:pos,nationality:raw.nationalTeam||"Unknown",nationalTeam:raw.nationalTeam||null,
+      age:age,dateOfBirth:raw.dateOfBirth||null,shirt:Number(raw.shirt||0),
+      overall:overall,potential:clamp(overall+(age<22?12:age<25?7:age<29?3:0),overall,95),
+      value:value,valueEstimated:true,wage:wage,wageKnown:false,wageEstimated:true,ratingsEstimated:true,
+      contractYears:age<24?4:age<29?3:2,fitness:94,morale:74,goals:0,assists:0,injuredWeeks:0,
+      realData:true,generated:false,worldCupSnapshot:true,source:raw.source||"2026 World Cup registered squad snapshot"
+    };
+  }
   function makeWorld(options) {
     const source=root.FM_WORLD_DATA;
     if(!source) throw new Error("FM_WORLD_DATA missing — load advanced-data.js first");
-    const selectedNations=(options && options.nations && options.nations.length ? options.nations : ["England","Spain","Egypt"]).slice(0,5);
+    const wc=root.FM_WORLD_CUP_DATA||{players:[],source:"none",snapshotDate:null};
+    const selectedNations=(options&&options.nations&&options.nations.length?options.nations:["England","Spain","Egypt"]).slice(0,5);
     const clubs=source.clubs.map(c=>Object.assign({},c));
-    const seedPlayers=source.players.map(p=>Object.assign({},p));
-    clubs.forEach(c=>{c.strength=c.strength || 72; c.wageBudget=c.wageBudget || 1200000;});
+    const codeCountry={ENG:"England",ESP:"Spain",GER:"Germany",ITA:"Italy",FRA:"France",POR:"Portugal",NED:"Netherlands",BEL:"Belgium",TUR:"Turkey",GRE:"Greece",AUT:"Austria",SUI:"Switzerland",DEN:"Denmark",NOR:"Norway",SWE:"Sweden",BRA:"Brazil",ARG:"Argentina",USA:"United States",MEX:"Mexico",JPN:"Japan",KOR:"South Korea",AUS:"Australia",MAR:"Morocco",RSA:"South Africa",UAE:"United Arab Emirates",EGY:"Egypt",KSA:"Saudi Arabia",ALG:"Algeria",ARM:"Armenia",AZE:"Azerbaijan",BIH:"Bosnia and Herzegovina",BUL:"Bulgaria",CAN:"Canada",CHI:"Chile",CHN:"China",COL:"Colombia",CRC:"Costa Rica",CRO:"Croatia",CYP:"Cyprus",CZE:"Czech Republic",ECU:"Ecuador",GHA:"Ghana",HAI:"Haiti",HON:"Honduras",HUN:"Hungary",IDN:"Indonesia",IRL:"Ireland",IRN:"Iran",IRQ:"Iraq",ISR:"Israel",JOR:"Jordan",KAZ:"Kazakhstan",MAS:"Malaysia",NZL:"New Zealand",PAN:"Panama",PAR:"Paraguay",POL:"Poland",QAT:"Qatar",ROU:"Romania",RUS:"Russia",SCO:"Scotland",SRB:"Serbia",SVK:"Slovakia",SVN:"Slovenia",THA:"Thailand",TUN:"Tunisia",URU:"Uruguay",UZB:"Uzbekistan",VEN:"Venezuela",WAL:"Wales"};
+    const clubKey=(name,country)=>String(country||"Unknown")+"|"+normalizeClubName(name);
+    const byClubKey=new Map(),byName=new Map();
+    clubs.forEach(c=>{
+      const key=normalizeClubName(c.name);
+      byName.set(key,c);
+      byClubKey.set(clubKey(c.name,c.country),c);
+    });
+    const playerRecords=source.players.map(p=>Object.assign({},p));
+    const sourceNames=new Set((wc.players||[]).map(p=>normalizePersonName(p.name)));
+    // A national-team squad snapshot is a stronger signal for current club affiliation than the older hand-curated demo seed.
+    for(let i=playerRecords.length-1;i>=0;i--)if(sourceNames.has(normalizePersonName(playerRecords[i].name)))playerRecords.splice(i,1);
+    const snapshotPlayers=[];
+    (wc.players||[]).forEach(raw=>{
+      if(!raw||!raw.name||!raw.clubName)return;
+      const country=raw.clubCountry||codeCountry[raw.clubCountryCode]||"Unknown";
+      const key=clubKey(raw.clubName,country);
+      let c=byClubKey.get(key);
+      if(!c){
+        const normalized=normalizeClubName(raw.clubName);
+        const maybe=byName.get(normalized);
+        if(maybe&&(!country||country==="Unknown"||maybe.country===country))c=maybe;
+      }
+      if(!c){
+        const baseId="wc-club-"+String(normalizeClubName(raw.clubName)).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,58);
+        let id=baseId+"-"+String(raw.clubCountryCode||"xx").toLowerCase();
+        let suffix=2;
+        while(clubs.some(x=>x.id===id)){id=baseId+"-"+String(raw.clubCountryCode||"xx").toLowerCase()+"-"+suffix;suffix++;}
+        c={id:id,name:String(raw.clubName).trim(),code:String(raw.clubName).trim().split(/\\s+/).slice(0,3).map(x=>x[0]||"").join("").toUpperCase().slice(0,3),
+          country:country,nation:country,league:"Unverified division · "+country,stadium:"Not supplied by the player source",
+          primary:"#334155",secondary:"#F8FAFC",capacity:0,transferBudget:0,wageBudget:0,strength:62,tier:0,
+          seeded:false,unverifiedDivision:true,source:"2026 World Cup player club affiliation; division, stadium and kit colours not verified"};
+        clubs.push(c);byClubKey.set(key,c);if(!byName.has(normalizeClubName(c.name)))byName.set(normalizeClubName(c.name),c);
+      }
+      const rawPos=String(raw.positionGroup||"MF").toUpperCase();
+      const age=ageAtDate(raw.dateOfBirth,"2026-07-01");
+      const estimated=estimateSnapshotPlayer(raw,c.id);
+      snapshotPlayers.push(Object.assign(estimated,{sourcePositionGroup:rawPos,age:age,shirt:Number(raw.shirt||0),clubName:raw.clubName,clubCountry:country}));
+    });
+    playerRecords.push(...snapshotPlayers);
+    clubs.forEach(c=>{c.strength=c.strength||62;if(!c.unverifiedDivision)c.wageBudget=c.wageBudget||1200000;});
     const players=[];
     clubs.forEach(c=>{
-      seedPlayers.filter(p=>p.clubId===c.id).forEach(p=>players.push(normalizePlayer(p,c.id)));
+      playerRecords.filter(p=>p.clubId===c.id).forEach(p=>{
+        const normalized=normalizePlayer(p,c.id);
+        Object.assign(normalized,{
+          nationalTeam:p.nationalTeam||null,sourcePositionGroup:p.sourcePositionGroup||null,
+          dateOfBirth:p.dateOfBirth||p.dob||null,clubName:p.clubName||null,clubCountry:p.clubCountry||null,
+          worldCupSnapshot:!!p.worldCupSnapshot,
+          valueEstimated:!!p.valueEstimated||p.source==="seeded demo snapshot"||!!p.generated,
+          wageEstimated:!!p.wageEstimated||p.source==="seeded demo snapshot"||!!p.generated,
+          wageKnown:p.wageKnown===true&&!p.wageEstimated,
+          ratingsEstimated:!!p.ratingsEstimated||p.source==="seeded demo snapshot"||!!p.generated
+        });
+        players.push(normalized);
+      });
     });
+    const selectedSet=new Set(selectedNations);
     clubs.forEach(c=>{
       const real=players.filter(p=>p.clubId===c.id);
-      c.strength=real.length?clubStrength(real):c.strength;
-      const roster=generateRoster(c,players,options&&options.databaseSize);
-      roster.forEach(p=>{ if(!players.some(x=>x.id===p.id)) players.push(p); });
+      if(real.length)c.strength=clubStrength(real);
+      // Seeded clubs remain fully playable. Unverified snapshot-only clubs have real listed internationals but no invented 25-man squads unless selected.
+      if(!c.unverifiedDivision||selectedSet.has(c.country)){
+        const roster=generateRoster(c,players,options&&options.databaseSize);
+        roster.forEach(p=>{
+          if(!players.some(x=>x.id===p.id)){
+            p.valueEstimated=true;p.wageEstimated=true;p.wageKnown=false;p.ratingsEstimated=true;
+            players.push(p);
+          }
+        });
+      }
     });
-    const leagues=[...new Set(clubs.map(c=>c.league))];
+    const leagues=[...new Set(clubs.filter(c=>!c.unverifiedDivision).map(c=>c.league))];
     const calendar={};
     leagues.forEach(l=>{
-      const members=clubs.filter(c=>c.league===l);
-      calendar[l]=setFixtureDates(circleSchedule(members.map(c=>c.id)).map(f=>Object.assign(f,{competition:l})), "2026-07-08");
+      const members=clubs.filter(c=>!c.unverifiedDivision&&c.league===l);
+      calendar[l]=setFixtureDates(circleSchedule(members.map(c=>c.id)).map(f=>Object.assign(f,{competition:l})),"2026-07-08");
     });
-    return {clubs:clubs,players:players,leagues:leagues,calendar:calendar,fixtures:[],createdAt:new Date().toISOString(),sourceSeason:source.dataSeason,notes:source.databaseNotes.slice()};
+    const sourceLabel=(wc.players||[]).length
+      ? source.dataSeason+" · "+(wc.players||[]).length+" registered World Cup players (snapshot "+wc.snapshotDate+")"
+      : source.dataSeason;
+    return {clubs:clubs,players:players,leagues:leagues,calendar:calendar,fixtures:[],createdAt:new Date().toISOString(),sourceSeason:sourceLabel,
+      worldCupSource:wc.source||null,worldCupSnapshotDate:wc.snapshotDate||null,worldCupPlayers:(wc.players||[]).length,
+      realRosterClubCount:Array.from(new Set(snapshotPlayers.map(p=>p.clubId))).length,
+      notes:source.databaseNotes.concat((wc.players||[]).length?[
+        "Includes the 2026 World Cup registered national-team roster snapshot from openfootball/worldcup.json (CC0 1.0 Universal; snapshot date "+wc.snapshotDate+").",
+        "Club affiliations are taken from that roster snapshot. This is not a complete 2026/27 club squad database. Existing main-database clubs are completed with clearly marked generated slots.",
+        "Clubs discovered only through national-team rosters are included with tier, stadium, kit colours and budgets marked as unverified; they do not receive invented league fixtures."
+      ]:[])};
   }
   function defaultTactics() {
     return {formation:"4-2-3-1",mentality:"Balanced",width:"Balanced",tempo:"Normal",passing:"Mixed",finalThird:"Work Ball Into Box",line:"Balanced",pressing:"Balanced",tackling:"Normal",offsideTrap:false,style:"Possession",roles:{},captainId:null,viceCaptainId:null,penaltyId:null,freeKickId:null,cornerId:null};
   }
   function createDomesticCup(nation, clubs, season) {
-    const countryClubs=clubs.filter(c=>c.country===nation).slice().sort((a,b)=>b.strength-a.strength);
+    const countryClubs=clubs.filter(c=>c.country===nation&&!c.unverifiedDivision).slice().sort((a,b)=>b.strength-a.strength);
     const names={"England":"FA Cup","Spain":"Copa del Rey","Italy":"Coppa Italia","Germany":"DFB-Pokal","France":"Coupe de France","Egypt":"Egypt Cup","Saudi Arabia":"King's Cup"};
     const ids=countryClubs.map(c=>c.id);
     const fixtures=[];
@@ -211,7 +318,7 @@
   function newCareer(options) {
     const world=makeWorld(options||{});
     const nation=(options&&options.primaryNation)||((options&&options.nations&&options.nations[0])||"England");
-    const candidates=world.clubs.filter(c=>c.country===nation);
+    const candidates=world.clubs.filter(c=>c.country===nation&&!c.unverifiedDivision);
     const preferred=(options&&options.clubId)||null;
     const chosen=candidates.find(c=>c.id===preferred)||candidates.slice().sort((a,b)=>b.strength-a.strength)[Math.min(candidates.length-1,Math.floor(candidates.length*.55))];
     if(!chosen) throw new Error("No clubs found for selected nation. Import a club database or select another nation.");
