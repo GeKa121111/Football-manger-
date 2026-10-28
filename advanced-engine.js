@@ -51,7 +51,7 @@
       age:clamp(Number(p.age || 19),15,48),shirt:clamp(Number(p.shirt || p.number || 0),0,99),
       overall:clamp(rawOverall,20,99),potential:clamp(Number(p.potential || rawOverall+5),20,99),
       value:Math.max(0,Number(p.value || p.marketValue || 0)),wage:Math.max(0,Number(p.wage || p.weeklyWage || 0)),
-      contractYears:clamp(Number(p.contractYears || 2),0,8),fitness:clamp(Number(p.fitness || 94),0,100),
+      contractYears:clamp(Number(p.contractYears ?? 2),0,8),fitness:clamp(Number(p.fitness || 94),0,100),
       morale:clamp(Number(p.morale || 72),0,100),form:Array.isArray(p.form)?p.form.slice(-5):[6.8,6.9,7.0,7.0,6.9],
       goals:Number(p.goals||0),assists:Number(p.assists||0),injuredWeeks:Number(p.injuredWeeks||0),
       realData:p.realData !== false && !p.generated, source:p.source || (p.generated?"Generated academy slot":"Imported dataset"),
@@ -450,7 +450,7 @@
   }
   function contractYearsFromUntil(until) {
     if(!until)return 2;
-    const match=String(until).match(/^(\\d{4})-(\\d{1,2})/);
+    const match=String(until).match(/^(\d{4})-(\d{1,2})/);
     if(!match)return 2;
     const current=new Date(),months=(Number(match[1])-current.getFullYear())*12+(Number(match[2])-current.getMonth()-1);
     return clamp(Math.ceil(months/12),0,8);
@@ -468,7 +468,7 @@
       if(!found){found=state.clubs.find(x=>x.code===c.code || (c.id&&x.id===String(c.id))); }
       const id=found?found.id:String(c.id||("import-"+name.toLowerCase().replace(/[^a-z0-9]+/g,"-")));
       idMap.set(String(c.id||c.name),id);
-      const transformed={id:id,name:name,code:String(c.tla||c.code||name.slice(0,3).toUpperCase()),country:String(c.area?.name||c.country||c.nation||"Unknown"),nation:String(c.area?.name||c.country||c.nation||"Unknown"),league:String(c.competition?.name||c.league||"Imported League"),stadium:String(c.venue||c.stadium||"Unknown stadium"),primary:normalizeKitColor(String(c.primary||c.clubColors||"#233C7A").split("/")[0].trim()),secondary:normalizeKitColor(String(c.secondary||(String(c.clubColors||"").split("/")[1]||"#F5F5F5")).split("/")[0].trim()),capacity:Number(c.capacity||0),transferBudget:Number(c.transferBudget||c.budget||0),wageBudget:Number(c.wageBudget||0),strength:found?.strength||65,seeded:false,source:"Imported data"};
+      const transformed={id:id,name:name,code:String(c.tla||c.code||name.slice(0,3).toUpperCase()),country:String(c.area?.name||c.country||c.nation||"Unknown"),nation:String(c.area?.name||c.country||c.nation||"Unknown"),league:String(c.competition?.name||c.league||"Imported League"),stadium:String(c.venue||c.stadium||"Unknown stadium"),primary:normalizeKitColor(String(c.primary||c.clubColors||found?.primary||"#233C7A").split("/")[0].trim()),secondary:normalizeKitColor(String(c.secondary||(String(c.clubColors||"").split("/")[1]||found?.secondary||"#F5F5F5")).split("/")[0].trim()),capacity:Number(c.capacity||found?.capacity||0),transferBudget:Number(c.transferBudget??c.budget??found?.transferBudget??0),wageBudget:Number(c.wageBudget??found?.wageBudget??0),strength:found?.strength||65,seeded:false,source:"Imported data"};
       if(found)Object.assign(found,transformed);else{state.clubs.push(transformed);found=transformed;byName.set(name.toLowerCase(),found);}
     });
     let added=0,updated=0;
