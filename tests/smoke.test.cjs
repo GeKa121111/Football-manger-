@@ -233,6 +233,7 @@ assert.ok(game.elements.get("modal-root").innerHTML.includes("الأهداف ا�
 const legacySave = game.savedState();
 const retainedResult = legacySave.fixtures.find((fixture) => fixture.played);
 legacySave.version = 1;
+legacySave.players.forEach((player) => { delete player.goalkeeping; });
 legacySave.fixtures = legacySave.fixtures.filter((fixture) => fixture.round <= 11);
 storage["touchline-manager-save-v1"] = JSON.stringify(legacySave);
 game = boot(storage);
