@@ -47,7 +47,7 @@
       id:String(p.id || ("p-"+Math.random().toString(36).slice(2,10))),
       name:String(p.name || "Unnamed import").slice(0,100),
       clubId:p.clubId || fallbackClub || null,
-      position:position,nationality:String(p.nationality || p.country || "Unknown"),
+      position:position,nationality:String(p.nationality || p.country || "Unknown"),contractUntil:p.contractUntil||p.contract?.until||null,
       age:clamp(Number(p.age || 19),15,48),shirt:clamp(Number(p.shirt || p.number || 0),0,99),
       overall:clamp(rawOverall,20,99),potential:clamp(Number(p.potential || rawOverall+5),20,99),
       value:Math.max(0,Number(p.value || p.marketValue || 0)),wage:Math.max(0,Number(p.wage || p.weeklyWage || 0)),
@@ -442,6 +442,19 @@
     return {ok:true,message:"Budgets adjusted."};
   }
   function exportData(state) { return JSON.stringify({format:"touchline-advanced-save",version:1,exportedAt:new Date().toISOString(),state:state},null,2); }
+  function normalizeKitColor(value) {
+    const raw=String(value||"").trim();
+    if(/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw))return raw;
+    const colors={"red":"#D71920","white":"#FFFFFF","black":"#111111","blue":"#00529F","light blue":"#6CABDD","sky blue":"#6CABDD","navy":"#132257","green":"#008B55","dark green":"#006B45","yellow":"#FDE100","gold":"#D4AF37","orange":"#F56600","purple":"#482E92","maroon":"#8E1F2F","claret":"#7A263A","silver":"#B4B9C8","grey":"#808080","gray":"#808080","pink":"#E84A8A"};
+    return colors[raw.toLowerCase()]||"#233C7A";
+  }
+  function contractYearsFromUntil(until) {
+    if(!until)return 2;
+    const match=String(until).match(/^(\\d{4})-(\\d{1,2})/);
+    if(!match)return 2;
+    const current=new Date(),months=(Number(match[1])-current.getFullYear())*12+(Number(match[2])-current.getMonth()-1);
+    return clamp(Math.ceil(months/12),0,8);
+  }
   function normalizeImportedWorld(data, state) {
     const clubsIn=data.clubs||data.teams||[];
     const playersIn=data.players||[];
@@ -455,7 +468,7 @@
       if(!found){found=state.clubs.find(x=>x.code===c.code || (c.id&&x.id===String(c.id))); }
       const id=found?found.id:String(c.id||("import-"+name.toLowerCase().replace(/[^a-z0-9]+/g,"-")));
       idMap.set(String(c.id||c.name),id);
-      const transformed={id:id,name:name,code:String(c.tla||c.code||name.slice(0,3).toUpperCase()),country:String(c.area?.name||c.country||c.nation||"Unknown"),nation:String(c.area?.name||c.country||c.nation||"Unknown"),league:String(c.competition?.name||c.league||"Imported League"),stadium:String(c.venue||c.stadium||"Unknown stadium"),primary:String(c.clubColors||c.primary||"#233C7A").split("/")[0].trim(),secondary:String(c.secondary||"#F5F5F5"),capacity:Number(c.capacity||0),transferBudget:Number(c.transferBudget||c.budget||0),wageBudget:Number(c.wageBudget||0),strength:found?.strength||65,seeded:false,source:"Imported data"};
+      const transformed={id:id,name:name,code:String(c.tla||c.code||name.slice(0,3).toUpperCase()),country:String(c.area?.name||c.country||c.nation||"Unknown"),nation:String(c.area?.name||c.country||c.nation||"Unknown"),league:String(c.competition?.name||c.league||"Imported League"),stadium:String(c.venue||c.stadium||"Unknown stadium"),primary:normalizeKitColor(String(c.primary||c.clubColors||"#233C7A").split("/")[0].trim()),secondary:normalizeKitColor(String(c.secondary||(String(c.clubColors||"").split("/")[1]||"#F5F5F5")).split("/")[0].trim()),capacity:Number(c.capacity||0),transferBudget:Number(c.transferBudget||c.budget||0),wageBudget:Number(c.wageBudget||0),strength:found?.strength||65,seeded:false,source:"Imported data"};
       if(found)Object.assign(found,transformed);else{state.clubs.push(transformed);found=transformed;byName.set(name.toLowerCase(),found);}
     });
     let added=0,updated=0;
@@ -490,7 +503,7 @@
       const players=[];
       teams.forEach(t=>(t.squad||[]).filter(p=>p.role==="PLAYER"||!p.role).forEach(p=>{
         const age=p.dateOfBirth?Math.floor((Date.now()-new Date(p.dateOfBirth).getTime())/31557600000):19;
-        players.push({id:"fd-"+p.id,name:p.name,clubId:String(t.id),position:mapPosition(p.position),nationality:p.nationality||"Unknown",age:age,shirt:p.shirtNumber||0,overall:60,potential:65,value:0,wage:0,dateOfBirth:p.dateOfBirth,realData:true,source:"football-data.org API"});
+        players.push({id:"fd-"+p.id,name:p.name,clubId:String(t.id),position:mapPosition(p.position),nationality:p.nationality||"Unknown",age:age,shirt:p.shirtNumber||0,overall:60,potential:65,value:Number(p.marketValue||0),wage:0,contractUntil:p.contract?.until||null,contractYears:contractYearsFromUntil(p.contract?.until),dateOfBirth:p.dateOfBirth,realData:true,source:"football-data.org API"});
       }));
       return normalizeImportedWorld({source:"football-data.org API ("+competitionCode+" "+seasonYear+")",clubs:teams,players:players},state);
     });
@@ -505,7 +518,7 @@
     if(p.includes("offence")||p.includes("forward")||p.includes("attacker"))return "ST";
     return "CM";
   }
-  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,baseAttributes,defaultTactics};
+  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil};
   root.FM_ENGINE=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
