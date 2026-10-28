@@ -458,10 +458,13 @@
   function squad(state,clubId) { return state.players.filter(p=>p.clubId===clubId); }
   function selectedXI(state,clubId) {
     const list=squad(state,clubId).filter(p=>p.injuredWeeks<=0).slice();
-    const plan=FORMATIONS[state.tactics.formation]||FORMATIONS["4-2-3-1"], out=[], used=new Set();
-    plan.forEach(pos=>{
-      const choices=list.filter(p=>!used.has(p.id)).sort((a,b)=>positionFit(b.position,pos)-positionFit(a.position,pos)+b.overall-a.overall);
-      const chosen=choices[0];
+    const plan=FORMATIONS[state.tactics.formation]||FORMATIONS["4-2-3-1"],out=[],used=new Set();
+    const isManaged=clubId===state.userClubId,manual=isManaged&&Array.isArray(state.tactics.startingXI)?state.tactics.startingXI:[];
+    const byId=new Map(list.map(p=>[p.id,p]));
+    plan.forEach((pos,index)=>{
+      const preferred=manual[index]?byId.get(manual[index]):null;
+      const choices=list.filter(p=>!used.has(p.id)).sort((a,b)=>(positionFit(b.position,pos)-positionFit(a.position,pos))*.55+(b.overall-a.overall));
+      const chosen=preferred&&!used.has(preferred.id)?preferred:choices[0];
       if(chosen){out.push(Object.assign({},chosen,{assignedPosition:pos}));used.add(chosen.id);}
     });
     return out;
@@ -576,10 +579,10 @@
       return list[list.length-1];
     };
     const events=[];
-    const addGoals=(count,xi,club)=>{
+    const addGoals=(count,xi,club,tactic)=>{
       for(let i=0;i<count;i++){
         const scorer=weightedPick(xi,p=>{
-          const a=p.attributes||baseAttributes(p),role=(homeT.roles&&homeT.roles[p.id])||p.role;
+          const a=p.attributes||baseAttributes(p),role=(tactic.roles&&tactic.roles[p.id])||p.role;
           return (Number(a.shooting||10)*.55+Number(a.movement||10)*.25+Number(a.positioning||10)*.1+Number(a.setPieces||10)*.1)*(p.assignedPosition==="ST"?1.3: p.assignedPosition==="AM"||p.assignedPosition==="RW"||p.assignedPosition==="LW"?1.12:1)*(role==="Poacher"?1.08:1);
         });
         if(!scorer)continue;
@@ -588,7 +591,7 @@
         events.push({minute:rand(2,90),type:"goal",clubId:club.id,playerId:scorer.id,assistId:assist&&assist.id!==scorer.id?assist.id:null,text:scorer.name+" scores for "+club.name+(assist?" after a pass from "+assist.name:"")+"!"});
       }
     };
-    addGoals(hg,hxi,homeClub);addGoals(ag,axi,awayClub);
+    addGoals(hg,hxi,homeClub,homeT);addGoals(ag,axi,awayClub,awayT);
     const addCards=(xi,club,tactic,count,type)=>{
       const d=tacticalDelta(tactic),risk=Math.max(0,d.cardRisk);
       for(let i=0;i<count;i++){
