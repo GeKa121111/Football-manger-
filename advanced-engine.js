@@ -631,8 +631,16 @@
         valueEstimated:p.valueEstimated===true,
         wageEstimated:p.wageEstimated===true});
       const player=normalizePlayer(src,club&&club.id);
-      if(existing){Object.assign(existing,player,{id:existing.id,clubId:club?club.id:existing.clubId});updated++;}
-      else{state.players.push(player);added++;}
+      if(existing){
+        const oldValue=Number(existing.value)||0,oldWage=Number(existing.wage)||0,oldWageKnown=existing.wageKnown===true;
+        const oldNationality=existing.nationality,oldNationalTeam=existing.nationalTeam;
+        Object.assign(existing,player,{id:existing.id,clubId:club?club.id:existing.clubId});
+        if(!(Number(p.value??p.marketValue)>0)&&oldValue>0){existing.value=oldValue;existing.valueEstimated=true;}
+        if(!(Number(p.wage??p.weeklyWage)>0)&&oldWageKnown&&oldWage>0){existing.wage=oldWage;existing.wageKnown=true;existing.wageEstimated=false;}
+        if(!p.nationality&&oldNationality&&oldNationality!=="Unknown")existing.nationality=oldNationality;
+        if(!p.nationalTeam&&oldNationalTeam)existing.nationalTeam=oldNationalTeam;
+        updated++;
+      }else{state.players.push(player);added++;}
     });
     state.realSquadClubIds=Array.from(importedSquadClubIds);
     if(importedSquadClubIds.size){
@@ -693,6 +701,100 @@
     if(!report.successes.length)throw new Error("No real squads were imported. Check the API token, competition codes and plan. "+report.failures.map(f=>f.code+": "+f.message).join(" | "));
     return report;
   }
+  function fplPosition(elementType) {
+    const n=Number(elementType);
+    return n===1?"GK":n===2?"CB":n===3?"CM":n===4?"ST":"CM";
+  }
+  function fplRating(p) {
+    const mins=Number(p.minutes)||0,goals=Number(p.goals_scored)||0,assists=Number(p.assists)||0;
+    const clean=Number(p.clean_sheets)||0,bonus=Number(p.bonus)||0,ict=Number(p.ict_index)||0;
+    return clamp(Math.round(54+Math.min(12,Math.log1p(mins)*1.65)+Math.min(9,goals*1.2+assists*.9)+Math.min(4,clean*.35)+Math.min(3,bonus*.25)+Math.min(2,ict*.015)),45,88);
+  }
+  async function importFantasyPremierLeague(state, onProgress) {
+    const urls=[
+      "https://fantasy.premierleague.com/api/bootstrap-static/",
+      "https://corsproxy.io/?url="+encodeURIComponent("https://fantasy.premierleague.com/api/bootstrap-static/")
+    ];
+    let body=null,lastError=null,usedUrl="";
+    for(const url of urls){
+      try{
+        if(typeof onProgress==="function")onProgress({stage:"fetching",message:"Fetching current Premier League player list…"});
+        const response=await fetch(url,{headers:{Accept:"application/json"}});
+        if(!response.ok)throw new Error("FPL endpoint returned HTTP "+response.status);
+        const parsed=await response.json();
+        if(!Array.isArray(parsed.elements)||!Array.isArray(parsed.teams))throw new Error("Unexpected Premier League data response.");
+        body=parsed;usedUrl=url;break;
+      }catch(err){lastError=err;}
+    }
+    if(!body)throw new Error("Could not fetch current Premier League squads. Check connection or import JSON instead. "+String(lastError&&lastError.message||""));
+    const teamById=new Map(body.teams.map(t=>[Number(t.id),t]));
+    const elementsByTeam=new Map();
+    body.elements.forEach(p=>{
+      if(!elementsByTeam.has(Number(p.team)))elementsByTeam.set(Number(p.team),[]);
+      elementsByTeam.get(Number(p.team)).push(p);
+    });
+    const colorByShort={
+      ARS:["#EF0107","#FFFFFF"],AVL:["#670E36","#95BFE5"],BOU:["#DA291C","#000000"],BRE:["#E30613","#FFFFFF"],
+      BHA:["#0057B8","#FFFFFF"],BUR:["#6C1D45","#99D6EA"],CHE:["#034694","#FFFFFF"],CRY:["#1B458F","#C4122E"],
+      EVE:["#003399","#FFFFFF"],FUL:["#FFFFFF","#000000"],LEE:["#FFCD00","#FFFFFF"],LIV:["#C8102E","#F6EB61"],
+      MCI:["#6CABDD","#1C2C5B"],MUN:["#DA291C","#FBE122"],NEW:["#241F20","#FFFFFF"],NFO:["#DD0000","#FFFFFF"],
+      SUN:["#EB172B","#FFFFFF"],TOT:["#FFFFFF","#132257"],WHU:["#7A263A","#1BB1E7"],WOL:["#FDB913","#231F20"]
+    };
+    const clubs=body.teams.map(t=>{
+      const colors=colorByShort[String(t.short_name||"").toUpperCase()]||["#334155","#F8FAFC"];
+      return {id:"fpl-"+t.id,name:t.name,shortName:t.short_name,tla:t.short_name,code:t.short_name,
+        country:"England",league:"Premier League",competition:{name:"Premier League"},
+        stadium:"Not supplied by Fantasy Premier League",primary:colors[0],secondary:colors[1],capacity:0,
+        transferBudget:0,wageBudget:0,strength:Number(t.strength||72),tier:1,source:"Fantasy Premier League public API",
+        squad:(elementsByTeam.get(Number(t.id))||[]).map(p=>{
+          const fullName=[p.first_name,p.second_name].filter(Boolean).join(" ").trim()||p.web_name||"Unnamed player";
+          const sourceSnapshot=(root.FM_WORLD_CUP_DATA?.players||[]).find(x=>normalizePersonName(x.name)===normalizePersonName(fullName));
+          const age=p.birth_date?ageAtDate(p.birth_date,new Date().toISOString().slice(0,10)):null;
+          const overall=fplRating(p);
+          return {id:"fpl-player-"+p.id,name:fullName,clubId:"fpl-"+t.id,position:fplPosition(p.element_type),
+            nationality:sourceSnapshot?.nationalTeam||"Not supplied by FPL",nationalTeam:sourceSnapshot?.nationalTeam||null,
+            age:age||22,dateOfBirth:p.birth_date||null,shirt:p.squad_number||0,overall:overall,potential:clamp(overall+(age&&age<23?10:age&&age<27?5:2),overall,95),
+            value:0,valueEstimated:true,wage:0,wageKnown:false,wageEstimated:true,ratingsEstimated:true,realData:true,generated:false,
+            contractYears:age&&age<24?4:age&&age<29?3:2,
+            goals:Number(p.goals_scored)||0,assists:Number(p.assists)||0,minutes:Number(p.minutes)||0,
+            fantasyPrice:Number(p.now_cost||0)/10,fantasyPriceCurrency:"GBP",fplStatus:p.status||null,
+            form:Number(p.form||0),source:"Fantasy Premier League public API · "+String(body.events?.find(x=>x.is_current)?.name||"current season")};
+        })
+      };
+    });
+    const players=clubs.flatMap(c=>c.squad);
+    if(!players.length)throw new Error("The Premier League API returned no player records.");
+    if(typeof onProgress==="function")onProgress({stage:"importing",message:"Mapping "+players.length+" player records across "+clubs.length+" clubs…"});
+    const result=normalizeImportedWorld({
+      source:"Fantasy Premier League public API · "+String(body.events?.find(x=>x.is_current)?.name||"2026/27 season"),
+      clubs:clubs,players:players
+    },state);
+    const currentLeagues=[...new Set(state.clubs.filter(c=>!c.unverifiedDivision).map(c=>c.league))];
+    const calendar={};
+    currentLeagues.forEach(league=>{
+      const members=state.clubs.filter(c=>!c.unverifiedDivision&&c.league===league);
+      const rawFixtures=circleSchedule(members.map(c=>c.id)).map(f=>Object.assign(f,{competition:league}));
+      calendar[league]=setFixtureDates(rawFixtures,"2026-07-08");
+    });
+    state.world.calendar=Object.assign({},state.world.calendar||{},calendar);
+    if(currentClub(state)?.league==="Premier League"){
+      const previous=state.fixtures||[];
+      const oldByPair=new Map(previous.map(f=>[f.homeId+"|"+f.awayId,f]));
+      const schedule=state.world.calendar["Premier League"]||[];
+      schedule.forEach(f=>{
+        const old=oldByPair.get(f.homeId+"|"+f.awayId);
+        if(old&&old.played)Object.assign(f,old);
+      });
+      state.fixtures=schedule;
+    }
+    state.world.clubs=state.clubs;state.world.players=state.players;
+    state.world.sourceSeason="Fantasy Premier League public API · "+String(body.events?.find(x=>x.is_current)?.name||"current season");
+    state.world.realPlayerCount=state.players.filter(p=>!p.generated&&p.realData!==false).length;
+    state.world.realSquadCount=(state.realSquadClubIds||[]).length;
+    state.generatedCount=state.players.filter(p=>p.generated).length;
+    state.inbox.unshift({id:"fpl-import-"+Date.now(),day:state.day,title:"Current Premier League squads imported",text:players.length+" real player records imported from "+clubs.length+" current Premier League clubs. Market values, wages and ratings remain estimates where the provider does not supply them.",read:false,kind:"success"});
+    return Object.assign({},result,{sourcePlayers:players.length,sourceClubs:clubs.length,endpoint:usedUrl});
+  }
   function mapPosition(pos) {
     const p=String(pos||"").toLowerCase();
     if(p.includes("goal"))return "GK";if(p.includes("keeper"))return "GK";
@@ -703,7 +805,7 @@
     if(p.includes("offence")||p.includes("forward")||p.includes("attacker"))return "ST";
     return "CM";
   }
-  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
+  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
   root.FM_ENGINE=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
