@@ -91,6 +91,7 @@ const fixture = state.fixtures[0];
 const home = state.clubs.find(c => c.id === fixture.homeId);
 const away = state.clubs.find(c => c.id === fixture.awayId);
 const beforeGoals = Object.fromEntries(state.players.map(p => [p.id, p.goals || 0]));
+const beforeAssistsTotal = state.players.reduce((sum,p)=>sum+(p.assists||0),0);
 const result = engine.simulateMatch(home, away, state.players, engine.defaultTactics(), engine.defaultTactics());
 assert.ok(Number.isInteger(result.homeGoals) && result.homeGoals >= 0 && result.homeGoals <= 12, "home score should be a plausible non-negative integer");
 assert.ok(Number.isInteger(result.awayGoals) && result.awayGoals >= 0 && result.awayGoals <= 12, "away score should be a plausible non-negative integer");
@@ -112,7 +113,8 @@ for (const id of result.lineups[fixture.homeId].concat(result.lineups[fixture.aw
   const participant = state.players.find(p => p.id === id);
   assert.ok(participant && participant.appearances >= 1, "starting players should accrue a season appearance");
 }
-assert.equal(state.players.reduce((sum,p)=>sum+(p.assists||0),0),
+const seasonAssistsAfterMatch=state.players.reduce((sum,p)=>sum+(p.assists||0),0);
+assert.equal(seasonAssistsAfterMatch-beforeAssistsTotal,
   result.events.filter(e=>e.type==="goal"&&e.assistId).length,
   "assists in the event log should be added to player season totals");
 for (const ev of result.events.filter(e => e.type === "goal")) {
@@ -135,6 +137,16 @@ const tooExpensive = engine.negotiateTransfer(state, state.players.find(p => p.c
   installmentMonths: 0
 });
 assert.equal(tooExpensive.ok, false, "transfer above budget must be refused");
+assert.equal(engine.transferWindowStatus("2026-07-01").open, true, "summer window should be open from July 1");
+assert.equal(engine.transferWindowStatus("2026-08-31").open, true, "summer window should remain open through August 31");
+assert.equal(engine.transferWindowStatus("2026-09-01").nextOpen, "2027-01-01", "winter window should be the next opening after August");
+assert.equal(engine.transferWindowStatus("2027-02-01").nextOpen, "2027-07-01", "summer window should be the next opening after January");
+const outsideWindowTarget = state.players.find(p => p.clubId && p.clubId !== state.userClubId && p.value > 0);
+state.day = "2026-10-01";
+const outsideWindowOffer = engine.negotiateTransfer(state, outsideWindowTarget.id, {fee:1000,upfront:1000,wage:1000,years:3,installmentMonths:0});
+assert.equal(outsideWindowOffer.ok, false, "paid transfer should not complete outside a window");
+assert.equal(outsideWindowOffer.code, "WINDOW_CLOSED", "closed-window transfers should return an explicit reason");
+state.day = "2026-07-01";
 const renewalCandidate = state.players.find(p => p.clubId === state.userClubId);
 const renewal = engine.offerRenewal(state, renewalCandidate.id, { wage: Math.max(renewalCandidate.wage + 1000, 3000), years: 3, releaseClause: 0, signingBonus: 0 });
 assert.equal(renewal.ok, true, "a reasonable contract renewal should be accepted");
