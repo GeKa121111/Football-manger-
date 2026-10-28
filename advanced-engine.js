@@ -577,8 +577,8 @@
     return clamp(Math.ceil(months/12),0,8);
   }
   function normalizeClubName(value) {
-    const raw=String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase()
-      .replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim().replace(/\\s+/g," ");
+    const raw=String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()
+      .replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ");
     const aliases={
       "fc internazionale milano":"inter","internazionale milano":"inter","inter milan":"inter",
       "bayern munchen":"bayern munich","fc bayern munchen":"bayern munich",
@@ -590,9 +590,13 @@
       "al ahli saudi":"al ahli","al ahli club":"al ahli","al hilal saudi club":"al hilal",
       "al nassr fc":"al nassr","al ittihad club":"al ittihad",
       "al ahly sc":"al ahly","al ahly sporting club":"al ahly",
-      "mamelodi sundowns fc":"mamelodi sundowns","raja club athletic":"raja club athletic"
+      "mamelodi sundowns fc":"mamelodi sundowns","raja club athletic":"raja club athletic",
+      "man utd":"manchester united","man united":"manchester united","man city":"manchester city",
+      "spurs":"tottenham hotspur","wolves":"wolverhampton wanderers","west ham":"west ham united",
+      "brighton":"brighton and hove albion","bournemouth":"afc bournemouth","leeds":"leeds united",
+      "la fc":"los angeles fc","fc porto":"porto","sporting cp":"sporting cp"
     };
-    const withoutClubSuffix=raw.split(" ").filter(token=>!["fc","cf","afc","sc","ac","football"].includes(token)).join(" ");
+    const withoutClubSuffix=raw.split(" ").filter(token=>!["fc","cf","afc","sc","ac","football","club"].includes(token)).join(" ");
     return aliases[raw]||aliases[withoutClubSuffix]||withoutClubSuffix;
   }
   function normalizeImportedWorld(data, state) {
@@ -607,7 +611,11 @@
     const playerIdentity=p=>String(p.name||"").trim().toLowerCase()+"|"+String(p.clubId||p.teamId||p.club||p.team||"");
     const seenNested=new Set(playersIn.map(playerIdentity));
     nestedSquadRows.forEach(p=>{const key=playerIdentity(p);if(!seenNested.has(key)){playersIn.push(p);seenNested.add(key);}});
-    const byName=new Map(state.clubs.map(c=>[normalizeClubName(c.name),c]));
+    const byName=new Map();
+    state.clubs.forEach(c=>{
+      const key=normalizeClubName(c.name),previous=byName.get(key);
+      if(!previous||(previous.unverifiedDivision&&!c.unverifiedDivision))byName.set(key,c);
+    });
     const idMap=new Map();
     clubsIn.forEach(c=>{
       const name=String(c.name||c.shortName||"").trim();
