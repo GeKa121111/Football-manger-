@@ -372,6 +372,26 @@
   function defaultTactics() {
     return {formation:"4-2-3-1",mentality:"Balanced",width:"Balanced",tempo:"Normal",passing:"Mixed",finalThird:"Work Ball Into Box",line:"Balanced",pressing:"Balanced",pressIntensity:11,tackling:"Normal",offsideTrap:false,style:"Possession",roles:{},positions:{},startingXI:[],captainId:null,viceCaptainId:null,penaltyId:null,freeKickId:null,cornerId:null};
   }
+  function aiTactics(club,season) {
+    const strength=Number(club?.strength)||60,seed=Math.abs(stableHash(String(club?.id||club?.name||"opponent")+"|"+String(season||2026)));
+    const formations=Object.keys(FORMATIONS),styles=["Possession","Counter-Attack","Gegenpress","Wing Play","Route One"];
+    const style=styles[seed%styles.length];
+    const mentality=strength>=78?(seed%2?"Attacking":"Positive"):strength<=57?(seed%2?"Defensive":"Contain"):"Balanced";
+    const t=defaultTactics();
+    t.formation=formations[Math.floor(seed/7)%formations.length];
+    t.style=style;t.mentality=mentality;
+    t.width=style==="Wing Play"?"Wide":style==="Possession"?"Balanced":style==="Route One"?"Wide":"Narrow";
+    t.tempo=style==="Gegenpress"?"Fast":style==="Possession"?"Normal":style==="Counter-Attack"||style==="Route One"?"Fast":"Normal";
+    t.passing=style==="Possession"?"Short":style==="Route One"?"Long Ball":style==="Counter-Attack"?"Direct":"Mixed";
+    t.finalThird=style==="Wing Play"?"Early Crosses":style==="Possession"?"Work Ball Into Box":style==="Gegenpress"?"Run at Defence":"Mixed";
+    if(t.finalThird==="Mixed")t.finalThird=seed%2?"Shoot on Sight":"Run at Defence";
+    t.line=strength>=76?"High Line":strength<=56?"Low Block":"Balanced";
+    t.pressing=style==="Gegenpress"?"Press All Over":style==="Counter-Attack"||strength<58?"Sit Back":"Balanced";
+    t.pressIntensity=clamp(Math.round(6+strength/8+(seed%5)-2),4,19);
+    t.tackling=seed%7===0?"Committed":seed%5===0?"Cautious":"Normal";
+    t.offsideTrap=t.line==="High Line"&&seed%3===0;
+    return t;
+  }
   function createDomesticCup(nation, clubs, season) {
     const countryClubs=clubs.filter(c=>c.country===nation&&!c.unverifiedDivision).slice().sort((a,b)=>b.strength-a.strength);
     const names={"England":"FA Cup","Spain":"Copa del Rey","Italy":"Coppa Italia","Germany":"DFB-Pokal","France":"Coupe de France","Egypt":"Egypt Cup","Saudi Arabia":"King's Cup"};
@@ -392,7 +412,7 @@
     const winners=[];
     games.forEach(f=>{
       const h=state.clubs.find(c=>c.id===f.homeId),a=state.clubs.find(c=>c.id===f.awayId);
-      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:defaultTactics(),f.awayId===state.userClubId?state.tactics:defaultTactics());
+      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:aiTactics(h,state.season),f.awayId===state.userClubId?state.tactics:aiTactics(a,state.season));
       f.played=true;f.homeGoals=result.homeGoals;f.awayGoals=result.awayGoals;f.stats=result.stats;f.events=result.events;
       let winnerId=f.homeGoals===f.awayGoals?(Math.random()<.5?f.homeId:f.awayId):(f.homeGoals>f.awayGoals?f.homeId:f.awayId);
       f.winnerId=winnerId;winners.push(winnerId);
@@ -423,7 +443,7 @@
     let count=0;
     c.fixtures.filter(f=>!f.played&&f.round===next).forEach(f=>{
       const h=state.clubs.find(x=>x.id===f.homeId),a=state.clubs.find(x=>x.id===f.awayId);if(!h||!a)return;
-      const r=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:defaultTactics(),f.awayId===state.userClubId?state.tactics:defaultTactics());
+      const r=simulateMatch(h,a,state.players,f.homeId===state.userClubId?state.tactics:aiTactics(h,state.season),f.awayId===state.userClubId?state.tactics:aiTactics(a,state.season));
       f.played=true;f.homeGoals=r.homeGoals;f.awayGoals=r.awayGoals;f.stats=r.stats;f.events=r.events;count++;
       if(f.homeId===state.userClubId||f.awayId===state.userClubId)applyResult(state,f,r);
     });
@@ -530,6 +550,13 @@
       };
       factor+=roleBoost[role]||0;
       if(role&&ROLES[p.assignedPosition]&&ROLES[p.assignedPosition].includes(role))factor+=1.2;
+      const coords=tactics.positions&&tactics.positions[p.id];
+      if(Array.isArray(coords)&&coords.length>=2){
+        const depth={GK:.9,RB:.76,CB:.79,LB:.76,DM:.65,CM:.5,AM:.35,RW:.3,LW:.3,ST:.18}[p.assignedPosition]??.5;
+        factor-=Math.max(0,Math.abs(Number(coords[1])-depth)-.09)*10;
+        const wideX={LB:.23,RB:.77,LW:.22,RW:.78}[p.assignedPosition];
+        if(wideX!=null)factor-=Math.max(0,Math.abs(Number(coords[0])-wideX)-.18)*3;
+      }
       factor*=clamp(p.fitness/100,.45,1)*(.72+clamp(p.morale,0,100)/360);
       return sum+factor;
     },0)/xi.length;
@@ -716,7 +743,7 @@
     roundFixtures.forEach(f=>{
       const h=state.clubs.find(c=>c.id===f.homeId),a=state.clubs.find(c=>c.id===f.awayId);
       if(!h||!a)return;
-      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?userT:defaultTactics(),f.awayId===state.userClubId?userT:defaultTactics());
+      const result=simulateMatch(h,a,state.players,f.homeId===state.userClubId?userT:aiTactics(h,state.season),f.awayId===state.userClubId?userT:aiTactics(a,state.season));
       applyResult(state,f,result);
     });
     return recalcStandings(state,state.fixtures);
@@ -1059,7 +1086,7 @@
     if(p.includes("offence")||p.includes("forward")||p.includes("attacker"))return "ST";
     return "CM";
   }
-  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,transferWindowStatus,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,mergeBundledRealPlayers,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
+  const api = {POSITIONS,FORMATIONS,ROLES,ATTRS,ATTR_LABELS,clamp,normalizePlayer,playerOverall,circleSchedule,setFixtureDates,buildUCL,createDomesticCup,simulateDomesticCupRound,simulateContinentalRound,makeWorld,newCareer,currentClub,squad,selectedXI,positionFit,tacticalDelta,aiTactics,strengthForXI,simulateMatch,recalcStandings,train,continueDay,applyResult,simulateRound,finishSeason,transferWindowStatus,negotiateTransfer,sellPlayer,offerRenewal,adjustBudget,exportData,normalizeImportedWorld,importFootballData,importFootballDataBatch,importFantasyPremierLeague,mergeBundledRealPlayers,baseAttributes,defaultTactics,normalizeKitColor,contractYearsFromUntil,normalizeClubName};
   root.FM_ENGINE=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
