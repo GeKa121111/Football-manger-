@@ -101,18 +101,19 @@
         try { request = env.indexedDB.open(DB_NAME, DB_VERSION); }
         catch (error) { reject(error); return; }
 
-        request.onupgradeneeded = function () {
+        request.onupgradeneeded = function (event) {
           const db = request.result;
+          const upgradeTransaction = event.target.transaction;
           // Version 1 already created a keyless "careers" store; preserve it.
           if (!db.objectStoreNames.contains("careers")) db.createObjectStore("careers");
           let snapshots;
           if (!db.objectStoreNames.contains("snapshots")) snapshots = db.createObjectStore("snapshots", { keyPath: "id" });
-          else snapshots = request.transaction.objectStore("snapshots");
+          else snapshots = upgradeTransaction.objectStore("snapshots");
           if (snapshots && !snapshots.indexNames.contains("careerId")) snapshots.createIndex("careerId", "careerId", { unique: false });
           if (snapshots && !snapshots.indexNames.contains("savedAt")) snapshots.createIndex("savedAt", "savedAt", { unique: false });
           let seasons;
           if (!db.objectStoreNames.contains("seasons")) seasons = db.createObjectStore("seasons", { keyPath: "id" });
-          else seasons = request.transaction.objectStore("seasons");
+          else seasons = upgradeTransaction.objectStore("seasons");
           if (seasons && !seasons.indexNames.contains("careerId")) seasons.createIndex("careerId", "careerId", { unique: false });
           if (seasons && !seasons.indexNames.contains("season")) seasons.createIndex("season", "season", { unique: false });
         };
