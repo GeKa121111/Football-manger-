@@ -368,3 +368,29 @@
   #advanced-root .fm-club-preview { align-items: flex-start; flex-wrap: wrap; }
   #advanced-root .fm-predicted { white-space: normal; }
 }
+
+
+/* Arabic localization: preserve a true RTL layout inside Advanced Career. */
+#advanced-root[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+  font-family: "Cairo", "Noto Sans Arabic", Tahoma, system-ui, sans-serif;
+}
+#advanced-root[dir="rtl"] .fm-app-layout { direction: rtl; }
+#advanced-root[dir="rtl"] .fm-sidebar { border-right: 0; border-left: 1px solid var(--fm-line); }
+#advanced-root[dir="rtl"] .fm-nav-item,
+#advanced-root[dir="rtl"] .fm-control-row label,
+#advanced-root[dir="rtl"] .fm-field label,
+#advanced-root[dir="rtl"] .fm-input-label { text-align: right; }
+#advanced-root[dir="rtl"] .fm-nav-item i { margin-left: 0; margin-right: auto; }
+#advanced-root[dir="rtl"] .fm-datehead { margin-left: 0; margin-right: auto; padding-left: 0; padding-right: 14px; border-left: 0; border-right: 1px solid var(--fm-line); }
+#advanced-root[dir="rtl"] .fm-inbox-btn i { margin-left: 0; margin-right: 4px; }
+#advanced-root[dir="rtl"] .fm-sidebar { text-align: right; }
+#advanced-root[dir="rtl"] input,
+#advanced-root[dir="rtl"] select,
+#advanced-root[dir="rtl"] textarea { text-align: right; }
+#advanced-root[dir="rtl"] .fm-setup-shell { direction: rtl; }
+#advanced-root[dir="rtl"] .fm-head-brand,
+#advanced-root[dir="rtl"] .fm-clubhead,
+#advanced-root[dir="rtl"] .fm-managerhead { text-align: right; }
+#advanced-root[dir="rtl"] .fm-sidebar-version { direction: ltr; }
