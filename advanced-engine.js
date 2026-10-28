@@ -722,12 +722,12 @@
       const p=state.players.find(p=>p.id===e.playerId);
       if(p){p.injuredWeeks=Math.max(p.injuredWeeks||0,rand(1,5));state.inbox.unshift({id:"injury-"+p.id+"-"+Date.now(),title:"Injury report",text:p.name+" is out for approximately "+p.injuredWeeks+" week(s).",read:false,kind:"warning",day:state.day});}
     });
-    [fixture.homeId,fixture.awayId].forEach(id=>{
-      const ids=lineupMap[id]||[],clubPlayers=ids.map(pid=>state.players.find(p=>p.id===pid)).filter(Boolean);
-      if(result.stats.cleanSheets&&result.stats.cleanSheets[id]){
-        clubPlayers.filter(p=>p.position==="GK").forEach(p=>p.cleanSheets=(p.cleanSheets||0)+1);
-      }
-    });
+    if(Number(fixture.awayGoals)===0){
+      (lineupMap[fixture.homeId]||[]).map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&p.position==="GK").forEach(p=>p.cleanSheets=(p.cleanSheets||0)+1);
+    }
+    if(Number(fixture.homeGoals)===0){
+      (lineupMap[fixture.awayId]||[]).map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&p.position==="GK").forEach(p=>p.cleanSheets=(p.cleanSheets||0)+1);
+    }
     if(fixture.homeId===state.userClubId||fixture.awayId===state.userClubId){
       const userGoals=fixture.homeId===state.userClubId?result.homeGoals:result.awayGoals,oppGoals=fixture.homeId===state.userClubId?result.awayGoals:result.homeGoals;
       state.careerHistory.unshift({day:state.day,home:home.name,away:away.name,score:result.homeGoals+"–"+result.awayGoals,goalsFor:userGoals,goalsAgainst:oppGoals});
