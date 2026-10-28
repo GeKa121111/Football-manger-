@@ -198,7 +198,11 @@
       version: CURRENT_VERSION, seasonYear: 2026, currentRound: 0, userClubId: "cairo",
       balance: 78000000, sponsorWeekly: 175000, mediaWeekly: 210000,
       clubs: clubs, players: players, fixtures: makeFixtures(clubs, 2026),
-      tactics: { formation: "4-3-3", style: "balanced", mentality: "balanced", trainingFocus: "balanced", captainId: null },
+      tactics: {
+        formation: "4-3-3", style: "balanced", mentality: "balanced", trainingFocus: "balanced",
+        captainId: players.filter(function (player) { return player.clubId === "cairo"; })
+          .sort(function (a, b) { return b.overall - a.overall; })[0]?.id || null
+      },
       lastTrainingRound: -1, history: [], inbox: [
         { id: "welcome", title: "أهلًا بك في Touchline Manager", text: "مجلس الإدارة يتوقع المنافسة على المراكز الأربعة الأولى هذا الموسم. ابنِ فريقك، وراقب الميزانية، وطوّر اللاعبين.", kind: "info", read: false }
       ],
@@ -224,6 +228,9 @@
     saved.history = saved.history || [];
     saved.inbox = saved.inbox || [];
     saved.lastTrainingRound = Number.isInteger(saved.lastTrainingRound) ? saved.lastTrainingRound : -1;
+    if (!saved.players.some(function (p) { return p.id === saved.tactics.captainId && p.clubId === saved.userClubId; })) {
+      saved.tactics.captainId = null;
+    }
     saved.players.forEach(function (p) {
       if (!Number.isFinite(p.contractYears)) p.contractYears = randomInt(1, 3);
       if (!Number.isFinite(p.yellowCards)) p.yellowCards = 0;
@@ -325,7 +332,8 @@
       available.forEach(function (p, i) {
         if ((p.position === "GK") !== (wanted === "GK")) return;
         const fitnessPenalty = p.fitness < 60 ? 5 : p.fitness < 75 ? 2 : 0;
-        const score = roleAttributeScore(p, wanted) + positionFit(p.position, wanted) - fitnessPenalty + (p.morale >= 75 ? 0.5 : 0);
+        const captainBonus = p.id === state.tactics.captainId ? 2 : 0;
+        const score = roleAttributeScore(p, wanted) + positionFit(p.position, wanted) - fitnessPenalty + (p.morale >= 75 ? 0.5 : 0) + captainBonus;
         if (score > bestScore) { bestIndex = i; bestScore = score; }
       });
       if (bestIndex < 0) return null;
@@ -509,7 +517,7 @@
     }).join("");
     return '<div class="page-heading"><div><div class="eyebrow">TACTICAL BOARD</div><h1>التكتيك والخطة</h1><p>اختار طريقة اللعب والعقلية؛ تأثيرها يدخل مباشرة في حسابات محاكاة المباريات.</p></div><span class="status-tag">تشكيلة ' + number(xi.filter(Boolean).length) + '/11</span></div>' +
       '<section class="grid grid-2"><div class="panel"><div class="panel-header"><div><h3 class="panel-title">لوحة التكتيك</h3><div class="panel-subtitle">تشكيلتك المتوقعة للمباراة القادمة</div></div></div><div class="panel-body"><div class="pitch">' + pitchPlayers + '</div><div class="small-note" style="margin-top:10px">التشكيلة تلقائية حسب التقييم والمركز واللياقة. التغييرات هنا تحفظ فورًا.</div></div></div>' +
-      '<div class="panel"><div class="panel-header"><div><h3 class="panel-title">إعدادات الفريق</h3><div class="panel-subtitle">كل اختيار يغيّر توازن الهجوم والدفاع والإجهاد.</div></div></div><div class="panel-body"><div class="form-grid"><div class="field-group"><label class="field-label" for="formation-select">الخطة الأساسية</label><select id="formation-select" data-setting="formation">' + Object.keys(FORMATIONS).map(function (f) { return '<option value="' + f + '"' + (state.tactics.formation === f ? ' selected' : '') + '>' + f + '</option>'; }).join("") + '</select></div><div class="field-group"><label class="field-label" for="style-select">أسلوب اللعب</label><select id="style-select" data-setting="style">' + Object.keys(TACTICAL_STYLES).map(function (key) { return '<option value="' + key + '"' + (state.tactics.style === key ? ' selected' : '') + '>' + TACTICAL_STYLES[key].label + '</option>'; }).join("") + '</select></div><div class="field-group"><label class="field-label" for="mentality-select">عقلية الفريق</label><select id="mentality-select" data-setting="mentality">' + Object.keys(MENTALITIES).map(function (key) { return '<option value="' + key + '"' + (state.tactics.mentality === key ? ' selected' : '') + '>' + MENTALITIES[key].label + '</option>'; }).join("") + '</select></div><div class="field-group"><label class="field-label">تأثير الخطة</label><div class="inline-stat"><span>الهجوم</span><strong class="rating">' + signed(tacticalAttack()) + '</strong></div><div class="inline-stat"><span>الدفاع</span><strong class="rating">' + signed(tacticalDefense()) + '</strong></div></div></div><div class="notice" style="margin-top:17px">معلومة: الضغط العالي يرفع فرص استعادة الكرة والهجوم، لكنه يستهلك اللياقة أسرع. الكتلة الدفاعية تقلل المخاطرة على حساب الهجوم.</div></div></div></section>';
+      '<div class="panel"><div class="panel-header"><div><h3 class="panel-title">إعدادات الفريق</h3><div class="panel-subtitle">كل اختيار يغيّر توازن الهجوم والدفاع والإجهاد.</div></div></div><div class="panel-body"><div class="form-grid"><div class="field-group"><label class="field-label" for="formation-select">الخطة الأساسية</label><select id="formation-select" data-setting="formation">' + Object.keys(FORMATIONS).map(function (f) { return '<option value="' + f + '"' + (state.tactics.formation === f ? ' selected' : '') + '>' + f + '</option>'; }).join("") + '</select></div><div class="field-group"><label class="field-label" for="style-select">أسلوب اللعب</label><select id="style-select" data-setting="style">' + Object.keys(TACTICAL_STYLES).map(function (key) { return '<option value="' + key + '"' + (state.tactics.style === key ? ' selected' : '') + '>' + TACTICAL_STYLES[key].label + '</option>'; }).join("") + '</select></div><div class="field-group"><label class="field-label" for="mentality-select">عقلية الفريق</label><select id="mentality-select" data-setting="mentality">' + Object.keys(MENTALITIES).map(function (key) { return '<option value="' + key + '"' + (state.tactics.mentality === key ? ' selected' : '') + '>' + MENTALITIES[key].label + '</option>'; }).join("") + '</select></div><div class="field-group"><label class="field-label" for="captain-select">قائد الفريق</label><select id="captain-select" data-setting="captainId"><option value=""' + (!state.tactics.captainId ? ' selected' : '') + '>بدون قائد</option>' + userPlayers().slice().sort(function (a, b) { return a.name.localeCompare(b.name, "ar"); }).map(function (player) { return '<option value="' + safeName(player.id) + '"' + (state.tactics.captainId === player.id ? ' selected' : '') + '>' + safeName(player.name) + ' · ' + safeName(POSITION_LABELS[player.position] || player.position) + '</option>'; }).join("") + '</select><div class="small-note" style="margin-top:6px">القائد المشارك في التشكيلة يمنح الفريق دفعة قيادة بسيطة.</div></div><div class="field-group"><label class="field-label">تأثير الخطة</label><div class="inline-stat"><span>الهجوم</span><strong class="rating">' + signed(tacticalAttack()) + '</strong></div><div class="inline-stat"><span>الدفاع</span><strong class="rating">' + signed(tacticalDefense()) + '</strong></div></div></div><div class="notice" style="margin-top:17px">معلومة: الضغط العالي يرفع فرص استعادة الكرة والهجوم، لكنه يستهلك اللياقة أسرع. الكتلة الدفاعية تقلل المخاطرة على حساب الهجوم.</div></div></div></section>';
   }
 
   function signed(value) { return (value > 0 ? "+" : "") + value.toLocaleString("ar-EG", { maximumFractionDigits: 1 }); }
@@ -661,6 +669,7 @@
     if (userPlayers().length <= 15) { modalRoot.innerHTML = ""; toast("لازم تحتفظ بـ15 لاعب على الأقل.", "error"); return; }
     if ((buyer.budget || 0) < fee || fee < 1) { modalRoot.innerHTML = ""; toast("النادي المشتري لم يعد قادرًا على دفع العرض.", "error"); return; }
     const sellerName = player.name;
+    if (state.tactics.captainId === player.id) state.tactics.captainId = null;
     player.clubId = buyer.id;
     player.morale = clamp(player.morale + 3, 0, 100);
     buyer.budget -= fee;
@@ -720,6 +729,8 @@
       return p ? sum + roleAttributeScore(p, formation[index] || p.position) : sum;
     }, 0);
     const roleAverage = roleTotal / xi.length;
+    const captainOnPitch = selectedXI.some(function (p) { return p && p.id === state.tactics.captainId; });
+    const captainBonus = captainOnPitch && clubId === state.userClubId ? 0.75 : 0;
     const fitness = xi.reduce(function (sum, p) { return sum + p.fitness; }, 0) / xi.length;
     const morale = xi.reduce(function (sum, p) { return sum + p.morale; }, 0) / xi.length;
     const attackers = xi.filter(function (p) { return ["ST", "LW", "RW", "AM"].indexOf(p.position) >= 0; });
@@ -730,7 +741,7 @@
     const managerTactics = clubId === state.userClubId ? tacticalAttack() * .55 + tacticalDefense() * .25 : 0;
     const fitnessPenalty = fitness < 60 ? -5 : fitness < 75 ? -2 : (fitness - 80) / 20;
     const moraleBonus = (morale - 65) / 25;
-    return avg * 0.35 + roleAverage * 0.65 + (isHome ? 2.8 : 0) + managerTactics + skillBalance + fitnessPenalty + moraleBonus;
+    return avg * 0.35 + roleAverage * 0.65 + (isHome ? 2.8 : 0) + managerTactics + skillBalance + fitnessPenalty + moraleBonus + captainBonus;
   }
 
   function chooseWeightedPlayer(players, attribute) {
@@ -917,6 +928,7 @@
         p.contractYears = randomInt(2, 4);
         p.wage = Math.round(p.wage * (p.morale >= 70 ? 1.05 : 1.02) / 100) * 100;
       } else if (p.contractYears <= 0 && p.clubId === state.userClubId) {
+        if (state.tactics.captainId === p.id) state.tactics.captainId = null;
         p.clubId = null;
         contractDepartures.push(p.name);
       }
@@ -1065,10 +1077,11 @@
       formation: Object.keys(FORMATIONS),
       style: Object.keys(TACTICAL_STYLES),
       mentality: Object.keys(MENTALITIES),
-      trainingFocus: ["balanced", "attack", "defense", "technical", "fitness", "youth"]
+      trainingFocus: ["balanced", "attack", "defense", "technical", "fitness", "youth"],
+      captainId: userPlayers().map(function (player) { return player.id; }).concat([""])
     };
     if (allowed[setting] && allowed[setting].indexOf(event.target.value) >= 0) {
-      state.tactics[setting] = event.target.value;
+      state.tactics[setting] = setting === "captainId" ? (event.target.value || null) : event.target.value;
       saveGame(false);
       render();
       toast("تم تحديث الإعدادات.");
