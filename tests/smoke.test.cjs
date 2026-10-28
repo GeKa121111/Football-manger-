@@ -89,12 +89,19 @@ function boot(storage) {
     },
     savedState() {
       return JSON.parse(storage["touchline-manager-save-v1"]);
+    },
+    startScreenHtml() {
+      return elements.get("tm-start-screen")?.innerHTML || "";
     }
   };
 }
 
 const storage = {};
 let game = boot(storage);
+assert.ok(game.startScreenHtml().includes("إنشاء مسيرة جديدة"), "fresh installs should open the career start menu before the dashboard");
+assert.ok(game.startScreenHtml().includes("اختيار النادي وملف المدير"), "the start menu should advertise manager profile and club setup");
+assert.equal(storage["touchline-manager-save-v1"], undefined, "a new user should not receive an unchosen default career save");
+game.click("start-new-career"); // In this engine-only smoke harness, the advanced module is intentionally not loaded.
 let state = game.savedState();
 
 assert.equal(state.clubs.length, 12, "initial world should contain 12 clubs");
@@ -272,12 +279,15 @@ assert.equal(
 );
 
 game = boot(storage);
+assert.ok(game.startScreenHtml().includes("استكمال المسيرة"), "existing local careers should be offered from the start menu");
+game.click("resume-classic-career");
 assert.equal(game.savedState().currentRound, 1, "career should load from local storage");
 assert.equal(game.savedState().lastTrainingRound, 1, "weekly training state should survive a reload");
 
 // Run a full season to verify all 22 rounds and season rollover.
 const fullSeasonStorage = {};
 let fullSeasonGame = boot(fullSeasonStorage);
+fullSeasonGame.click("start-new-career");
 for (let round = 1; round <= 22; round += 1) {
   fullSeasonGame.click("play-next-round");
   const seasonState = fullSeasonGame.savedState();
