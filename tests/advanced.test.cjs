@@ -693,3 +693,73 @@ assert.equal(ageingSeason.target.attributes.shooting, 9, "ageing should reduce a
 assert.equal(ageingSeason.target.overall, engine.playerOverall(ageingSeason.target),
   "ageing decline should be reflected in position-weighted overall");
 console.log("Season rollover development tests passed.");
+
+ 
+// CA/PA and hidden attributes are stable estimates, explicitly marked as such.
+assert.equal(data.players.length > 0, true, "seeded player data should remain available");
+for (const player of data.players) {
+  assert.ok(Number.isInteger(player.CA) && player.CA >= 1 && player.CA <= 200,
+    "seeded players should have CA on the 1-200 scale: " + player.id);
+  assert.ok(Number.isInteger(player.PA) && player.PA >= player.CA && player.PA <= 200,
+    "seeded players should have PA >= CA on the 1-200 scale: " + player.id);
+  assert.equal(player.abilityEstimated, true, "derived seed abilities should be labelled as estimates");
+  for (const key of ["professionalism", "ambition", "consistency", "pressure", "durability"]) {
+    assert.ok(Number.isInteger(player.hiddenAttributes[key]) && player.hiddenAttributes[key] >= 1 && player.hiddenAttributes[key] <= 20,
+      "hidden attribute should be in the 1-20 range: " + player.id + " / " + key);
+  }
+}
+assert.ok(worldCup.players.every(player =>
+  Number.isInteger(player.CA) && player.CA >= 1 && player.CA <= 200 &&
+  Number.isInteger(player.PA) && player.PA >= player.CA && player.PA <= 200 &&
+  player.hiddenAttributes && player.abilityEstimated === true
+), "all registered snapshot players should receive estimated CA/PA and hidden attributes");
+assert.equal(data.clubs.length, 222, "youth recruitment metadata must preserve all club seeds");
+for (const club of data.clubs) {
+  for (const key of ["youthRecruitment", "juniorCoaching", "youthFacilities"]) {
+    assert.ok(Number.isInteger(club[key]) && club[key] >= 1 && club[key] <= 20,
+      "club youth infrastructure should stay on a 1-20 scale: " + club.id + " / " + key);
+  }
+}
+
+const youthSystem = data.youthSystem;
+assert.ok(youthSystem && typeof youthSystem.previewIntake === "function" &&
+  typeof youthSystem.announceIntake === "function", "the world dataset should expose the two-stage youth intake API");
+const previewA = youthSystem.previewIntake("liv", 2027);
+const previewB = youthSystem.previewIntake("liv", 2027);
+assert.deepEqual(previewA, previewB, "the same club and intake year should reproduce the same December preview");
+assert.equal(previewA.previewDate, "2026-12-15");
+assert.equal(previewA.targetAnnouncementDate, "2027-03-31");
+assert.equal(previewA.count, 16, "each youth intake preview should include exactly 16 prospects");
+assert.equal(new Set(previewA.players.map(player => player.id)).size, 16, "preview IDs must be unique within an intake");
+assert.ok(previewA.players.every(player =>
+  player.previewOnly === true && player.age >= 15 && player.age <= 17 &&
+  player.expectedCA >= 1 && player.expectedCA <= 200 &&
+  player.expectedPA >= player.expectedCA && player.expectedPA <= 200 &&
+  !Object.prototype.hasOwnProperty.call(player, "CA") &&
+  !Object.prototype.hasOwnProperty.call(player, "PA")
+), "December preview should show estimates without exposing actual announced CA/PA");
+
+const announcementA = youthSystem.announceIntake(previewA);
+const announcementB = youthSystem.announceIntake(previewB);
+assert.deepEqual(announcementA, announcementB, "the same preview should reproduce the same March youth announcement");
+assert.equal(announcementA.announcedOn, "2027-03-31");
+assert.equal(announcementA.count, 16);
+assert.equal(new Set(announcementA.players.map(player => player.id)).size, 16);
+for (const player of announcementA.players) {
+  assert.equal(player.generated, true, "intake players must be marked as generated");
+  assert.equal(player.realData, false, "fictional intake players must not be mistaken for real players");
+  assert.ok(Number.isInteger(player.CA) && player.CA >= 1 && player.CA <= 200);
+  assert.ok(Number.isInteger(player.PA) && player.PA >= player.CA && player.PA <= 200);
+  assert.ok(player.potential >= player.overall, "display potential must not fall below current ability");
+  assert.ok(player.hiddenAttributes && ["professionalism", "ambition", "consistency", "pressure", "durability"]
+    .every(key => Number.isInteger(player.hiddenAttributes[key]) && player.hiddenAttributes[key] >= 1 && player.hiddenAttributes[key] <= 20));
+  assert.equal(player.youthIntakeYear, 2027);
+  assert.equal(player.youthIntakeClubId, "liv");
+}
+assert.throws(() => youthSystem.previewIntake("liv", "not-a-year"), /intakeYear/);
+assert.throws(() => youthSystem.announceIntake({type:"invalid"}), /youth-intake-preview/);
+const previousTestlandRating = youthSystem.getNationYouthRating("Testland");
+youthSystem.setNationYouthRating("Testland", 12);
+assert.equal(youthSystem.getNationYouthRating("Testland"), 12, "nation youth rating should be adjustable at runtime");
+youthSystem.setNationYouthRating("Testland", previousTestlandRating);
+console.log("CA/PA and deterministic youth intake tests passed.");
