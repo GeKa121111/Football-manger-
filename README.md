@@ -38,6 +38,10 @@ The one-click Premier League importer reads the public `https://fantasy.premierl
 
 The bundled 36-team continental screen selects from supported European first-tier seed clubs, but remains an **engine framework**, not a complete official qualification/seed system. Exact UEFA, CAF, AFC, domestic-cup, promotion/relegation and squad registration regulations require separately verified competition datasets and rules. The initial cup framework is simplified. It should not be advertised as a complete, official league pyramid.
 
+## Career startup and manager profile
+
+New launches open a mobile-first welcome screen before the dashboard. The menu offers resume actions for existing classic and advanced local saves, plus a new-career path. The new-career wizard collects the manager's display name, nationality, coaching style and starting reputation, then filters clubs by the selected playable nation so the user chooses a club before the simulation begins. These are local career profiles, not online accounts; no password or remote login is required. Existing saves remain available until a new career is actually created and saved.
+
 ## Save storage
 
 Careers are stored per browser/device. Use **Settings → Export save JSON** before clearing browser data or moving devices. Import a Touchline save JSON to continue the career. You can also import a JSON database shaped like:
