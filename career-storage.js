@@ -211,10 +211,20 @@
       if (!validCareer(state)) throw new TypeError("A valid career state is required to save.");
       const opts = options || {};
       ensureCareerIdentity(state);
-      state.savedAt = new Date().toISOString();
       const storage = localStorageRef();
       let localSaved = false;
       let payload = "";
+      const previousCheckpoint = state.storageMeta.lastCheckpointDay || "";
+      const newArchives = Array.isArray(state.seasonArchives) ? state.seasonArchives : [];
+      const previouslyArchivedSeason = Number(state.storageMeta.lastArchivedSeason) || 0;
+      const maxArchiveSeason = newArchives.reduce(function (max, archive) {
+        return Math.max(max, Number(archive && archive.season) || 0);
+      }, previouslyArchivedSeason);
+      const hasUnarchivedSeason = newArchives.some(function (archive) {
+        return archive && Number(archive.season) > previouslyArchivedSeason;
+      });
+      if (newArchives.length) state.storageMeta.lastArchivedSeason = maxArchiveSeason;
+      state.savedAt = new Date().toISOString();
 
       // Keep the legacy key current before any asynchronous operation: this is the fallback
       // if the browser denies IndexedDB access or closes the tab mid-write.
@@ -223,11 +233,8 @@
         try { storage.setItem(SAVE_KEY, payload); localSaved = true; } catch (error) {}
       }
 
-      const previousCheckpoint = state.storageMeta.lastCheckpointDay || "";
-      const newArchives = Array.isArray(state.seasonArchives) ? state.seasonArchives : [];
       const dueToCheckpoint = !!opts.checkpoint || !previousCheckpoint ||
-        dayDistance(previousCheckpoint, state.day) >= 7 ||
-        newArchives.some(function (archive) { return archive && Number(archive.season) > Number(state.storageMeta.lastArchivedSeason || 0); });
+        dayDistance(previousCheckpoint, state.day) >= 7 || hasUnarchivedSeason;
       let snapshot = null;
       if (dueToCheckpoint) {
         state.storageMeta.lastCheckpointDay = String(state.day || "").slice(0, 10);
@@ -261,13 +268,6 @@
         const completion = transactionDone(tx);
         await completion;
 
-        if (newArchives.length) {
-          state.storageMeta.lastArchivedSeason = Math.max(Number(state.storageMeta.lastArchivedSeason) || 0,
-            ...newArchives.map(function (archive) { return Number(archive && archive.season) || 0; }));
-          const updated = JSON.stringify(state);
-          careers.put(updated, "active");
-          careers.put(updated, "career:" + state.careerId);
-        }
         lastStorageMode = "indexedDB";
         await pruneSnapshots(db, state.careerId);
         return { ok: true, storage: "indexedDB", checkpoint: !!snapshot, archivedSeasons: newArchives.length };
