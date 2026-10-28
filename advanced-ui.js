@@ -822,7 +822,7 @@
     if(a==="restore-save-snapshot"){restoreSaveSnapshot(action.dataset.snapshot);return;}
     if(a==="export-save"){const payload=E.exportData(state);save(true,"export").then(result=>{download("touchline-career-"+state.day+".json",payload);toast(result&&result.ok?"Career JSON exported; a recovery checkpoint was saved.":"Career JSON exported. Keep this file as a backup.",result&&result.ok?"success":"warning");});return;}
     if(a==="load-file"){const input=$("#fm-import-file");if(input)input.click();else{modal=null;renderSetup();}return;}
-    if(a==="new-career"){if(confirm("Start a new career? Export the current save first if you need it.")){close();state=null;open();}return;}
+    if(a==="new-career"){if(confirm("Start a new career? Export the current save first if you need it.")){openNewCareer(true);}return;}
     if(a==="confirm-negotiate"){confirmNegotiation(action.dataset.player);return;}
     if(a==="confirm-renew"){const id=action.dataset.player;const res=E.offerRenewal(state,id,{wage:$("#fm-renew-wage").value,years:$("#fm-renew-years").value,releaseClause:$("#fm-renew-clause").value,signingBonus:$("#fm-renew-bonus").value});if(res.ok){modal=null;save();render();toast(res.message,"success");}else toast(res.message,"warning");return;}
     if(a==="confirm-sale"){const id=action.dataset.player;const res=E.sellPlayer(state,id,Number($("#fm-sale-fee").value));if(res.ok){modal=null;save();render();toast(res.message,"success");}else toast(res.message,"warning");return;}
