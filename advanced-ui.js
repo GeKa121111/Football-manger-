@@ -491,7 +491,20 @@
     const offId=$("#fm-sub-off")?.value,onId=$("#fm-sub-on")?.value,off=live.lineup.find(p=>p.id===offId),on=player(onId);
     if(!off||!on||off.id===on.id)return;
     live.lineup=live.lineup.filter(p=>p.id!==off.id).concat([Object.assign({},on,{assignedPosition:off.assignedPosition})]);
-    live.subbedOut.push(off.id);live.subs++;live.windows++;modal=null;render();toast("Substitution made: "+on.name+" for "+off.name+".","success");
+    live.subbedOut.push(off.id);live.subs++;live.windows++;
+    if(live.result){
+      const appeared=live.result.lineups&&(live.result.lineups[myClub().id]||(live.result.lineups[myClub().id]=[]));
+      if(appeared&&!appeared.includes(on.id))appeared.push(on.id);
+      const priorRating=Number(live.result.stats.ratings[off.id]||6.5);
+      live.result.stats.ratings[on.id]=Number(Math.max(6.0,priorRating-.2).toFixed(1));
+      live.result.events.filter(e=>e.minute>live.minute&&e.type==="goal"&&e.playerId===off.id).forEach(e=>{
+        e.playerId=on.id;e.text=on.name+" scores after coming on for "+off.name+"!";
+      });
+      live.result.events.filter(e=>e.minute>live.minute&&e.type==="goal"&&e.assistId===off.id).forEach(e=>{
+        e.assistId=on.id;e.text=e.text.replace(off.name,on.name);
+      });
+    }
+    modal=null;render();toast("Substitution made: "+on.name+" for "+off.name+".","success");
   }
   function handleBoardRequest(kind) {
     const confidence=state.board.confidence;
