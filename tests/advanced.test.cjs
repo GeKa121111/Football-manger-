@@ -763,3 +763,65 @@ youthSystem.setNationYouthRating("Testland", 12);
 assert.equal(youthSystem.getNationYouthRating("Testland"), 12, "nation youth rating should be adjustable at runtime");
 youthSystem.setNationYouthRating("Testland", previousTestlandRating);
 console.log("CA/PA and deterministic youth intake tests passed.");
+
+ 
+// Career-calendar integration: December creates a preview, March adds players once,
+// and a JSON save retains the intake calendar and the youth player records.
+const youthCareer = engine.newCareer({
+  mode:"career",managerName:"Youth Intake Calendar Test",primaryNation:"England",
+  nations:["England"],databaseSize:"small",clubId:"liv"
+});
+assert.deepEqual(youthCareer.youthIntake,{version:1,previews:{},announcedYears:[],history:[]},
+  "new careers should initialize persistent youth intake state");
+for(const player of youthCareer.players){
+  assert.ok(Number.isInteger(player.CA)&&player.CA>=1&&player.CA<=200,
+    "normalized career players need current ability");
+  assert.ok(Number.isInteger(player.PA)&&player.PA>=player.CA&&player.PA<=200,
+    "normalized career players need potential ability not below CA");
+  assert.ok(player.hiddenAttributes&&["professionalism","ambition","consistency","pressure","durability"]
+    .every(key=>Number.isInteger(player.hiddenAttributes[key])&&player.hiddenAttributes[key]>=1&&player.hiddenAttributes[key]<=20),
+    "normalized career players need all hidden attributes");
+}
+const careerPlayerCountBeforeIntake=youthCareer.players.length;
+youthCareer.day="2026-12-14";
+const previewTick=engine.continueDay(youthCareer);
+assert.equal(youthCareer.day,"2026-12-15");
+assert.equal(previewTick.youthEvent.type,"preview","daily tick should trigger the December preview");
+assert.equal(youthCareer.youthIntake.previews["2027"].players.length,16);
+assert.equal(youthCareer.players.length,careerPlayerCountBeforeIntake,
+  "preview should not prematurely add youth players to the squad");
+assert.ok(youthCareer.inbox.some(message=>message.id==="youth-preview-liv-2027"),
+  "preview should notify the manager through the career inbox");
+
+youthCareer.day="2027-03-30";
+const intakeTick=engine.continueDay(youthCareer);
+assert.equal(youthCareer.day,"2027-03-31");
+assert.equal(intakeTick.youthEvent.type,"announcement","daily tick should announce the intake at the configured date");
+assert.equal(intakeTick.youthEvent.created,16);
+assert.equal(youthCareer.youthIntake.announcedYears.includes(2027),true);
+const intakePlayers=youthCareer.players.filter(player=>player.youthIntakeYear===2027&&player.youthProspect);
+assert.equal(intakePlayers.length,16,"announced youth should be persisted in the career player pool");
+assert.ok(intakePlayers.every(player=>player.clubId==="liv"&&player.registered===false&&player.generated&&player.realData===false),
+  "intake players should start at the user's club as unregistered fictional youth");
+assert.ok(intakePlayers.every(player=>player.CA>=1&&player.CA<=200&&player.PA>=player.CA&&player.PA<=200),
+  "normalized intake records should retain valid CA/PA");
+assert.ok(youthCareer.inbox.some(message=>message.id==="youth-announcement-liv-2027"),
+  "announcement should notify the manager");
+
+const repeatedCount=youthCareer.players.length;
+youthCareer.day="2027-03-30";
+const repeatedIntakeTick=engine.continueDay(youthCareer);
+assert.equal(repeatedIntakeTick.youthEvent.type,"announcement-existing",
+  "replaying the announcement date must not create a second intake");
+assert.equal(youthCareer.players.length,repeatedCount,"the same intake year must never duplicate youth players");
+
+const careerSave=JSON.parse(engine.exportData(youthCareer));
+assert.equal(careerSave.state.youthIntake.announcedYears.includes(2027),true,
+  "save exports must retain announced intake years");
+assert.equal(careerSave.state.players.filter(player=>player.youthIntakeYear===2027).length,16,
+  "save exports must retain generated prospect records");
+assert.equal(careerSave.state.players.find(player=>player.youthIntakeYear===2027).hiddenAttributes.professionalism,
+  intakePlayers[0].hiddenAttributes.professionalism,
+  "save exports must preserve hidden attributes");
+console.log("Career calendar youth intake integration tests passed.");
+
