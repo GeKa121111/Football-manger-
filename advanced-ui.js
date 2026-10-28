@@ -682,6 +682,7 @@
     const nav=event.target.closest("[data-view]");if(nav){view=nav.dataset.view;render();return;}
     const action=event.target.closest("[data-action]");if(!action)return;
     const a=action.dataset.action;
+    if(simulationBusy&&!["close","close-modal","shade-close","profile"].includes(a)){toast("A background simulation is running. Please wait for it to finish before changing the career.","warning");return;}
     if(a==="close"){event.stopPropagation();close();return;}
     if(a==="close-modal"||a==="shade-close"){if(a==="shade-close"&&event.target!==action)return;modal=null;const host=$("#fm-modal-root");if(host)host.innerHTML="";return;}
     if(a==="profile"){showModal("profile",action.dataset.player);return;}
@@ -793,6 +794,7 @@
     save();render();
   }
   function handleChange(event) {
+    if(simulationBusy){toast("A background simulation is running. Please wait before changing settings.","warning");return;}
     const t=event.target,field=t.dataset.field,setting=t.dataset.setting;
     if(setting){if(setting==="speed")state.settings.speed=Number(t.value);else if(setting==="language"){state.settings.language=t.value==="ar"?"ar":"en";preferredLanguage=state.settings.language;try{localStorage.setItem(LANGUAGE_KEY,preferredLanguage);}catch(e){}}else state.settings[setting]=t.value;save();render();return;}
     if(field==="formation"||field==="mentality"||field==="width"||field==="tempo"||field==="passing"||field==="finalThird"||field==="line"||field==="pressing"||field==="tackling"||field==="offsideTrap"||field==="style"){
