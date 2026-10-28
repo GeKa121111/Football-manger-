@@ -15,6 +15,7 @@ const advancedCss = fs.readFileSync(path.join(__dirname, "..", "advanced.css"), 
 const mainCss = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 const advancedUiSource = fs.readFileSync(path.join(__dirname, "..", "advanced-ui.js"), "utf8");
+const simulationWorkerSource = fs.readFileSync(path.join(__dirname, "..", "simulation-worker.js"), "utf8");
 assert.ok(pageHtml.includes('src="advanced-player-data.js"'), "the app shell must load the real-player dataset");
 assert.ok(deploymentWorkflow.includes("advanced-player-data.js") && deploymentWorkflow.includes("dist/"),
   "the Pages build must copy the real-player dataset into the deploy artifact");
@@ -25,7 +26,21 @@ assert.ok(advancedCss.includes("env(safe-area-inset-bottom)") && advancedCss.inc
   "advanced manager mobile controls must respect device safe areas and touch target sizing");
 assert.ok(mainCss.includes("@media (max-width: 420px)") && mainCss.includes("overscroll-behavior-x: contain"),
   "main shell mobile styles must handle narrow screens and horizontal table scrolling");
-assert.ok(serviceWorker.includes('touchline-manager-v17'), "CA/PA and youth intake updates require a fresh offline cache version");
+assert.ok(serviceWorker.includes('touchline-manager-v18'), "Web Worker rollout requires a fresh offline cache version");
+assert.ok(serviceWorker.includes('"./simulation-worker.js"'), "offline cache should include the simulation worker");
+assert.doesNotThrow(() => new Function(simulationWorkerSource), "simulation worker source should be valid JavaScript");
+assert.ok(simulationWorkerSource.includes('scope.importScripts("advanced-data.js", "advanced-player-data.js", "advanced-engine.js")'),
+  "the worker should initialize the same data and engine dependencies as the main thread");
+for (const task of ["simulate-round", "simulate-domestic-cup-round", "simulate-continental-round", "finish-season"]) {
+  assert.ok(simulationWorkerSource.includes('case "' + task + '"'), "worker must support task " + task);
+}
+assert.ok(advancedUiSource.includes('new Worker(new URL("simulation-worker.js", document.baseURI))'),
+  "advanced UI should create a relative-path worker compatible with GitHub Pages subpaths");
+assert.ok(advancedUiSource.includes("function executeSimulationTask(taskName, extra, fallback)"),
+  "worker tasks should have a promise-based main-thread bridge with fallback support");
+assert.ok(advancedUiSource.includes('runBackgroundSimulation("simulate-domestic-cup-round"') &&
+  advancedUiSource.includes('runBackgroundSimulation("simulate-continental-round"'),
+  "cup and continental rounds should run through the worker bridge");
 assert.ok(mainCss.includes(".topbar-right {") && mainCss.includes("flex-wrap: nowrap"),
   "main mobile header must keep its controls in a predictable bounded row");
 assert.ok(mainCss.includes(".nav-list {") && mainCss.includes("overflow-x: auto") && mainCss.includes("flex-direction: row"),
