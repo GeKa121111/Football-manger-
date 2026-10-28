@@ -67,6 +67,18 @@ assert.ok(state.domesticCup && state.domesticCup.fixtures.length >= 2, "career n
 const xi = engine.selectedXI(state, state.userClubId);
 assert.equal(xi.length, 11, "first-team lineup should select 11 available players");
 assert.equal(xi.filter(p => p.assignedPosition === "GK").length, 1, "lineup needs one goalkeeper");
+const automaticXIIds = xi.map(p => p.id);
+const manualXIIds = automaticXIIds.slice(1).concat(automaticXIIds[0]);
+state.tactics.startingXI = manualXIIds;
+assert.deepEqual(engine.selectedXI(state, state.userClubId).map(p => p.id), manualXIIds,
+  "the manager's selected starting XI must override automatic selection without duplicates");
+state.tactics.startingXI = [];
+const baselineTactics = engine.tacticalDelta(engine.defaultTactics());
+const highPressTactics = engine.tacticalDelta(Object.assign({}, engine.defaultTactics(), {pressIntensity:20}));
+const counterTactics = engine.tacticalDelta(Object.assign({}, engine.defaultTactics(), {style:"Counter-Attack"}));
+assert.ok(highPressTactics.attack > baselineTactics.attack, "higher pressing intensity should influence attacking pressure");
+assert.ok(highPressTactics.fatigue > baselineTactics.fatigue, "higher pressing intensity should increase fatigue cost");
+assert.ok(counterTactics.xg > baselineTactics.xg, "counter-attacking instructions should affect expected chance quality");
 assert.ok(state.players.filter(p => p.position !== "GK").every(p => p.attributes.goalkeeping === 1), "outfield players should not be rated as goalkeepers");
 for (const p of state.players) {
   for (const attr of engine.ATTRS) {
@@ -86,10 +98,23 @@ assert.ok(Number.isFinite(result.stats.xg[0]) && Number.isFinite(result.stats.xg
 assert.equal(result.stats.possession[0] + result.stats.possession[1], 100, "possession should sum to 100%");
 assert.ok(result.stats.shots[0] >= result.stats.shotsOnTarget[0], "shots should be at least shots on target");
 assert.ok(result.stats.shots[1] >= result.stats.shotsOnTarget[1], "shots should be at least shots on target");
+assert.equal(result.lineups[fixture.homeId].length, 11, "match simulation should return the home starting XI");
+assert.equal(result.lineups[fixture.awayId].length, 11, "match simulation should return the away starting XI");
+assert.ok(result.events.filter(e => e.type === "goal").every(e => e.assistId),
+  "scored goals should carry an assisting player when a full XI is available");
+assert.ok(result.events.some(e => e.type === "yellow" || e.type === "red") || result.stats.yellow[0] + result.stats.yellow[1] === 0,
+  "disciplinary events should be represented in the match event log");
 for (const p of state.players) assert.equal(p.goals || 0, beforeGoals[p.id], "preview should not mutate season player goals");
 engine.applyResult(state, fixture, result);
 assert.equal(fixture.played, true, "applying a result should mark the fixture played");
 assert.equal(fixture.homeGoals, result.homeGoals, "scoreline should be persisted");
+for (const id of result.lineups[fixture.homeId].concat(result.lineups[fixture.awayId])) {
+  const participant = state.players.find(p => p.id === id);
+  assert.ok(participant && participant.appearances >= 1, "starting players should accrue a season appearance");
+}
+assert.equal(state.players.reduce((sum,p)=>sum+(p.assists||0),0),
+  result.events.filter(e=>e.type==="goal"&&e.assistId).length,
+  "assists in the event log should be added to player season totals");
 for (const ev of result.events.filter(e => e.type === "goal")) {
   assert.ok((state.players.find(p => p.id === ev.playerId)?.goals || 0) >= 1, "scorers should receive goal statistics");
 }
