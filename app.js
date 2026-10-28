@@ -2,7 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "touchline-manager-save-v1";
-  const CURRENT_VERSION = 1;
+  const CURRENT_VERSION = 2;
   const root = document.getElementById("view-root");
   const toastRegion = document.getElementById("toast-region");
   const modalRoot = document.getElementById("modal-root");
@@ -149,7 +149,36 @@
       list.splice(0, list.length, fixed);
       Array.prototype.push.apply(list, movable);
     }
-    return rounds.reduce(function (all, round) { return all.concat(round); }, []);
+    const firstLeg = rounds.reduce(function (all, round) { return all.concat(round); }, []);
+    const roundCount = rounds.length;
+    const returnLeg = firstLeg.map(function (fixture) {
+      return {
+        id: fixture.id + "-return",
+        round: fixture.round + roundCount,
+        homeId: fixture.awayId,
+        awayId: fixture.homeId,
+        played: false,
+        homeGoals: null,
+        awayGoals: null,
+        note: ""
+      };
+    });
+    return firstLeg.concat(returnLeg);
+  }
+
+  function seasonRoundCount() {
+    return state && Array.isArray(state.clubs)
+      ? Math.max(0, (state.clubs.length - 1) * 2)
+      : Math.max(0, (CLUB_SEEDS.length - 1) * 2);
+  }
+
+  function isTransferWindowOpen() {
+    const totalRounds = seasonRoundCount();
+    const currentRound = state ? state.currentRound : 0;
+    const firstWindowEnd = Math.max(1, Math.floor(totalRounds * 0.1));
+    const midSeason = Math.ceil(totalRounds / 2);
+    return currentRound <= firstWindowEnd ||
+      (currentRound >= midSeason - 1 && currentRound <= midSeason + 2);
   }
 
   function makeInitialState() {
@@ -176,8 +205,17 @@
   }
 
   function repairLoadedState(saved) {
-    if (!saved || saved.version !== CURRENT_VERSION || !Array.isArray(saved.clubs) || !Array.isArray(saved.players) || !Array.isArray(saved.fixtures)) return null;
+    if (!saved || (saved.version !== 1 && saved.version !== CURRENT_VERSION) || !Array.isArray(saved.clubs) || !Array.isArray(saved.players) || !Array.isArray(saved.fixtures)) return null;
+    const savedVersion = saved.version;
     if (!saved.clubs.some(function (c) { return c.id === saved.userClubId; })) return null;
+    if (savedVersion < CURRENT_VERSION) {
+      const previousFixtures = new Map(saved.fixtures.map(function (fixture) { return [fixture.id, fixture]; }));
+      saved.fixtures = makeFixtures(saved.clubs, saved.seasonYear).map(function (fixture) {
+        const previous = previousFixtures.get(fixture.id);
+        return previous ? Object.assign(fixture, previous) : fixture;
+      });
+      saved.version = CURRENT_VERSION;
+    }
     saved.tactics = saved.tactics || { formation: "4-3-3", style: "balanced", mentality: "balanced", trainingFocus: "balanced", captainId: null };
     saved.career = saved.career || { seasonsPlayed: 0, transfersIn: 0, transfersOut: 0, matchesManaged: 0, bestFinish: null };
     if (!Number.isFinite(saved.career.transfersOut)) saved.career.transfersOut = 0;
@@ -382,10 +420,10 @@
     const avgAge = squad.length ? (squad.reduce(function (sum, p) { return sum + p.age; }, 0) / squad.length).toFixed(1) : "—";
     const recentMessages = state.inbox.slice(0, 3);
     const unreadMessages = state.inbox.filter(function (message) { return !message.read; }).length;
-    const nextButton = state.currentRound >= state.clubs.length - 1 ? "بدء الموسم التالي" : "محاكاة الجولة التالية";
-    const nextDesc = state.currentRound >= state.clubs.length - 1 ? "الموسم انتهى — جهّز الفريق للموسم الجديد" : "محاكاة نتائج الجولة وتحديث الدوري والمالية";
+    const nextButton = state.currentRound >= seasonRoundCount() ? "بدء الموسم التالي" : "محاكاة الجولة التالية";
+    const nextDesc = state.currentRound >= seasonRoundCount() ? "الموسم انتهى — جهّز الفريق للموسم الجديد" : "محاكاة نتائج الجولة وتحديث الدوري والمالية";
     return '<div class="page-heading"><div><div class="eyebrow">CLUB CONTROL CENTER</div><h1>صباح الخير، مدير النادي</h1><p>كل تفاصيل ناديك في مكان واحد. القرارات اللي بتاخدها هنا بتأثر على الموسم كله.</p></div><button class="button button-primary" data-action="play-next-round">' + nextButton + ' <span aria-hidden="true">←</span></button></div>' +
-      '<section class="hero-card"><div class="hero-main"><div class="hero-kicker">YOUR CLUB · SEASON ' + safeName(seasonLabel()) + '</div><h2>كل قرار بيقرّبك من القمة.</h2><p>' + safeName(club.name) + ' في المركز ' + number(pos) + '، وتقييم التشكيلة الأساسية ' + Math.round(currentUserStrength()).toLocaleString("ar-EG") + '. ' + nextDesc + '.</p><div class="hero-actions"><button class="button button-primary" data-view="tactics">مراجعة التكتيك</button><button class="button button-secondary" data-view="squad">إدارة الفريق</button></div></div><div class="next-match"><div class="match-label">المباراة القادمة · الجولة ' + (fixture ? number(fixture.round) : number(state.currentRound)) + '</div><div class="match-opponent">' + (nextMatch ? safeName(nextMatch.name) : "نهاية الموسم") + '</div><div class="match-meta">' + (fixture ? (home ? "على ملعبك" : "خارج ملعبك") + " · " + dateLabel(new Date(Date.UTC(state.seasonYear, 6, 1 + (fixture.round - 1) * 7, 12))) : "كل مباريات الدوري اكتملت") + '</div><div class="match-teams">' + teamToken(home ? club : (nextMatch || club), home ? club.short : (nextMatch || club).short) + '<span class="vs">VS</span>' + teamToken(home ? nextMatch || club : club, home ? (nextMatch || club).short : club.short) + '</div><div class="match-progress"><span style="width:' + Math.round(state.currentRound / (state.clubs.length - 1) * 100) + '%"></span></div><div class="small-note" style="margin-top:7px">تقدم الموسم: ' + number(state.currentRound) + ' من ' + number(state.clubs.length - 1) + ' جولة</div></div></section>' +
+      '<section class="hero-card"><div class="hero-main"><div class="hero-kicker">YOUR CLUB · SEASON ' + safeName(seasonLabel()) + '</div><h2>كل قرار بيقرّبك من القمة.</h2><p>' + safeName(club.name) + ' في المركز ' + number(pos) + '، وتقييم التشكيلة الأساسية ' + Math.round(currentUserStrength()).toLocaleString("ar-EG") + '. ' + nextDesc + '.</p><div class="hero-actions"><button class="button button-primary" data-view="tactics">مراجعة التكتيك</button><button class="button button-secondary" data-view="squad">إدارة الفريق</button></div></div><div class="next-match"><div class="match-label">المباراة القادمة · الجولة ' + (fixture ? number(fixture.round) : number(state.currentRound)) + '</div><div class="match-opponent">' + (nextMatch ? safeName(nextMatch.name) : "نهاية الموسم") + '</div><div class="match-meta">' + (fixture ? (home ? "على ملعبك" : "خارج ملعبك") + " · " + dateLabel(new Date(Date.UTC(state.seasonYear, 6, 1 + (fixture.round - 1) * 7, 12))) : "كل مباريات الدوري اكتملت") + '</div><div class="match-teams">' + teamToken(home ? club : (nextMatch || club), home ? club.short : (nextMatch || club).short) + '<span class="vs">VS</span>' + teamToken(home ? nextMatch || club : club, home ? (nextMatch || club).short : club.short) + '</div><div class="match-progress"><span style="width:' + Math.round(state.currentRound / (seasonRoundCount()) * 100) + '%"></span></div><div class="small-note" style="margin-top:7px">تقدم الموسم: ' + number(state.currentRound) + ' من ' + number(seasonRoundCount()) + ' جولة</div></div></section>' +
       '<section class="grid grid-4" style="margin-bottom:17px">' +
       statCard("مركز الدوري", number(pos) + " / " + number(state.clubs.length), pos <= 4 ? "ضمن المراكز الأوروبية" : "الهدف: الوصول لأول 4", "var(--green)") +
       statCard("ميزانية النادي", shortMoney(state.balance), "السيولة المتاحة", "var(--blue)") +
@@ -452,12 +490,12 @@
     const standings = leagueTable(true);
     const matches = state.fixtures.slice().sort(function (a, b) { return a.round - b.round; });
     let content = "";
-    for (let round = 1; round <= state.clubs.length - 1; round += 1) {
+    for (let round = 1; round <= seasonRoundCount(); round += 1) {
       const items = matches.filter(function (f) { return f.round === round; });
       const played = items.every(function (f) { return f.played; });
       content += '<div class="panel" style="margin-bottom:12px"><div class="panel-header"><div><h3 class="panel-title">الجولة ' + number(round) + '</h3><div class="panel-subtitle">' + (played ? "اكتملت الجولة" : round === state.currentRound + 1 ? "الجولة القادمة" : "لم تُلعب بعد") + '</div></div>' + (round === state.currentRound + 1 && !played ? '<button class="button button-primary button-small" data-action="play-next-round">محاكاة الجولة</button>' : '') + '</div><div class="fixture-list">' + items.map(fixtureRow).join("") + '</div></div>';
     }
-    return '<div class="page-heading"><div><div class="eyebrow">LEAGUE & SCHEDULE</div><h1>المباريات والدوري</h1><p>كل النتائج والترتيب وفارق الأهداف ومشوار الموسم.</p></div><button class="button button-primary" data-action="play-next-round">' + (state.currentRound >= state.clubs.length - 1 ? "بدء الموسم التالي" : "محاكاة الجولة التالية") + '</button></div><div class="panel" style="margin-bottom:17px"><div class="panel-header"><div><h3 class="panel-title">جدول الترتيب</h3><div class="panel-subtitle">النقاط ثم فارق الأهداف ثم الأهداف المسجلة</div></div><span class="status-tag">الجولة ' + number(state.currentRound) + ' / ' + number(state.clubs.length - 1) + '</span></div>' + standings + '</div><div class="grid grid-2"><div>' + content + '</div><div class="panel" style="height:max-content"><div class="panel-header"><div><h3 class="panel-title">ملخص الدوري</h3><div class="panel-subtitle">الوضع الحالي في البطولة</div></div></div><div class="panel-body"><div class="inline-stat"><span>المركز الحالي</span><strong>' + number(leaguePosition()) + ' من ' + number(state.clubs.length) + '</strong></div><div class="inline-stat"><span>مباريات لعبت</span><strong>' + number(userClub().played) + '</strong></div><div class="inline-stat"><span>معدل النقاط</span><strong>' + (userClub().played ? (userClub().points / userClub().played).toLocaleString("ar-EG", { maximumFractionDigits: 2 }) : "0") + '</strong></div><div class="inline-stat"><span>الأهداف المسجلة</span><strong>' + number(userClub().goalsFor) + '</strong></div><div class="inline-stat"><span>الأهداف المستقبلة</span><strong>' + number(userClub().goalsAgainst) + '</strong></div><div class="notice" style="margin-top:15px">كل جولة تحاكي نتائج الأندية كلها، وتحدّث جدول الترتيب واللياقة والأجور تلقائيًا.</div></div></div></div>';
+    return '<div class="page-heading"><div><div class="eyebrow">LEAGUE & SCHEDULE</div><h1>المباريات والدوري</h1><p>كل النتائج والترتيب وفارق الأهداف ومشوار الموسم.</p></div><button class="button button-primary" data-action="play-next-round">' + (state.currentRound >= seasonRoundCount() ? "بدء الموسم التالي" : "محاكاة الجولة التالية") + '</button></div><div class="panel" style="margin-bottom:17px"><div class="panel-header"><div><h3 class="panel-title">جدول الترتيب</h3><div class="panel-subtitle">النقاط ثم فارق الأهداف ثم الأهداف المسجلة</div></div><span class="status-tag">الجولة ' + number(state.currentRound) + ' / ' + number(seasonRoundCount()) + '</span></div>' + standings + '</div><div class="grid grid-2"><div>' + content + '</div><div class="panel" style="height:max-content"><div class="panel-header"><div><h3 class="panel-title">ملخص الدوري</h3><div class="panel-subtitle">الوضع الحالي في البطولة</div></div></div><div class="panel-body"><div class="inline-stat"><span>المركز الحالي</span><strong>' + number(leaguePosition()) + ' من ' + number(state.clubs.length) + '</strong></div><div class="inline-stat"><span>مباريات لعبت</span><strong>' + number(userClub().played) + '</strong></div><div class="inline-stat"><span>معدل النقاط</span><strong>' + (userClub().played ? (userClub().points / userClub().played).toLocaleString("ar-EG", { maximumFractionDigits: 2 }) : "0") + '</strong></div><div class="inline-stat"><span>الأهداف المسجلة</span><strong>' + number(userClub().goalsFor) + '</strong></div><div class="inline-stat"><span>الأهداف المستقبلة</span><strong>' + number(userClub().goalsAgainst) + '</strong></div><div class="notice" style="margin-top:15px">كل جولة تحاكي نتائج الأندية كلها، وتحدّث جدول الترتيب واللياقة والأجور تلقائيًا.</div></div></div></div>';
   }
 
   function marketPlayers() {
@@ -471,11 +509,11 @@
 
   function transfersView() {
     const market = marketPlayers();
-    const windowOpen = state.currentRound <= 8;
+    const windowOpen = isTransferWindowOpen();
     const availableBudget = state.balance;
     return '<div class="page-heading"><div><div class="eyebrow">RECRUITMENT ROOM</div><h1>سوق الانتقالات</h1><p>استهدف لاعبين يناسبوا أسلوبك وإمكانات النادي، وراقب تأثير الصفقة على السيولة.</p></div><span class="status-tag ' + (windowOpen ? '' : 'suspended') + '">' + (windowOpen ? "فترة الانتقالات مفتوحة" : "الفترة الحالية مغلقة") + '</span></div>' +
       '<section class="grid grid-3" style="margin-bottom:17px">' + statCard("الميزانية المتاحة", shortMoney(availableBudget), "رصيد النادي الحالي", "var(--green)") + statCard("عدد الصفقات", number(state.career.transfersIn), "إجمالي صفقات المسيرة", "var(--blue)") + statCard("قوام الفريق", number(userPlayers().length), userPlayers().length >= 25 ? "الفريق وصل للحد المقترح" : "مساحة للتعاقدات الجديدة", "var(--amber)") + '</section>' +
-      (!windowOpen ? '<div class="notice" style="margin-bottom:14px">فترة الانتقالات مغلقة في هذه المرحلة من الموسم. تنتهي إمكانية التعاقدات بعد الجولة الثامنة في هذا الإصدار.</div>' : '') +
+      (!windowOpen ? '<div class="notice" style="margin-bottom:14px">سوق الانتقالات مغلق بين النافذتين. ستفتح الفترة الأولى في بداية الموسم، ثم تفتح مجددًا قرب منتصفه.</div>' : '') +
       '<div class="panel"><div class="panel-header"><div><h3 class="panel-title">قائمة اللاعبين المتاحين</h3><div class="panel-subtitle">تقدير القيمة السوقية تقريبي، والتعاقد الفوري يتطلب رصيدًا كافيًا.</div></div><span class="status-tag">' + number(market.length) + ' نتيجة</span></div><div class="filter-bar" style="padding:0 19px 14px"><input id="market-search" type="text" value="' + safeName(marketSearch) + '" placeholder="ابحث عن لاعب أو مركز أو نادي..." aria-label="البحث في سوق الانتقالات"><button class="button button-secondary button-small" data-action="search-market">بحث</button></div><div class="panel-body"><div class="transfer-grid">' + (market.map(function (p) {
         const club = clubById(p.clubId);
         const fee = transferFee(p);
@@ -570,7 +608,7 @@
   function openPlayerSale(playerId) {
     const player = playerById(playerId);
     if (!player || player.clubId !== state.userClubId) { toast("اللاعب مش ضمن فريقك.", "error"); return; }
-    if (state.currentRound > 8) { toast("فترة الانتقالات مغلقة الآن، ومش هتقدر تبيع اللاعب قبل فتحها تاني.", "warning"); return; }
+    if (state.!isTransferWindowOpen()) { toast("فترة الانتقالات مغلقة الآن، ومش هتقدر تبيع اللاعب قبل فتحها تاني.", "warning"); return; }
     if (userPlayers().length <= 15) { toast("مينفعش تبيع اللاعب ده؛ لازم تحتفظ بـ15 لاعب على الأقل.", "warning"); return; }
     const fee = saleValue(player);
     const buyers = state.clubs.filter(function (club) { return club.id !== state.userClubId && (club.budget || 0) >= fee; })
@@ -589,7 +627,7 @@
       toast("تعذر إتمام البيع؛ تفاصيل العرض غير صحيحة.", "error");
       return;
     }
-    if (state.currentRound > 8) { modalRoot.innerHTML = ""; toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
+    if (state.!isTransferWindowOpen()) { modalRoot.innerHTML = ""; toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
     if (userPlayers().length <= 15) { modalRoot.innerHTML = ""; toast("لازم تحتفظ بـ15 لاعب على الأقل.", "error"); return; }
     if ((buyer.budget || 0) < fee || fee < 1) { modalRoot.innerHTML = ""; toast("النادي المشتري لم يعد قادرًا على دفع العرض.", "error"); return; }
     const sellerName = player.name;
@@ -607,7 +645,7 @@
 
   function financesView() {
     const annualWage = totalWages() * 52;
-    const estimatedSeasonIncome = (state.sponsorWeekly + state.mediaWeekly) * 11 + 4500000;
+    const estimatedSeasonIncome = (state.sponsorWeekly + state.mediaWeekly) * seasonRoundCount() + 4500000;
     const wageRatio = estimatedSeasonIncome > 0 ? annualWage / estimatedSeasonIncome * 100 : 0;
     return '<div class="page-heading"><div><div class="eyebrow">FINANCIAL CONTROL</div><h1>مالية النادي</h1><p>راقب السيولة والتزامات الأجور وقيمة الفريق قبل اتخاذ قرارات الانتقالات.</p></div><button class="button button-secondary" data-action="save-now">حفظ المسيرة</button></div>' +
       '<section class="grid grid-3" style="margin-bottom:17px">' +
@@ -778,7 +816,7 @@
   }
 
   function playNextRound() {
-    if (state.currentRound >= state.clubs.length - 1) {
+    if (state.currentRound >= seasonRoundCount()) {
       startNextSeason();
       return;
     }
@@ -793,7 +831,7 @@
     ageAndRecover(injuriesAtRoundStart);
     state.balance += state.sponsorWeekly + state.mediaWeekly - totalWages();
     state.currentRound = roundNumber;
-    if (roundNumber === state.clubs.length - 1) {
+    if (roundNumber === seasonRoundCount()) {
       const expiringPlayers = userPlayers().filter(function (p) { return p.contractYears <= 1; });
       if (expiringPlayers.length) {
         state.inbox.unshift({
@@ -867,7 +905,7 @@
   function buyPlayer(id) {
     const player = playerById(id);
     if (!player || player.clubId === state.userClubId) { toast("اللاعب لم يعد متاحًا.", "error"); return; }
-    if (state.currentRound > 8) { toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
+    if (state.!isTransferWindowOpen()) { toast("فترة الانتقالات مغلقة الآن.", "error"); return; }
     if (userPlayers().length >= 25) { toast("قائمة الفريق وصلت إلى 25 لاعبًا. بع لاعبًا أولًا.", "warning"); return; }
     const fee = transferFee(player);
     if (state.balance < fee) { toast("ميزانية النادي لا تكفي الصفقة.", "error"); return; }
@@ -880,7 +918,7 @@
     const player = playerById(id);
     if (!player || player.clubId === state.userClubId) { modalRoot.innerHTML = ""; toast("الصفقة لم تعد متاحة.", "error"); return; }
     const fee = transferFee(player);
-    if (state.currentRound > 8 || userPlayers().length >= 25 || state.balance < fee) {
+    if (state.!isTransferWindowOpen() || userPlayers().length >= 25 || state.balance < fee) {
       modalRoot.innerHTML = ""; toast("شروط الصفقة لم تعد متاحة.", "error"); return;
     }
     const from = clubById(player.clubId);
