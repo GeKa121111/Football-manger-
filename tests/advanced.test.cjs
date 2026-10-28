@@ -310,3 +310,25 @@ console.log("Advanced simulation tests passed.");
   console.error(error);
   process.exitCode = 1;
 });
+
+
+const seasonStatsState = engine.newCareer({
+  mode: "career", managerName: "Season Stats Test", primaryNation: "England",
+  nations: ["England"], databaseSize: "small", clubId: "liv"
+});
+const seasonStatsPlayer = seasonStatsState.players.find(p => p.clubId === seasonStatsState.userClubId);
+seasonStatsPlayer.goals = 12;
+seasonStatsPlayer.appearances = 38;
+seasonStatsPlayer.seasonStats = {
+  appearances: 27, goals: 9, assists: 6, yellowCards: 4, redCards: 0,
+  cleanSheets: 0, averageRating: 7.14, lastMatchRating: 6.8
+};
+engine.finishSeason(seasonStatsState);
+assert.equal(seasonStatsPlayer.goals, 12, "season rollover must preserve career goals total");
+assert.equal(seasonStatsPlayer.appearances, 38, "season rollover must preserve career appearances");
+assert.equal(seasonStatsPlayer.seasonStats.goals, 0, "season rollover should reset current season goals");
+assert.equal(seasonStatsPlayer.seasonStats.appearances, 0, "season rollover should reset current season appearances");
+assert.equal(seasonStatsPlayer.seasonHistory[0].season, 2026, "completed season should be added to player history");
+assert.equal(seasonStatsPlayer.seasonHistory[0].stats.goals, 9, "season history should keep the completed season's goals");
+assert.equal(seasonStatsPlayer.seasonHistory[0].stats.assists, 6, "season history should keep the completed season's assists");
+console.log("Season stats history tests passed.");
