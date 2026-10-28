@@ -189,6 +189,7 @@ assert.equal(playedFixtures.length, 6, "a round should simulate six matches");
 assert.ok(state.clubs.every((club) => club.played === 1), "every club should play exactly once per round");
 assert.equal(state.history.length, 1, "the user's match should be recorded in history");
 assert.ok(playedFixtures.every((fixture) => fixture.report && fixture.report.home && fixture.report.away), "each simulated fixture should contain a stats report");
+assert.ok(playedFixtures.every((fixture) => Number.isFinite(fixture.report.home.xG) && Number.isFinite(fixture.report.away.xG)), "every simulated match should record expected goals for both teams");
 assert.ok(playedFixtures.every((fixture) => fixture.report.home.possession + fixture.report.away.possession === 100), "home and away possession should sum to 100%");
 assert.ok(playedFixtures.every((fixture) => fixture.report.home.shots >= fixture.homeGoals && fixture.report.away.shots >= fixture.awayGoals), "shot counts should be at least each side's goal count");
 assert.ok(state.players.filter((player) => playedFixtures.some((fixture) => fixture.homeId === player.clubId || fixture.awayId === player.clubId)).some((player) => player.appearances > 0), "player appearances should be recorded across the simulated world");
@@ -196,6 +197,7 @@ const userFixture = playedFixtures.find((fixture) => fixture.homeId === state.us
 game.clickView("fixtures");
 game.click("show-match-report", { fixtureId: userFixture.id });
 assert.ok(game.elements.get("modal-root").innerHTML.includes("أحداث المباراة"), "played fixture should open its detailed match report");
+assert.ok(game.elements.get("modal-root").innerHTML.includes("الأهداف المتوقعة (xG)"), "match report should show expected-goal analysis");
 
 // Version-1 saves must migrate to the home-and-away season without losing played results.
 const legacySave = game.savedState();
