@@ -36,7 +36,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p dist
-          cp index.html app.js styles.css advanced.css advanced-data.js advanced-engine.js advanced-ui.js manifest.webmanifest icon.svg service-worker.js dist/
+          cp index.html app.js styles.css advanced.css advanced-data.js advanced-player-data.js advanced-engine.js advanced-ui.js manifest.webmanifest icon.svg service-worker.js dist/
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
