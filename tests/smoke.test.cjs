@@ -167,7 +167,7 @@ const clubBalanceBeforeSale = game.savedState().balance;
 const squadCountBeforeSale = game.savedState().players.filter((player) => player.clubId === game.savedState().userClubId).length;
 game.click("sell-player", { playerId: renewalCandidate.id });
 const saleMarkup = game.elements.get("modal-root").innerHTML;
-const saleOffer = saleMarkup.match(/data-buyer-id="([^"]+)" data-sale-fee="(\\d+)"/);
+const saleOffer = saleMarkup.match(/data-buyer-id="([^"]+)" data-sale-fee="(\d+)"/);
 assert.ok(saleOffer, "sale dialog should create a buyer offer");
 game.click("confirm-sale", { playerId: renewalCandidate.id, buyerId: saleOffer[1], saleFee: saleOffer[2] });
 state = game.savedState();
