@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const data = require("../advanced-data.js");
 const worldCup = require("../advanced-player-data.js");
 const engine = require("../advanced-engine.js");
@@ -6,6 +8,13 @@ const engine = require("../advanced-engine.js");
 assert.equal(global.FM_WORLD_DATA.clubs.length, 222, "expanded database should include 222 club seeds across 27 football markets");
 assert.equal(worldCup.playerCount, 1248, "registered 2026 World Cup snapshot should contain 1248 players");
 assert.equal(worldCup.license, "CC0 1.0 Universal", "World Cup source licence should be recorded");
+const deploymentWorkflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "deploy.yml"), "utf8");
+const pageHtml = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const serviceWorker = fs.readFileSync(path.join(__dirname, "..", "service-worker.js"), "utf8");
+assert.ok(pageHtml.includes('src="advanced-player-data.js"'), "the app shell must load the real-player dataset");
+assert.ok(deploymentWorkflow.includes("advanced-player-data.js") && deploymentWorkflow.includes("dist/"),
+  "the Pages build must copy the real-player dataset into the deploy artifact");
+assert.ok(serviceWorker.includes('"./advanced-player-data.js"'), "the offline cache must include the real-player dataset");
 assert.ok(worldCup.players.some(p => p.name === "Kylian Mbappé" || p.name === "Kylian Mbappe"), "real national-team players should be bundled");
 assert.ok(worldCup.players.every(p => p.clubName && p.dateOfBirth && p.nationalTeam), "source snapshot should include player club, DOB and national team fields");
 assert.ok(global.FM_WORLD_DATA.players.some(p => p.name === "Mohamed Salah"), "known seed player should exist");
