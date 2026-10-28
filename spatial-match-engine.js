@@ -229,30 +229,31 @@
       if (!flight && owner) { ball.x=owner.x; ball.y=owner.y; }
     }
     function finishFlight(minute) {
-      const receiver = playerAt(flight.receiverId);
-      const target = receiver ? {x:receiver.x,y:receiver.y} : {x:flight.to.x,y:flight.to.y};
+      const activeFlight = flight;
+      flight = null;
+      const receiver = playerAt(activeFlight.receiverId);
+      const target = receiver ? {x:receiver.x,y:receiver.y} : {x:activeFlight.to.x,y:activeFlight.to.y};
       ball = bounded(target);
-      const defending = nearest(teams[1-flight.team], ball);
+      const defending = nearest(teams[1-activeFlight.team], ball);
       const roll = rng();
-      if (defending.player && roll < flight.interceptChance) {
-        counters[flight.team].completed += 0;
+      if (defending.player && roll < activeFlight.interceptChance) {
         playerWork.get(defending.player.id).interceptions++;
-        setPossession(1-flight.team, defending.player, ball);
-        addEvent("interception", minute, 1-flight.team, defending.player, defending.player.name + " reads the pass and intercepts.");
-        return {type:"interception",team:1-flight.team,playerId:defending.player.id};
+        setPossession(1-activeFlight.team, defending.player, ball);
+        addEvent("interception", minute, 1-activeFlight.team, defending.player, defending.player.name + " reads the pass and intercepts.");
+        return {type:"interception",team:1-activeFlight.team,playerId:defending.player.id};
       }
-      if (receiver && roll < flight.interceptChance + flight.completeChance) {
-        counters[flight.team].completed++;
-        playerWork.get(flight.passerId).passes++;
-        lastPasser[flight.team] = flight.passerId;
-        setPossession(flight.team, receiver, ball);
-        if (flight.breaksLine) addEvent("line-break", minute, flight.team, playerAt(flight.passerId),
-          eventTextPass(playerAt(flight.passerId),receiver,true), {receiverId:receiver.id});
-        return {type:"reception",team:flight.team,playerId:receiver.id};
+      if (receiver && roll < activeFlight.interceptChance + activeFlight.completeChance) {
+        counters[activeFlight.team].completed++;
+        playerWork.get(activeFlight.passerId).passes++;
+        lastPasser[activeFlight.team] = activeFlight.passerId;
+        setPossession(activeFlight.team, receiver, ball);
+        if (activeFlight.breaksLine) addEvent("line-break", minute, activeFlight.team, playerAt(activeFlight.passerId),
+          eventTextPass(playerAt(activeFlight.passerId),receiver,true), {receiverId:receiver.id});
+        return {type:"reception",team:activeFlight.team,playerId:receiver.id};
       }
-      const looseWinner = defending.player || nearest(teams[flight.team], ball).player;
+      const looseWinner = defending.player || nearest(teams[activeFlight.team], ball).player;
       if (looseWinner) setPossession(looseWinner.team, looseWinner, ball);
-      return {type:"loose-ball",team:looseWinner ? looseWinner.team : flight.team,playerId:looseWinner ? looseWinner.id : null};
+      return {type:"loose-ball",team:looseWinner ? looseWinner.team : activeFlight.team,playerId:looseWinner ? looseWinner.id : null};
     }
     function tryShot(team, shooter, minute, pressureDistance) {
       const dir = directions[team], goalX = team === 0 ? COLS-1 : 0;
@@ -356,7 +357,8 @@
             playerWork.get(owner.id).actions++;
             interaction={type:"dribble",team:team,playerId:owner.id};
           } else if (challenge.player) {
-            const fouled = rng() < clamp(0.08 + (number(tactics[team] && tactics[team].tackling,"Normal")==="Committed"?0.05:0),0.03,0.2);
+            const tacklingMode = String(tactics[1-team] && tactics[1-team].tackling || "Normal");
+            const fouled = rng() < clamp(0.08 + (tacklingMode === "Committed" ? 0.05 : 0),0.03,0.2);
             counters[1-team].fouls += fouled?1:0;
             playerWork.get(challenge.player.id).tackles++;
             if (fouled) {
