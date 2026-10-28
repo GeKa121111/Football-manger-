@@ -100,7 +100,16 @@ let state = game.savedState();
 assert.equal(state.clubs.length, 12, "initial world should contain 12 clubs");
 assert.equal(state.players.length, 240, "initial world should contain 20 players per club");
 assert.equal(new Set(state.players.map((player) => player.id)).size, 240, "player IDs should be unique");
-assert.equal(state.fixtures.length, 66, "single round-robin schedule should contain 66 fixtures");
+assert.equal(state.fixtures.length, 132, "double round-robin schedule should contain 132 fixtures");
+assert.equal(Math.max(...state.fixtures.map((fixture) => fixture.round)), 22, "a 12-club season should have 22 rounds");
+const firstLegFixtures = state.fixtures.filter((fixture) => fixture.round <= 11);
+assert.equal(firstLegFixtures.length, 66, "the first leg should contain 66 fixtures");
+for (const fixture of firstLegFixtures) {
+  assert.ok(
+    state.fixtures.some((candidate) => candidate.round === fixture.round + 11 && candidate.homeId === fixture.awayId && candidate.awayId === fixture.homeId),
+    "every first-leg match should have a reversed home/away fixture in the second leg"
+  );
+}
 assert.equal(state.currentRound, 0, "new career should begin before round one");
 assert.ok(state.players.every((player) => Number.isInteger(player.contractYears) && player.contractYears >= 1 && player.contractYears <= 4), "generated players should have valid contract terms");
 
@@ -188,6 +197,21 @@ game.clickView("fixtures");
 game.click("show-match-report", { fixtureId: userFixture.id });
 assert.ok(game.elements.get("modal-root").innerHTML.includes("أحداث المباراة"), "played fixture should open its detailed match report");
 
+// Version-1 saves must migrate to the home-and-away season without losing played results.
+const legacySave = game.savedState();
+const retainedResult = legacySave.fixtures.find((fixture) => fixture.played);
+legacySave.version = 1;
+legacySave.fixtures = legacySave.fixtures.filter((fixture) => fixture.round <= 11);
+storage["touchline-manager-save-v1"] = JSON.stringify(legacySave);
+game = boot(storage);
+state = game.savedState();
+assert.equal(state.version, 2, "old saves should upgrade to the current schema");
+assert.equal(state.fixtures.length, 132, "old saves should gain the second-leg fixtures");
+const migratedResult = state.fixtures.find((fixture) => fixture.id === retainedResult.id);
+assert.equal(migratedResult.homeGoals, retainedResult.homeGoals, "migration should preserve the original home score");
+assert.equal(migratedResult.awayGoals, retainedResult.awayGoals, "migration should preserve the original away score");
+assert.equal(state.currentRound, 1, "migration should preserve the current round");
+
 game.change("trainingFocus", "fitness");
 state = game.savedState();
 assert.equal(state.tactics.trainingFocus, "fitness", "tactical/training settings should persist");
@@ -206,5 +230,33 @@ assert.equal(
 game = boot(storage);
 assert.equal(game.savedState().currentRound, 1, "career should load from local storage");
 assert.equal(game.savedState().lastTrainingRound, 1, "weekly training state should survive a reload");
+
+// Run a full season to verify all 22 rounds and season rollover.
+const fullSeasonStorage = {};
+let fullSeasonGame = boot(fullSeasonStorage);
+for (let round = 1; round <= 22; round += 1) {
+  fullSeasonGame.click("play-next-round");
+  const seasonState = fullSeasonGame.savedState();
+  assert.equal(seasonState.currentRound, round, "season should advance to round " + round);
+}
+let completedSeason = fullSeasonGame.savedState();
+assert.equal(completedSeason.fixtures.filter((fixture) => fixture.played).length, 132, "all 132 fixtures should be played by season end");
+assert.ok(completedSeason.clubs.every((club) => club.played === 22), "each club should play 22 league matches");
+for (const club of completedSeason.clubs) {
+  for (const opponent of completedSeason.clubs) {
+    if (club.id === opponent.id) continue;
+    assert.equal(
+      completedSeason.fixtures.filter((fixture) => fixture.homeId === club.id && fixture.awayId === opponent.id).length,
+      1,
+      "each club should host every opponent exactly once"
+    );
+  }
+}
+fullSeasonGame.click("play-next-round");
+completedSeason = fullSeasonGame.savedState();
+assert.equal(completedSeason.seasonYear, 2027, "season rollover should advance the season year");
+assert.equal(completedSeason.currentRound, 0, "season rollover should reset the round counter");
+assert.equal(completedSeason.fixtures.length, 132, "the new season should also have 132 fixtures");
+assert.ok(completedSeason.fixtures.every((fixture) => !fixture.played), "new-season fixtures should be unplayed");
 
 console.log("Touchline Manager smoke tests passed.");
