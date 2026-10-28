@@ -767,10 +767,6 @@
         state.inbox.unshift({id:"suspension-red-"+p.id+"-"+Date.now(),title:"Suspension after red card",text:p.name+" is suspended for the next match after a red card.",kind:"warning",read:false,day:state.day});
       }
     });
-    result.events.filter(e=>e.type==="injury").forEach(e=>{
-      const p=state.players.find(p=>p.id===e.playerId);
-      if(p){p.injuredWeeks=Math.max(p.injuredWeeks||0,rand(1,5));state.inbox.unshift({id:"injury-"+p.id+"-"+Date.now(),title:"Injury report",text:p.name+" is out for approximately "+p.injuredWeeks+" week(s).",read:false,kind:"warning",day:state.day});}
-    });
     if(Number(fixture.awayGoals)===0){
       (lineupMap[fixture.homeId]||[]).map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&p.position==="GK").forEach(p=>{p.cleanSheets=(p.cleanSheets||0)+1;p.seasonStats=p.seasonStats||{cleanSheets:0};p.seasonStats.cleanSheets=(Number(p.seasonStats.cleanSheets)||0)+1;});
     }
